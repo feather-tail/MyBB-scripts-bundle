@@ -20,7 +20,8 @@
     document.cookie = `${n}=${v || ''}${e}; path=/`;
   };
   const getCookie = (n) => {
-    const m = document.cookie.match(new RegExp('(?:^|; )' + n + '=([^;]*)'));
+    const esc = n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const m = document.cookie.match(new RegExp('(?:^|; )' + esc + '=([^;]*)'));
     return m ? m[1] : null;
   };
 
