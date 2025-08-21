@@ -1,0 +1,95 @@
+.hotkeys-trigger {
+  display: inline-block;
+  margin-left: 8px;
+  font-size: 18px;
+  border: none;
+  background: #ececec;
+  color: #222;
+  border-radius: 3px;
+  width: 2em;
+  height: 2em;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.hotkeys-trigger:hover,
+.hotkeys-trigger:focus {
+  background: #d6e6f5;
+  outline: none;
+}
+
+.hotkeys-modal {
+  display: none;
+  position: fixed;
+  z-index: 1002;
+  left: 50%;
+  top: 15%;
+  transform: translateX(-50%);
+  background: #fff;
+  border: 1px solid #888;
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.2);
+  padding: 0;
+  min-width: 320px;
+  max-width: 90vw;
+  max-height: 80vh;
+  overflow-y: auto;
+  border-radius: 8px;
+  animation: hkfadein 0.18s;
+}
+.hotkeys-modal[hidden] {
+  display: none !important;
+}
+.hotkeys-modal:not([hidden]) {
+  display: block;
+}
+
+@keyframes hkfadein {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) scale(1);
+  }
+}
+
+.hotkeys-modal .hk-box {
+  padding: 1em 1.5em 1.2em;
+  position: relative;
+  outline: none;
+}
+.hotkeys-modal h3 {
+  margin: 0 0 0.8em;
+  font-size: 1.1em;
+  text-align: left;
+  font-weight: bold;
+  color: #235;
+}
+.hotkeys-modal ul {
+  margin: 0;
+  padding-left: 22px;
+  list-style: disc;
+}
+.hotkeys-modal li {
+  margin-bottom: 0.35em;
+  font-size: 1em;
+}
+
+.hotkeys-modal .hk-close {
+  position: absolute;
+  right: 0.4em;
+  top: 0.3em;
+  font-size: 1.3em;
+  background: none;
+  border: none;
+  color: #567;
+  cursor: pointer;
+  padding: 0 6px;
+  transition: color 0.15s, background 0.15s;
+}
+.hotkeys-modal .hk-close:hover,
+.hotkeys-modal .hk-close:focus {
+  color: #b00;
+  background: #eee;
+  outline: none;
+}

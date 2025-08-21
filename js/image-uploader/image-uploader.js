@@ -1,0 +1,598 @@
+(() => {
+  'use strict';
+
+  function RFU_getUserId() {
+    if (typeof window.UserID === 'number' && window.UserID > 0)
+      return window.UserID;
+    if (typeof window.UserID === 'string' && /^\d+$/.test(window.UserID))
+      return +window.UserID;
+    const a = document.querySelector('a[href*="profile.php?id="]')?.href;
+    const m = a && a.match(/[?&]id=(\d+)/);
+    return m ? +m[1] : 0;
+  }
+  function RFU_buildForumUploadsURL(filename) {
+    const board =
+      typeof window.BoardID !== 'undefined' ? Number(window.BoardID) : 0;
+    const hex = (board >>> 0).toString(16).padStart(8, '0');
+    const userId = RFU_getUserId();
+    if (userId > 0) {
+      const parts = [
+        hex.slice(0, 4),
+        hex.slice(4, 6),
+        hex.slice(6, 8),
+        String(userId),
+      ];
+      return `https://upforme.ru/uploads/${parts.join('/')}/${filename}`;
+    }
+    return `${location.origin}/uploads/${filename}`;
+  }
+
+  const RFU_CONFIG = {
+    anchorSelector: 'p.areafield.required .resizable-textarea > span',
+    replyTextareaSelector: '#main-reply',
+    defaultHost: 'forum',
+    allowedMimes: [
+      'image/jpeg',
+      'image/png',
+      'image/gif',
+      'image/webp',
+      'image/bmp',
+    ],
+    maxFilesPerBatch: 20,
+    defaultInsertFormat: 'img',
+    showOnDemand: true,
+    storage: { host: 'rfu:host', fmt: 'rfu:fmt' },
+    forumUpload: {
+      endpoint: '/upload',
+      token: () => window.ForumAPITicket || '',
+      buildUrl: (fname) => RFU_buildForumUploadsURL(fname),
+      headers: () => ({}),
+    },
+    enabledHosts: ['forum', 'imgbb'],
+    imgbb: { key: 'c5697b050c00a5dcdc012ce325afdd35' },
+  };
+
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+  const RFU_uid = () => Math.random().toString(36).slice(2, 9);
+  const RFU_bytes = (n) =>
+    n >= 1048576
+      ? (n / 1048576).toFixed(1) + ' MB'
+      : n >= 1024
+      ? ((n / 1024) | 0) + ' KB'
+      : n + ' B';
+  const RFU_inTypes = (f) =>
+    !f.type ||
+    RFU_CONFIG.allowedMimes.includes(f.type) ||
+    /\.(jpe?g|png|gif|webp|bmp)$/i.test(f.name);
+  const RFU_readThumb = (f) =>
+    new Promise((res, rej) => {
+      const r = new FileReader();
+      r.onerror = rej;
+      r.onload = () => res(r.result);
+      r.readAsDataURL(f);
+    });
+
+  let RFU_targetTA = null;
+  let RFU_caret = { start: 0, end: 0 };
+  function RFU_bindCaretTracking(ta) {
+    if (!ta) return;
+    const upd = () => {
+      RFU_caret.start = ta.selectionStart || 0;
+      RFU_caret.end = ta.selectionEnd || RFU_caret.start;
+    };
+    ['keyup', 'mouseup', 'input', 'select', 'focus'].forEach((ev) =>
+      ta.addEventListener(ev, upd),
+    );
+    upd();
+  }
+  function RFU_insertAtCaret(text) {
+    const ta = RFU_targetTA || $(RFU_CONFIG.replyTextareaSelector);
+    if (!ta) return;
+    const s = RFU_caret.start ?? ta.selectionStart ?? ta.value.length;
+    const e = RFU_caret.end ?? ta.selectionEnd ?? ta.value.length;
+    const before = ta.value.slice(0, s),
+      after = ta.value.slice(e);
+    ta.focus({ preventScroll: true });
+    ta.value = before + text + after;
+    const pos = before.length + text.length;
+    ta.setSelectionRange(pos, pos);
+    ta.dispatchEvent(new Event('input', { bubbles: true }));
+    RFU_caret.start = RFU_caret.end = pos;
+  }
+  function RFU_bb({ fmt, direct, thumb, name }) {
+    switch (fmt) {
+      case 'link':
+        return `[url=${direct}]${name || direct}[/url]`;
+      case 'thumb':
+        return thumb
+          ? `[url=${direct}][img]${thumb}[/img][/url]`
+          : `[img]${direct}[/img]`;
+      default:
+        return `[img]${direct}[/img]`;
+    }
+  }
+
+  function RFU_uploadXHR({
+    url,
+    method = 'POST',
+    headers = {},
+    formData,
+    onProgress,
+    signal,
+  }) {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open(method, url, true);
+      for (const [k, v] of Object.entries(headers)) xhr.setRequestHeader(k, v);
+      if (signal) signal.addEventListener('abort', () => xhr.abort());
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable && onProgress)
+          onProgress(Math.ceil((e.loaded / e.total) * 100));
+      };
+      xhr.onerror = () => reject(new Error('Network error'));
+      xhr.onabort = () => reject(new Error('Отменено'));
+      xhr.onload = () => {
+        const text = xhr.responseText || '';
+        const contentType = xhr.getResponseHeader('Content-Type') || '';
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve({ status: xhr.status, contentType, text });
+        } else {
+          const snippet = text.slice(0, 180).replace(/\s+/g, ' ');
+          reject(new Error(`Upload error (HTTP ${xhr.status}). ${snippet}`));
+        }
+      };
+      xhr.send(formData);
+    });
+  }
+
+  async function RFU_host_forum(file, onProgress, signal) {
+    const cfg = RFU_CONFIG.forumUpload || {};
+    const token =
+      (typeof cfg.token === 'function' ? cfg.token() : cfg.token) || '';
+    if (!token) throw new Error('Forum: нет токена');
+
+    const fd = new FormData();
+    fd.append('method', 'upload.userfile');
+    fd.append('token', token);
+    fd.append('files[]', file);
+
+    const { contentType, text, status } = await RFU_uploadXHR({
+      url: cfg.endpoint || '/upload',
+      method: 'POST',
+      headers:
+        (typeof cfg.headers === 'function' ? cfg.headers() : cfg.headers) || {},
+      formData: fd,
+      onProgress,
+      signal,
+    });
+
+    if (!/application\/json/i.test(contentType))
+      throw new Error(`Forum: ожидался JSON (HTTP ${status})`);
+
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      throw new Error('Forum: некорректный JSON');
+    }
+    const resp = data && (data.response || data.data || data);
+    const filename = resp && (resp.filename || resp.name);
+    if (!filename) throw new Error('Forum: нет имени файла в ответе');
+
+    const buildUrl =
+      typeof cfg.buildUrl === 'function'
+        ? cfg.buildUrl
+        : (fname) => `${location.origin}/uploads/${fname}`;
+    const direct = buildUrl(filename);
+    return { direct, thumb: null, deleteUrl: null };
+  }
+
+  async function RFU_host_imgbb(file, onProgress, signal) {
+    const key = RFU_CONFIG.imgbb?.key;
+    if (!key) throw new Error('ImgBB: не задан API key');
+    const fd = new FormData();
+    fd.append('image', file);
+    const { text, contentType } = await RFU_uploadXHR({
+      url: `https://api.imgbb.com/1/upload?key=${encodeURIComponent(key)}`,
+      method: 'POST',
+      formData: fd,
+      onProgress,
+      signal,
+    });
+    if (!/application\/json/i.test(contentType))
+      throw new Error('ImgBB: не JSON');
+    let resp;
+    try {
+      resp = JSON.parse(text);
+    } catch {
+      throw new Error('ImgBB: invalid JSON');
+    }
+    if (!resp?.success || !resp?.data?.url)
+      throw new Error(resp?.error?.message || 'ImgBB: upload failed');
+    return {
+      direct: resp.data.url,
+      thumb: resp.data?.thumb?.url || null,
+      deleteUrl: null,
+    };
+  }
+
+  const RFU_HOSTS = { forum: RFU_host_forum, imgbb: RFU_host_imgbb };
+
+  let RFU_mounted = false,
+    RFU_addFiles = null,
+    RFU_openUI = null,
+    RFU_closeUI = null;
+
+  function setupAutoWidth(modal, anchorEl) {
+    const apply = () => {
+      const w = Math.min(640, Math.max(480, anchorEl.clientWidth - 16));
+      modal.style.maxWidth = w + 'px';
+    };
+    const ro = new ResizeObserver(apply);
+    ro.observe(anchorEl);
+    window.addEventListener('resize', apply);
+    apply();
+  }
+
+  function mountUI() {
+    if (RFU_mounted) return;
+    RFU_mounted = true;
+
+    const ta = document.querySelector(RFU_CONFIG.replyTextareaSelector);
+    const anchor =
+      document.querySelector(RFU_CONFIG.anchorSelector) ||
+      ta?.parentElement ||
+      document.body;
+    if (anchor) anchor.classList.add('rfu-anchor');
+
+    let layer = anchor.querySelector(':scope > .rfu-layer');
+    if (!layer) {
+      layer = document.createElement('div');
+      layer.className = 'rfu-layer';
+      anchor.appendChild(layer);
+    }
+
+    RFU_targetTA =
+      ta || document.querySelector(RFU_CONFIG.replyTextareaSelector);
+    RFU_bindCaretTracking(RFU_targetTA);
+
+    const savedHost = localStorage.getItem(RFU_CONFIG.storage.host);
+    const savedFmt = localStorage.getItem(RFU_CONFIG.storage.fmt);
+    let currentHost =
+      savedHost && RFU_CONFIG.enabledHosts.includes(savedHost)
+        ? savedHost
+        : RFU_CONFIG.defaultHost;
+    let currentFmt = savedFmt || RFU_CONFIG.defaultInsertFormat;
+
+    const modal = document.createElement('div');
+    modal.className = 'rfu-modal';
+    modal.innerHTML = `
+      <div class="rfu-toolbar">
+        <div class="rfu-seg" id="rfu-hosts"></div>
+        <div class="rfu-seg">
+          <span class="rfu-label">Вставка:</span>
+          <select id="rfu-fmt" class="rfu-select">
+            <option value="img">Картинка [img]</option>
+            <option value="link">Ссылка [url]</option>
+            <option value="thumb">Превью → полно</option>
+          </select>
+        </div>
+        <button class="rfu-btn rfu-x" id="rfu-close" type="button" title="Закрыть"><span>×</span></button>
+      </div>
+      <div class="rfu-drop" id="rfu-drop">
+        <div class="rfu-hint">Выберите файлы или перетащите в зону загрузки</div>
+        <div class="rfu-seg" style="padding-top:.4rem">
+          <button id="rfu-choose" class="rfu-btn" type="button">Выбрать файлы</button>
+          <input id="rfu-file" type="file" accept="image/*" multiple hidden>
+        </div>
+      </div>
+      <div class="rfu-list" id="rfu-list"></div>
+      <div class="rfu-footer">
+        <button class="rfu-btn" id="rfu-insert-all" type="button">Вставить все</button>
+        <button class="rfu-btn" id="rfu-clear" type="button">Очистить</button>
+      </div>
+    `;
+    layer.appendChild(modal);
+    setupAutoWidth(modal, anchor);
+
+    const hostsSeg = $('#rfu-hosts', modal);
+    hostsSeg.insertAdjacentHTML(
+      'beforeend',
+      `<span class="rfu-label">Хостинг:</span>`,
+    );
+    for (const hostName of RFU_CONFIG.enabledHosts) {
+      const id = 'rfu-host-' + hostName;
+      hostsSeg.insertAdjacentHTML(
+        'beforeend',
+        `
+        <label class="rfu-host" title="${hostName}">
+          <input type="radio" name="rfu-host" id="${id}" value="${hostName}">
+          <span>${hostName}</span>
+        </label>
+      `,
+      );
+    }
+    $$('input[name="rfu-host"]', modal).forEach(
+      (r) => (r.checked = r.value === currentHost),
+    );
+    $('#rfu-fmt', modal).value = currentFmt;
+
+    modal.addEventListener('change', (e) => {
+      if (e.target.name === 'rfu-host') {
+        currentHost = e.target.value;
+        localStorage.setItem(RFU_CONFIG.storage.host, currentHost);
+      }
+      if (e.target.id === 'rfu-fmt') {
+        currentFmt = e.target.value;
+        localStorage.setItem(RFU_CONFIG.storage.fmt, currentFmt);
+      }
+    });
+
+    $('#rfu-choose', modal).addEventListener('click', () =>
+      $('#rfu-file', modal).click(),
+    );
+    $('#rfu-file', modal).addEventListener('change', (e) => {
+      if (e.target.files?.length) RFU_addFiles([...e.target.files]);
+      e.target.value = '';
+    });
+
+    const drop = $('#rfu-drop', modal);
+    ['dragenter', 'dragover'].forEach((ev) =>
+      drop.addEventListener(
+        ev,
+        (e) => {
+          e.preventDefault();
+          drop.classList.add('rfu-hover');
+        },
+        { passive: false },
+      ),
+    );
+    ['dragleave', 'drop'].forEach((ev) =>
+      drop.addEventListener(
+        ev,
+        (e) => {
+          e.preventDefault();
+          drop.classList.remove('rfu-hover');
+        },
+        { passive: false },
+      ),
+    );
+    drop.addEventListener('drop', (e) => {
+      const files = [...(e.dataTransfer?.files || [])].filter(
+        (f) => f && RFU_inTypes(f),
+      );
+      if (files.length) RFU_addFiles(files);
+    });
+
+    $('#rfu-close', modal).addEventListener('click', () => RFU_closeUI());
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') RFU_closeUI();
+    });
+
+    const items = new Map();
+    const fileSeen = new Set();
+
+    function createRow(file) {
+      const id = 'rfu-' + RFU_uid();
+      const row = document.createElement('div');
+      row.className = 'rfu-item';
+      row.id = id;
+      return RFU_readThumb(file)
+        .catch(() => '')
+        .then((thumbSrc) => {
+          row.innerHTML = `
+          <img class="rfu-thumb" src="${thumbSrc}" alt="">
+          <div class="rfu-meta">
+            <div><b>${file.name}</b> • ${RFU_bytes(file.size)}</div>
+            <div class="rfu-progress"><div class="rfu-bar"></div></div>
+          </div>
+          <div class="rfu-actions">
+            <button class="rfu-btn rfu-btn--ok" type="button" data-act="upload">Загрузить</button>
+            <button class="rfu-btn" type="button" data-act="remove">Удалить</button>
+          </div>`;
+          return {
+            id,
+            row,
+            file,
+            status: 'pending',
+            direct: null,
+            thumb: null,
+            progressEl: row.querySelector('.rfu-bar'),
+            ctrl: null,
+          };
+        });
+    }
+
+    async function doUpload(item) {
+      if (item.status === 'uploading' || item.status === 'done') return;
+      const setP = (p) => {
+        item.progressEl.style.width = (p | 0) + '%';
+      };
+      const chosenHost =
+        modal.querySelector('input[name="rfu-host"]:checked')?.value ||
+        RFU_CONFIG.defaultHost;
+      const adapter = RFU_HOSTS[chosenHost];
+      if (!adapter || !RFU_CONFIG.enabledHosts.includes(chosenHost)) {
+        item.row
+          .querySelector('.rfu-meta')
+          .insertAdjacentHTML(
+            'beforeend',
+            `<div class="rfu-error">Хостинг не настроен: ${chosenHost}</div>`,
+          );
+        return;
+      }
+      item.status = 'uploading';
+      item.ctrl = new AbortController();
+      const actions = item.row.querySelector('.rfu-actions');
+      actions.innerHTML = `<button class="rfu-btn" type="button" data-act="cancel">Отменить</button>`;
+      try {
+        const res = await adapter(item.file, setP, item.ctrl.signal);
+        item.status = 'done';
+        item.direct = res.direct;
+        item.thumb = res.thumb || null;
+        setP(100);
+        const meta = item.row.querySelector('.rfu-meta');
+        meta.insertAdjacentHTML(
+          'beforeend',
+          `<div style="margin-top:.35rem;word-break:break-all"><a href="${item.direct}" target="_blank" rel="noopener">${item.direct}</a></div>`,
+        );
+        actions.innerHTML = `
+          <button class="rfu-btn rfu-btn--ok" type="button" data-act="insert">Вставить</button>
+          <button class="rfu-btn" type="button" data-act="remove">Удалить</button>`;
+      } catch (err) {
+        item.status = 'error';
+        item.row
+          .querySelector('.rfu-meta')
+          .insertAdjacentHTML(
+            'beforeend',
+            `<div class="rfu-error">Ошибка: ${String(
+              err.message || err,
+            )}</div>`,
+          );
+        actions.innerHTML = `
+          <button class="rfu-btn rfu-btn--ok" type="button" data-act="upload">Загрузить</button>
+          <button class="rfu-btn" type="button" data-act="remove">Удалить</button>`;
+      } finally {
+        item.ctrl = null;
+      }
+    }
+
+    $('#rfu-insert-all', modal).addEventListener('click', () => {
+      const fmtSel = $('#rfu-fmt', modal);
+      const parts = [];
+      items.forEach((it) => {
+        if (it.status === 'done' && it.direct) {
+          parts.push(
+            RFU_bb({
+              fmt: fmtSel.value,
+              direct: it.direct,
+              thumb: it.thumb,
+              name: it.file.name,
+            }),
+          );
+        }
+      });
+      if (parts.length) RFU_insertAtCaret(parts.join('\n\n'));
+    });
+
+    $('#rfu-clear', modal).addEventListener('click', () => {
+      items.clear();
+      fileSeen.clear();
+      $('#rfu-list', modal).innerHTML = '';
+    });
+
+    $('#rfu-list', modal).addEventListener('click', (e) => {
+      const btn = e.target.closest('button');
+      if (!btn) return;
+      const row = e.target.closest('.rfu-item');
+      if (!row) return;
+      const item = items.get(row.id);
+      if (!item) return;
+      const act = btn.dataset.act;
+      if (act === 'upload') {
+        doUpload(item);
+      }
+      if (act === 'insert') {
+        const fmtSel = $('#rfu-fmt', modal);
+        RFU_insertAtCaret(
+          RFU_bb({
+            fmt: fmtSel.value,
+            direct: item.direct,
+            thumb: item.thumb,
+            name: item.file.name,
+          }),
+        );
+      }
+      if (act === 'remove') {
+        if (item.ctrl) {
+          try {
+            item.ctrl.abort();
+          } catch {}
+        }
+        const sig = [
+          item.file.name,
+          item.file.size,
+          item.file.lastModified,
+        ].join(':');
+        fileSeen.delete(sig);
+        items.delete(item.id);
+        row.remove();
+      }
+      if (act === 'cancel') {
+        if (item.ctrl) {
+          try {
+            item.ctrl.abort();
+          } catch {}
+        }
+      }
+    });
+
+    RFU_addFiles = async (files) => {
+      const pack = files
+        .filter(RFU_inTypes)
+        .slice(0, RFU_CONFIG.maxFilesPerBatch);
+      if (!pack.length) return;
+      const list = $('#rfu-list', modal);
+      for (const f of pack) {
+        const key = [f.name, f.size, f.lastModified].join(':');
+        if (fileSeen.has(key)) continue;
+        fileSeen.add(key);
+        const it = await createRow(f);
+        items.set(it.id, it);
+        list.prepend(it.row);
+      }
+    };
+
+    RFU_openUI = () => {
+      modal.classList.add('rfu-open');
+    };
+    RFU_closeUI = () => {
+      modal.classList.remove('rfu-open');
+    };
+  }
+
+  function ensureMount() {
+    if (!RFU_mounted) mountUI();
+  }
+  function handleIncomingFiles(files) {
+    if (!files?.length) return;
+    ensureMount();
+    RFU_openUI && RFU_openUI();
+    RFU_addFiles && RFU_addFiles(files);
+  }
+  function extractPastedFiles(e) {
+    const items = [...(e.clipboardData?.items || [])]
+      .map((i) => i.getAsFile())
+      .filter(Boolean);
+    return items.filter(RFU_inTypes);
+  }
+  function extractDragFiles(e) {
+    const files = [...(e.dataTransfer?.files || [])].filter(Boolean);
+    return files.filter(RFU_inTypes);
+  }
+
+  document.addEventListener('paste', (e) => {
+    if (!RFU_CONFIG.showOnDemand) return;
+    const files = extractPastedFiles(e);
+    if (files.length) {
+      handleIncomingFiles(files);
+    }
+  });
+  document.addEventListener('drop', (e) => {
+    if (!RFU_CONFIG.showOnDemand) return;
+    const files = extractDragFiles(e);
+    if (files.length) {
+      e.preventDefault();
+      handleIncomingFiles(files);
+    }
+  });
+  document.addEventListener('dragover', (e) => {
+    if (!RFU_CONFIG.showOnDemand) return;
+    const dt = e.dataTransfer;
+    if (!dt) return;
+    const types = [...(dt.items || [])].map((i) => i.type || '');
+    const hasImage = types.some((t) => /^image\//.test(t));
+    if (hasImage) e.preventDefault();
+  });
+})();
