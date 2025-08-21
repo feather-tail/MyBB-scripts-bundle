@@ -1582,7 +1582,11 @@
     setTimeout(() => document.getElementById('mask-author')?.focus(), 0);
   };
 
-  document.addEventListener('DOMContentLoaded', async () => {
+  let initialized = false;
+  async function init() {
+    if (initialized) return;
+    initialized = true;
+
     document.addEventListener('pun_post', () => processPosts());
     document.addEventListener('pun_edit', () => processPosts());
     addToolbarButton();
@@ -1633,5 +1637,8 @@
 
     processPosts();
     window.MASK_SCRIPT = { CONFIG, removeMaskTagsFromPreview, Cache };
-  });
+  }
+
+  if (document.readyState !== 'loading') init();
+  else document.addEventListener('DOMContentLoaded', init);
 })();

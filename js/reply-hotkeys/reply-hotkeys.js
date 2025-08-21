@@ -27,7 +27,11 @@
     ['Ctrl+Enter', [null, null, 'отправить сообщение']],
   ]);
 
-  document.addEventListener('DOMContentLoaded', () => {
+  let initialized = false;
+  function init() {
+    if (initialized) return;
+    initialized = true;
+
     const textarea = document.getElementById('main-reply');
     const fallbackAnchor = document.querySelector(FALLBACK);
     if (!textarea || !fallbackAnchor) return;
@@ -122,5 +126,8 @@
         e.preventDefault();
       }
     });
-  });
+  }
+
+  if (document.readyState !== 'loading') init();
+  else document.addEventListener('DOMContentLoaded', init);
 })();

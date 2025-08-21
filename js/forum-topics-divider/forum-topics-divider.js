@@ -1,7 +1,11 @@
 (() => {
   'use strict';
 
-  document.addEventListener('DOMContentLoaded', () => {
+  let initialized = false;
+  function init() {
+    if (initialized) return;
+    initialized = true;
+
     const forumContainer = document.getElementById('pun-viewforum');
     if (!forumContainer) return;
 
@@ -28,5 +32,8 @@
     document
       .querySelectorAll('.stickytext')
       .forEach((labelEl) => labelEl.remove());
-  });
+  }
+
+  if (document.readyState !== 'loading') init();
+  else document.addEventListener('DOMContentLoaded', init);
 })();

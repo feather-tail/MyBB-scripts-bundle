@@ -35,7 +35,11 @@
     return wrapper;
   };
 
-  document.addEventListener('DOMContentLoaded', () => {
+  let initialized = false;
+  function init() {
+    if (initialized) return;
+    initialized = true;
+
     const initialSize = getStoredSize();
     applySize(initialSize);
 
@@ -75,5 +79,8 @@
       applySize(s);
       storeSize(s);
     });
-  });
+  }
+
+  if (document.readyState !== 'loading') init();
+  else document.addEventListener('DOMContentLoaded', init);
 })();

@@ -57,7 +57,11 @@
     );
   }
 
+  let initialized = false;
   function init() {
+    if (initialized) return;
+    initialized = true;
+
     injectButton();
 
     document.querySelectorAll(SETTINGS.contentSel).forEach(processIndent);
@@ -74,7 +78,8 @@
     }
   }
 
-  document.addEventListener('DOMContentLoaded', init);
+  if (document.readyState !== 'loading') init();
+  else document.addEventListener('DOMContentLoaded', init);
   document.addEventListener('pun_main_ready', init);
   document.addEventListener('pun_preview', init);
 })();

@@ -9,7 +9,11 @@
     bbcodeClose: '[/align]',
   };
 
-  document.addEventListener('DOMContentLoaded', () => {
+  let initialized = false;
+  function init() {
+    if (initialized) return;
+    initialized = true;
+
     const refTd = document.querySelector(JUSTIFY_CONFIG.insertAfterSelector);
     if (!refTd || refTd.tagName !== 'TD') return;
 
@@ -32,5 +36,8 @@
     });
 
     refTd.parentNode.insertBefore(td, refTd.nextSibling);
-  });
+  }
+
+  if (document.readyState !== 'loading') init();
+  else document.addEventListener('DOMContentLoaded', init);
 })();

@@ -1,11 +1,15 @@
 (() => {
   'use strict';
-  document.addEventListener('DOMContentLoaded', () => {
+  let initialized = false;
+  function init() {
+    if (initialized) return;
+    initialized = true;
+
     const authorCells = document.querySelectorAll(
       '.post[data-group-id="3"] .pa-author',
     );
 
-    authorCells.forEach((authorCell, cellIndex) => {
+    authorCells.forEach((authorCell) => {
       const textNodes = Array.from(authorCell.childNodes).filter(
         (node) => node.nodeType === Node.TEXT_NODE && node.nodeValue.trim(),
       );
@@ -25,5 +29,8 @@
 
       authorCell.replaceChild(linkElement, nameNode);
     });
-  });
+  }
+
+  if (document.readyState !== 'loading') init();
+  else document.addEventListener('DOMContentLoaded', init);
 })();

@@ -1,7 +1,11 @@
 (() => {
   'use strict';
 
-  document.addEventListener('DOMContentLoaded', function () {
+  let initialized = false;
+  function init() {
+    if (initialized) return;
+    initialized = true;
+
     const allowedGroups = [1, 2, 4];
 
     if (typeof GroupID !== 'undefined' && allowedGroups.includes(GroupID)) {
@@ -276,5 +280,8 @@
         updateProfileMenu();
       }
     }
-  });
+  }
+
+  if (document.readyState !== 'loading') init();
+  else document.addEventListener('DOMContentLoaded', init);
 })();

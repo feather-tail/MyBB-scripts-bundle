@@ -1,23 +1,14 @@
 (() => {
   'use strict';
-  const upScrollButton = document.querySelector('.scroll-rail.rail-up');
-  const downScrollButton = document.querySelector('.scroll-rail.rail-down');
-  const rootDocument = document.documentElement;
+
+  let upScrollButton;
+  let downScrollButton;
+  let rootDocument;
+  let ticking = false;
+  let initialized = false;
 
   const smoothScrollTo = (position) =>
     window.scrollTo({ top: position, behavior: 'smooth' });
-
-  upScrollButton.addEventListener('click', (event) => {
-    event.preventDefault();
-    smoothScrollTo(0);
-  });
-
-  downScrollButton.addEventListener('click', (event) => {
-    event.preventDefault();
-    smoothScrollTo(rootDocument.scrollHeight);
-  });
-
-  let ticking = false;
 
   function updateScrollButtons() {
     const scrollY = window.scrollY;
@@ -40,10 +31,31 @@
     }
   }
 
-  document.addEventListener('DOMContentLoaded', () => {
+  function init() {
+    if (initialized) return;
+    initialized = true;
+
+    upScrollButton = document.querySelector('.scroll-rail.rail-up');
+    downScrollButton = document.querySelector('.scroll-rail.rail-down');
+    rootDocument = document.documentElement;
+    if (!upScrollButton || !downScrollButton) return;
+
+    upScrollButton.addEventListener('click', (event) => {
+      event.preventDefault();
+      smoothScrollTo(0);
+    });
+
+    downScrollButton.addEventListener('click', (event) => {
+      event.preventDefault();
+      smoothScrollTo(rootDocument.scrollHeight);
+    });
+
     updateScrollButtons();
 
     window.addEventListener('scroll', onScroll, { passive: true });
     window.addEventListener('resize', onScroll);
-  });
+  }
+
+  if (document.readyState !== 'loading') init();
+  else document.addEventListener('DOMContentLoaded', init);
 })();

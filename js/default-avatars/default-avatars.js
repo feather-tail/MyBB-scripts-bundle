@@ -1,8 +1,6 @@
 (() => {
   'use strict';
 
-  document.addEventListener('DOMContentLoaded', initAvatars);
-
   const DEFAULT_AVATAR = 'YOUR_LINK';
 
   const avatarByRole = new Map([
@@ -50,8 +48,15 @@
     });
   }
 
-  function initAvatars() {
+  let initialized = false;
+  function init() {
+    if (initialized) return;
+    initialized = true;
+
     insertAuthorAvatars();
     replaceProfilePlaceholder();
   }
+
+  if (document.readyState !== 'loading') init();
+  else document.addEventListener('DOMContentLoaded', init);
 })();

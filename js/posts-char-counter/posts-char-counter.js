@@ -40,7 +40,11 @@
     return text.replace(/\s+/g, ' ').trim();
   };
 
-  document.addEventListener('DOMContentLoaded', () => {
+  let initialized = false;
+  function init() {
+    if (initialized) return;
+    initialized = true;
+
     if (typeof GroupID !== 'undefined' && !ALLOWED_GROUP_IDS.has(+GroupID))
       return;
     if (typeof FORUM === 'object' && typeof FORUM.get === 'function') {
@@ -71,5 +75,8 @@
       wrap.append(box);
       anchor.after(wrap);
     });
-  });
+  }
+
+  if (document.readyState !== 'loading') init();
+  else document.addEventListener('DOMContentLoaded', init);
 })();

@@ -18,13 +18,18 @@
     elements: {},
   };
 
-  document.addEventListener('DOMContentLoaded', initStickerPack);
+  let initialized = false;
+  function init() {
+    if (initialized) return;
+    initialized = true;
 
-  function initStickerPack() {
     if (!document.getElementById(BUTTON_AFTER_ID)) return;
     addStickerPackStyles();
     addStickerPackButton();
   }
+
+  if (document.readyState !== 'loading') init();
+  else document.addEventListener('DOMContentLoaded', init);
 
   function addStickerPackStyles() {
     const link = document.createElement('link');

@@ -52,13 +52,11 @@
     return box.querySelector('.reply-char-counter-value');
   };
 
-  const ready = (fn) => {
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', fn, { once: true });
-    } else fn();
-  };
+  let initialized = false;
+  function init() {
+    if (initialized) return;
+    initialized = true;
 
-  ready(() => {
     const ta = document.querySelector(SELECTORS.textarea);
     const defaultBefore = document.querySelector(SELECTORS.defaultBefore);
     const after = SELECTORS.insertAfter
@@ -103,5 +101,8 @@
     }
 
     update();
-  });
+  }
+
+  if (document.readyState !== 'loading') init();
+  else document.addEventListener('DOMContentLoaded', init);
 })();

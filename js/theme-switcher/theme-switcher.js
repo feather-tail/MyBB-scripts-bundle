@@ -8,7 +8,8 @@
   ];
 
   const STORAGE_KEY = 'selectedTheme';
-  const switcherContainer = document.getElementById('theme_switcher');
+  let switcherContainer;
+  let initialized = false;
 
   function applyTheme(theme) {
     document.documentElement.classList.remove(...THEMES.map((t) => t.class));
@@ -35,14 +36,20 @@
     if (radio) radio.checked = true;
   }
 
-  switcherContainer.addEventListener('change', (e) => {
-    if (e.target.name === 'switcher') {
-      applyTheme(e.target.value);
-    }
-  });
+  function init() {
+    if (initialized) return;
+    initialized = true;
 
-  document.addEventListener('DOMContentLoaded', () => {
-    renderThemeSwitcher();
-    restoreTheme();
-  });
+    switcherContainer = document.getElementById('theme_switcher');
+    if (!switcherContainer) return;
+
+    switcherContainer.addEventListener('change', (e) => {
+      if (e.target.name === 'switcher') {
+        applyTheme(e.target.value);
+      }
+    });
+  }
+
+  if (document.readyState !== 'loading') init();
+  else document.addEventListener('DOMContentLoaded', init);
 })();

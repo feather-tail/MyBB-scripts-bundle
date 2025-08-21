@@ -5,7 +5,11 @@
   const COPY_CODE_DONE = 'Скопировано';
   const COPY_RESET_TIMEOUT = 1200;
 
-  document.addEventListener('DOMContentLoaded', () => {
+  let initialized = false;
+  function init() {
+    if (initialized) return;
+    initialized = true;
+
     document.querySelectorAll('.code-box').forEach((box, i) => {
       const legend = box.querySelector('.legend');
       if (legend) {
@@ -51,5 +55,8 @@
         box.classList.remove('copied');
       }, COPY_RESET_TIMEOUT);
     });
-  });
+  }
+
+  if (document.readyState !== 'loading') init();
+  else document.addEventListener('DOMContentLoaded', init);
 })();

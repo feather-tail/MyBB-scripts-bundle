@@ -3,10 +3,14 @@
 
   const ANGLE_QUOTE_REGEX = /"([^"]*?)"/g;
 
-  document.addEventListener('DOMContentLoaded', () => {
+  let initialized = false;
+  function init() {
+    if (initialized) return;
+    initialized = true;
+
     const paragraphNodes = document.querySelectorAll('.post-content p');
 
-    paragraphNodes.forEach((paragraphNode, paragraphIndex) => {
+    paragraphNodes.forEach((paragraphNode) => {
       const textWalker = document.createTreeWalker(
         paragraphNode,
         NodeFilter.SHOW_TEXT,
@@ -23,5 +27,8 @@
         }
       }
     });
-  });
+  }
+
+  if (document.readyState !== 'loading') init();
+  else document.addEventListener('DOMContentLoaded', init);
 })();

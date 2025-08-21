@@ -1,7 +1,11 @@
 (() => {
   'use strict';
 
-  document.addEventListener('DOMContentLoaded', () => {
+  let initialized = false;
+  function init() {
+    if (initialized) return;
+    initialized = true;
+
     const updateParentText = (
       elementSelector,
       searchValue,
@@ -45,5 +49,8 @@
       'Последним зарегистрировался: ',
       'Приветствуем: ',
     );
-  });
+  }
+
+  if (document.readyState !== 'loading') init();
+  else document.addEventListener('DOMContentLoaded', init);
 })();

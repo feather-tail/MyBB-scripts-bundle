@@ -70,7 +70,10 @@
     });
   }
 
-  function onForumEvents() {
+  let initialized = false;
+  function init() {
+    if (initialized) return;
+    initialized = true;
     if (!isAllowed()) return;
     addMutualPRButtons();
 
@@ -80,9 +83,9 @@
   }
 
   ['pun_main_ready', 'pun_post'].forEach((event) =>
-    document.addEventListener(event, onForumEvents),
+    document.addEventListener(event, init),
   );
 
-  if (document.readyState !== 'loading') onForumEvents();
-  else document.addEventListener('DOMContentLoaded', onForumEvents);
+  if (document.readyState !== 'loading') init();
+  else document.addEventListener('DOMContentLoaded', init);
 })();

@@ -663,7 +663,11 @@
     });
   }
 
-  document.addEventListener('DOMContentLoaded', () => {
+  let initialized = false;
+  function init() {
+    if (initialized) return;
+    initialized = true;
+
     hookPostSubmit();
     hookDeleteLinks();
     hookDeleteConfirmPage();
@@ -674,7 +678,10 @@
     decorateProfilePage();
     setTimeout(() => trySendFromIntent(), 0);
     setTimeout(() => trySendFromDelIntent(), 0);
-  });
+  }
+
+  if (document.readyState !== 'loading') init();
+  else document.addEventListener('DOMContentLoaded', init);
 
   window.GPC = {
     SETTINGS,

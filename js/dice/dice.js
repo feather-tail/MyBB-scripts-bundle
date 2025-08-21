@@ -193,7 +193,11 @@
     }).observe(postContainer, { childList: true, subtree: true });
   }
 
-  document.addEventListener('DOMContentLoaded', () => {
+  let initialized = false;
+  function init() {
+    if (initialized) return;
+    initialized = true;
+
     diceButton = document.getElementById('dice-roll-btn');
     postContainer = document.getElementById('pun-viewtopic');
     if (!diceButton) return;
@@ -203,5 +207,8 @@
 
     initDice();
     observePosts();
-  });
+  }
+
+  if (document.readyState !== 'loading') init();
+  else document.addEventListener('DOMContentLoaded', init);
 })();

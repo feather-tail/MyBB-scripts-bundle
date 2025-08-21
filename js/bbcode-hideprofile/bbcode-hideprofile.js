@@ -58,10 +58,17 @@
     root.querySelectorAll(POST_SELECTOR).forEach(applyHideProfileToPost);
   }
 
-  document.addEventListener('DOMContentLoaded', () => {
+  let initialized = false;
+  function init() {
+    if (initialized) return;
+    initialized = true;
+
     addHideProfileButton();
     applyHideProfileToAllPosts();
-  });
+  }
+
+  if (document.readyState !== 'loading') init();
+  else document.addEventListener('DOMContentLoaded', init);
 
   window.applyHideProfileToAllPosts = applyHideProfileToAllPosts;
 })();

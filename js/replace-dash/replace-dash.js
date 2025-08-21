@@ -1,11 +1,15 @@
 (() => {
   'use strict';
 
-  document.addEventListener('DOMContentLoaded', () => {
+  let initialized = false;
+  function init() {
+    if (initialized) return;
+    initialized = true;
+
     const paragraphElements = document.querySelectorAll('.post-content p');
     const DASH_REGEX = /(^|[\s\u00A0])-(?=[\s\u00A0])/g;
 
-    paragraphElements.forEach((paraNode, index) => {
+    paragraphElements.forEach((paraNode) => {
       const walker = document.createTreeWalker(
         paraNode,
         NodeFilter.SHOW_TEXT,
@@ -22,5 +26,8 @@
         }
       }
     });
-  });
+  }
+
+  if (document.readyState !== 'loading') init();
+  else document.addEventListener('DOMContentLoaded', init);
 })();
