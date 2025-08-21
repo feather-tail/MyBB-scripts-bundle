@@ -1,4 +1,6 @@
-(function () {
+(() => {
+  'use strict';
+
   const ANGLE_QUOTE_REGEX = /"([^"]*?)"/g;
 
   document.addEventListener('DOMContentLoaded', () => {

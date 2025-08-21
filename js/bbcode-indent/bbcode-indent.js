@@ -1,4 +1,6 @@
 (() => {
+  'use strict';
+
   const SETTINGS = {
     buttonSelector: '#button-strike',
     buttonId: 'button-indent',

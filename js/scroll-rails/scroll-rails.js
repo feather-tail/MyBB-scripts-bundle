@@ -1,4 +1,5 @@
-(function () {
+(() => {
+  'use strict';
   const upScrollButton = document.querySelector('.scroll-rail.rail-up');
   const downScrollButton = document.querySelector('.scroll-rail.rail-down');
   const rootDocument = document.documentElement;

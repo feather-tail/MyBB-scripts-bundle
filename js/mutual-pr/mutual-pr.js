@@ -1,4 +1,6 @@
 (() => {
+  'use strict';
+
   const ALLOWED_GROUPS = [1, 2, 4, 5];
   const TARGET_TOPIC = 'Техническая тема';
   const PR_TEMPLATES = [

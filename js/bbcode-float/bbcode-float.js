@@ -1,4 +1,6 @@
 (() => {
+  'use strict';
+
   const BUTTON_AFTER = 'td#button-link';
   const POST_CONTENT_SEL = '.post-content';
   const PREVIEW_SEL = '#post-preview .post-content';
@@ -86,7 +88,7 @@
     watchPreview();
   }
 
-  document.addEventListener('DOMContentLoaded', initAll);
+  initAll();
   document.addEventListener('pun_main_ready', initAll);
   document.addEventListener('pun_preview', initAll);
 })();

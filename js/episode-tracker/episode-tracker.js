@@ -1,4 +1,6 @@
 (() => {
+  'use strict';
+
   const ALLOWED_GROUP_IDS = new Set([1, 2, 4]);
   const ONE_DAY = 86400000;
   const MAX_PARTICIPANTS = 10;

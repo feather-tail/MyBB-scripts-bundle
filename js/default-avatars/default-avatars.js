@@ -1,4 +1,6 @@
-(function () {
+(() => {
+  'use strict';
+
   document.addEventListener('DOMContentLoaded', initAvatars);
 
   const DEFAULT_AVATAR = 'YOUR_LINK';

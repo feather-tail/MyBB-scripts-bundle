@@ -1,4 +1,6 @@
-(function () {
+(() => {
+  'use strict';
+
   const getSelectedText = () => {
     let sel = '';
     if (window.getSelection) {

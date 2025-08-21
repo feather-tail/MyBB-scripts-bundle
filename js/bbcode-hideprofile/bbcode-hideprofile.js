@@ -1,4 +1,6 @@
 (() => {
+  'use strict';
+
   const TAG = '[hideprofile]';
   const POST_SELECTOR = '.post';
   const POST_BODY_SELECTOR = '.post-body';

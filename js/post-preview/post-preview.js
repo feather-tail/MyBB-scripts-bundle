@@ -1,4 +1,6 @@
 (() => {
+  'use strict';
+
   const SETTINGS = {
     debounceDelay: 600,
     toggleCookie: '_PreviewToggle',

@@ -1,4 +1,6 @@
 (() => {
+  'use strict';
+
   const FONT_SELECTOR = '.post-content, #main-reply';
   const STORAGE_KEY = 'postFontSize';
   const MIN_SIZE = 10;

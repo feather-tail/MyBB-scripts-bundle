@@ -1,4 +1,5 @@
-(function () {
+(() => {
+  'use strict';
   const messageField = document.querySelector('textarea');
 
   const insertAddress = (userName) => {

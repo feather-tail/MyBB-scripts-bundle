@@ -1,4 +1,5 @@
-(function () {
+(() => {
+  'use strict';
   document.addEventListener('DOMContentLoaded', () => {
     const authorCells = document.querySelectorAll(
       '.post[data-group-id="3"] .pa-author',

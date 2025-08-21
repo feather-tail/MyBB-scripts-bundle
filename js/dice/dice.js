@@ -1,4 +1,5 @@
-(function () {
+(() => {
+  'use strict';
   const CFG = {
     maxDice: 9,
     maxSides: 100,
@@ -31,22 +32,22 @@
     modalOverlay.className = 'dice-overlay';
     modalOverlay.setAttribute('aria-hidden', 'true');
     modalOverlay.innerHTML = `
-      <div class="dice-modal" role="dialog" aria-modal="true" aria-labelledby="dice-title">
-        <h3 id="dice-title">Бросить кубики</h3>
-        <label>
-          Количество кубиков:
-          <input type="number" id="dice-count" min="1" max="${CFG.maxDice}" value="1">
-        </label>
-        <label>
-          Количество граней:
-          <input type="number" id="dice-sides" min="2" max="${CFG.maxSides}" value="6">
-        </label>
-        <div class="actions">
-          <button type="button" id="dice-cancel">Отмена</button>
-          <button type="button" id="dice-ok">Бросить</button>
+        <div class="dice-modal" role="dialog" aria-modal="true" aria-labelledby="dice-title">
+          <h3 id="dice-title">Бросить кубики</h3>
+          <label>
+            Количество кубиков:
+            <input type="number" id="dice-count" min="1" max="${CFG.maxDice}" value="1">
+          </label>
+          <label>
+            Количество граней:
+            <input type="number" id="dice-sides" min="2" max="${CFG.maxSides}" value="6">
+          </label>
+          <div class="actions">
+            <button type="button" id="dice-cancel">Отмена</button>
+            <button type="button" id="dice-ok">Бросить</button>
+          </div>
         </div>
-      </div>
-    `;
+      `;
     document.body.appendChild(modalOverlay);
 
     countInput = modalOverlay.querySelector('#dice-count');
@@ -150,10 +151,10 @@
       const sideWord = numword(sides, 'гранью', 'гранями', 'гранями');
 
       return `
-        <div class="quote-box"><blockquote>
-          <p><b>Игрок кинул ${count} ${cubeWord} с ${sides} ${sideWord}</b></p>
-          <p>Результат броска: <b>${total}</b></p>
-        </blockquote></div>`;
+          <div class="quote-box"><blockquote>
+            <p><b>Игрок кинул ${count} ${cubeWord} с ${sides} ${sideWord}</b></p>
+            <p>Результат броска: <b>${total}</b></p>
+          </blockquote></div>`;
     });
   }
 

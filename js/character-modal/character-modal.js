@@ -1,4 +1,6 @@
 (() => {
+  'use strict';
+
   const MODAL_ID = 'character-modal';
   const MODAL_WRAP_CLASS = 'modal__wrap';
   const MODAL_CLOSE_CLASS = 'modal__close';

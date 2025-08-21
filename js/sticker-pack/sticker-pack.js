@@ -1,4 +1,6 @@
 (() => {
+  'use strict';
+
   const STICKER_DATA_URL = 'LINK_YOUR_STICKERS';
   const STICKER_STYLESHEET_URL = 'LINK_STYLES';
   const BUTTON_AFTER_ID = 'button-smile';
