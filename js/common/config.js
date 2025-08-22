@@ -302,5 +302,23 @@
       selector: '.pa-author',
       group: 3,
     },
+    imageUploader: {
+      anchorSelector: 'p.areafield.required .resizable-textarea > span',
+      replyTextareaSelector: '#main-reply',
+      defaultHost: 'forum',
+      allowedMimes: ['image/jpeg', 'image/png', 'image/gif', 'image/webp'],
+      maxFilesPerBatch: 20,
+      defaultInsertFormat: 'img',
+      showOnDemand: true,
+      storage: { host: 'rfu:host', fmt: 'rfu:fmt' },
+      forumUpload: {
+        endpoint: '/upload',
+        token: () => window.ForumAPITicket || '',
+        buildUrl: (fname) => helpers.buildForumUploadsURL(fname),
+        headers: () => ({}),
+      },
+      enabledHosts: ['forum', 'imgbb'],
+      imgbb: { key: 'c5697b050c00a5dcdc012ce325afdd35' },
+    },
   };
 })();

@@ -84,6 +84,38 @@
     }
     return (~c >>> 0).toString(16).padStart(8, '0');
   };
+  const uid = () => Math.random().toString(36).slice(2, 9);
+  const formatBytes = (n) =>
+    n >= 1048576
+      ? (n / 1048576).toFixed(1) + ' MB'
+      : n >= 1024
+      ? ((n / 1024) | 0) + ' KB'
+      : n + ' B';
+  const getUserId = () => {
+    if (typeof window.UserID === 'number' && window.UserID > 0)
+      return window.UserID;
+    if (typeof window.UserID === 'string' && /^\d+$/.test(window.UserID))
+      return +window.UserID;
+    const a = document.querySelector('a[href*="profile.php?id="]')?.href;
+    const m = a && a.match(/[?&]id=(\d+)/);
+    return m ? +m[1] : 0;
+  };
+  const buildForumUploadsURL = (filename) => {
+    const board =
+      typeof window.BoardID !== 'undefined' ? Number(window.BoardID) : 0;
+    const hex = (board >>> 0).toString(16).padStart(8, '0');
+    const userId = getUserId();
+    if (userId > 0) {
+      const parts = [
+        hex.slice(0, 4),
+        hex.slice(4, 6),
+        hex.slice(6, 8),
+        String(userId),
+      ];
+      return `https://upforme.ru/uploads/${parts.join('/')}/${filename}`;
+    }
+    return `${location.origin}/uploads/${filename}`;
+  };
   window.helpers = {
     $,
     $$,
@@ -97,5 +129,9 @@
     withTimeout,
     crc32,
     parseAccessMap,
+    uid,
+    formatBytes,
+    getUserId,
+    buildForumUploadsURL,
   };
 })();

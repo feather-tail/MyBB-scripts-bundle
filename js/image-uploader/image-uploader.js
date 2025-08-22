@@ -1,66 +1,9 @@
 (() => {
   'use strict';
 
-  function RFU_getUserId() {
-    if (typeof window.UserID === 'number' && window.UserID > 0)
-      return window.UserID;
-    if (typeof window.UserID === 'string' && /^\d+$/.test(window.UserID))
-      return +window.UserID;
-    const a = document.querySelector('a[href*="profile.php?id="]')?.href;
-    const m = a && a.match(/[?&]id=(\d+)/);
-    return m ? +m[1] : 0;
-  }
-  function RFU_buildForumUploadsURL(filename) {
-    const board =
-      typeof window.BoardID !== 'undefined' ? Number(window.BoardID) : 0;
-    const hex = (board >>> 0).toString(16).padStart(8, '0');
-    const userId = RFU_getUserId();
-    if (userId > 0) {
-      const parts = [
-        hex.slice(0, 4),
-        hex.slice(4, 6),
-        hex.slice(6, 8),
-        String(userId),
-      ];
-      return `https://upforme.ru/uploads/${parts.join('/')}/${filename}`;
-    }
-    return `${location.origin}/uploads/${filename}`;
-  }
+  const { $, $$, createEl, uid, formatBytes } = helpers;
 
-  const RFU_CONFIG = {
-    anchorSelector: 'p.areafield.required .resizable-textarea > span',
-    replyTextareaSelector: '#main-reply',
-    defaultHost: 'forum',
-    allowedMimes: [
-      'image/jpeg',
-      'image/png',
-      'image/gif',
-      'image/webp',
-      'image/bmp',
-    ],
-    maxFilesPerBatch: 20,
-    defaultInsertFormat: 'img',
-    showOnDemand: true,
-    storage: { host: 'rfu:host', fmt: 'rfu:fmt' },
-    forumUpload: {
-      endpoint: '/upload',
-      token: () => window.ForumAPITicket || '',
-      buildUrl: (fname) => RFU_buildForumUploadsURL(fname),
-      headers: () => ({}),
-    },
-    enabledHosts: ['forum', 'imgbb'],
-    imgbb: { key: 'c5697b050c00a5dcdc012ce325afdd35' },
-  };
-
-  const $ = (s, r = document) => r.querySelector(s);
-  const $$ = (s, r = document) => [...r.querySelectorAll(s)];
-  const RFU_uid = () => Math.random().toString(36).slice(2, 9);
-  const RFU_bytes = (n) =>
-    n >= 1048576
-      ? (n / 1048576).toFixed(1) + ' MB'
-      : n >= 1024
-      ? ((n / 1024) | 0) + ' KB'
-      : n + ' B';
+  const RFU_CONFIG = window.ScriptConfig.imageUploader;
   const RFU_inTypes = (f) =>
     !f.type ||
     RFU_CONFIG.allowedMimes.includes(f.type) ||
@@ -248,8 +191,7 @@
 
     let layer = anchor.querySelector(':scope > .rfu-layer');
     if (!layer) {
-      layer = document.createElement('div');
-      layer.className = 'rfu-layer';
+      layer = createEl('div', { className: 'rfu-layer' });
       anchor.appendChild(layer);
     }
 
@@ -265,9 +207,9 @@
         : RFU_CONFIG.defaultHost;
     let currentFmt = savedFmt || RFU_CONFIG.defaultInsertFormat;
 
-    const modal = document.createElement('div');
-    modal.className = 'rfu-modal';
-    modal.innerHTML = `
+    const modal = createEl('div', {
+      className: 'rfu-modal',
+      html: `
       <div class="rfu-toolbar">
         <div class="rfu-seg" id="rfu-hosts"></div>
         <div class="rfu-seg">
@@ -292,7 +234,8 @@
         <button class="rfu-btn" id="rfu-insert-all" type="button">Вставить все</button>
         <button class="rfu-btn" id="rfu-clear" type="button">Очистить</button>
       </div>
-    `;
+    `,
+    });
     layer.appendChild(modal);
     setupAutoWidth(modal, anchor);
 
@@ -374,17 +317,15 @@
     const fileSeen = new Set();
 
     function createRow(file) {
-      const id = 'rfu-' + RFU_uid();
-      const row = document.createElement('div');
-      row.className = 'rfu-item';
-      row.id = id;
+      const id = 'rfu-' + uid();
+      const row = createEl('div', { className: 'rfu-item', id });
       return RFU_readThumb(file)
         .catch(() => '')
         .then((thumbSrc) => {
           row.innerHTML = `
           <img class="rfu-thumb" src="${thumbSrc}" alt="">
           <div class="rfu-meta">
-            <div><b>${file.name}</b> • ${RFU_bytes(file.size)}</div>
+            <div><b>${file.name}</b> • ${formatBytes(file.size)}</div>
             <div class="rfu-progress"><div class="rfu-bar"></div></div>
           </div>
           <div class="rfu-actions">
