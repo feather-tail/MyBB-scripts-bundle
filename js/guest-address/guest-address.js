@@ -1,15 +1,24 @@
 (() => {
   'use strict';
+
+  const { $, createEl } = window.helpers;
+  const CFG = window.ScriptConfig.guestAddress;
+  const insertAddress = window.insertAddress || window.to;
+
   let initialized = false;
+
   function init() {
     if (initialized) return;
     initialized = true;
 
-    const authorCells = document.querySelectorAll(
-      '.post[data-group-id="3"] .pa-author',
+    const posts = document.querySelectorAll(
+      `.post[data-group-id="${CFG.group}"]`,
     );
 
-    authorCells.forEach((authorCell) => {
+    posts.forEach((post) => {
+      const authorCell = $(CFG.selector, post);
+      if (!authorCell) return;
+
       const textNodes = Array.from(authorCell.childNodes).filter(
         (node) => node.nodeType === Node.TEXT_NODE && node.nodeValue.trim(),
       );
@@ -19,12 +28,10 @@
       const nameNode = textNodes[textNodes.length - 1];
       const authorName = nameNode.nodeValue.trim();
 
-      const linkElement = document.createElement('a');
-      linkElement.textContent = authorName;
-      linkElement.href = '#';
+      const linkElement = createEl('a', { text: authorName, href: '#' });
       linkElement.addEventListener('click', (event) => {
         event.preventDefault();
-        to(authorName);
+        insertAddress(authorName);
       });
 
       authorCell.replaceChild(linkElement, nameNode);

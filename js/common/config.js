@@ -298,5 +298,9 @@
         scope: 'site',
       },
     },
+    guestAddress: {
+      selector: '.pa-author',
+      group: 3,
+    },
   };
 })();
