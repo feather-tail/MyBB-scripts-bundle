@@ -1,25 +1,20 @@
 (() => {
   'use strict';
 
-  const DEFAULT_AVATAR = 'YOUR_LINK';
-
-  const avatarByRole = new Map([
-    ['Гость', DEFAULT_AVATAR],
-    ['PR', 'YOUR_LINK'],
-  ]);
+  const { $$ } = window.helpers;
+  const CFG = window.ScriptConfig.defaultAvatars;
+  const avatarByRole = new Map(Object.entries(CFG.avatarByRole));
 
   function getAvatarUrl(authorName) {
-    return avatarByRole.get(authorName) || DEFAULT_AVATAR;
+    return avatarByRole.get(authorName) || CFG.DEFAULT_AVATAR;
   }
 
   function insertAuthorAvatars() {
-    const containers = document.querySelectorAll(
-      '#pun-viewtopic, #pun-messages',
-    );
+    const containers = $$('#pun-viewtopic, #pun-messages');
     if (!containers.length) return;
 
     containers.forEach((container) => {
-      container.querySelectorAll('.pa-title').forEach((titleEl) => {
+      $$('.pa-title', container).forEach((titleEl) => {
         const wrapper = titleEl.parentElement;
         if (!wrapper || wrapper.querySelector('.pa-avatar')) return;
 
@@ -39,11 +34,11 @@
     const profileSection = document.getElementById('profile-left');
     if (!profileSection) return;
 
-    profileSection.querySelectorAll('strong').forEach((strongEl) => {
+    $$('strong', profileSection).forEach((strongEl) => {
       if (strongEl.textContent.includes('Нет аватара')) {
         const container = strongEl.parentElement;
         if (!container) return;
-        container.innerHTML = `<div><img src="${DEFAULT_AVATAR}" alt="Аватар по умолчанию"></div>`;
+        container.innerHTML = `<div><img src="${CFG.DEFAULT_AVATAR}" alt="Аватар по умолчанию"></div>`;
       }
     });
   }

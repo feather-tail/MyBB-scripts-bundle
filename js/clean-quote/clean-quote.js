@@ -1,6 +1,9 @@
 (() => {
   'use strict';
 
+  const { $, createEl } = window.helpers;
+  const CFG = window.ScriptConfig.cleanQuote;
+
   const getSelectedText = () => {
     let sel = '';
     if (window.getSelection) {
@@ -14,14 +17,14 @@
   };
 
   function quote(userName, postIdNum) {
-    const postElement = document.getElementById(`p${postIdNum}`);
+    const postElement = $(CFG.selectors.post(postIdNum));
     if (!postElement) return;
 
     let snippet = getSelectedText();
 
     if (!snippet) {
-      const signatureEl = postElement.querySelector('.post-sig');
-      const lastEditEl = postElement.querySelector('p.lastedit');
+      const signatureEl = $(CFG.selectors.signature, postElement);
+      const lastEditEl = $(CFG.selectors.lastEdit, postElement);
 
       const originalSignature = signatureEl ? signatureEl.innerHTML : '';
       const originalLastEdit = lastEditEl ? lastEditEl.innerHTML : '';
@@ -29,13 +32,15 @@
       if (signatureEl) signatureEl.innerHTML = '';
       if (lastEditEl) lastEditEl.innerHTML = '';
 
-      let contentHtml = postElement.querySelector('.post-content').innerHTML;
-      contentHtml = contentHtml
-        .replace(/<br\s*\/?>/gi, '\n')
-        .replace(/<strong>/gi, '[b]')
-        .replace(/<\/strong>/gi, '[/b]');
+      const contentEl = $(CFG.selectors.content, postElement);
+      if (!contentEl) return;
+      let contentHtml = contentEl.innerHTML;
 
-      const tempWrapper = document.createElement('div');
+      CFG.replacements.forEach(({ from, to }) => {
+        contentHtml = contentHtml.replace(from, to);
+      });
+
+      const tempWrapper = createEl('div');
       tempWrapper.innerHTML = contentHtml;
       snippet = tempWrapper.textContent.trim();
 
@@ -50,7 +55,7 @@
     } else if (typeof smile === 'function') {
       smile(bbCode);
     } else {
-      const textarea = document.querySelector('textarea');
+      const textarea = $(CFG.selectors.textarea);
       if (textarea) {
         textarea.value += '\n' + bbCode;
         textarea.focus();

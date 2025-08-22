@@ -1,19 +1,18 @@
 (() => {
   'use strict';
 
-  const COPY_CODE_TEXT = 'Скопировать код';
-  const COPY_CODE_DONE = 'Скопировано';
-  const COPY_RESET_TIMEOUT = 1200;
+  const { $, $$, copyToClipboard } = window.helpers;
+  const CFG = window.ScriptConfig.copyCode;
 
   let initialized = false;
   function init() {
     if (initialized) return;
     initialized = true;
 
-    document.querySelectorAll('.code-box').forEach((box, i) => {
-      const legend = box.querySelector('.legend');
+    $$('.code-box').forEach((box, i) => {
+      const legend = $('.legend', box);
       if (legend) {
-        legend.innerHTML = `<a class="copy-code-btn" data-code-idx="${i}" href="#">${COPY_CODE_TEXT}</a>`;
+        legend.innerHTML = `<a class="copy-code-btn" data-code-idx="${i}" href="#">${CFG.buttonText}</a>`;
       }
     });
 
@@ -23,37 +22,25 @@
       e.preventDefault();
 
       const codeIdx = btn.dataset.codeIdx;
-      const box = document
-        .querySelector(`.code-box .copy-code-btn[data-code-idx="${codeIdx}"]`)
-        ?.closest('.code-box');
+      const box = $(
+        `.code-box .copy-code-btn[data-code-idx="${codeIdx}"]`,
+      )?.closest('.code-box');
       if (!box) return;
 
-      const code = box.querySelector('.scrollbox pre');
+      const code = $('.scrollbox pre', box);
       if (!code) return;
 
       const codeText = code.textContent.trim();
 
-      try {
-        await navigator.clipboard.writeText(codeText);
-      } catch (err) {
-        const textarea = document.createElement('textarea');
-        textarea.value = codeText;
-        document.body.appendChild(textarea);
-        textarea.select();
-        try {
-          document.execCommand('copy');
-        } finally {
-          document.body.removeChild(textarea);
-        }
-      }
+      await copyToClipboard(codeText);
 
-      btn.textContent = COPY_CODE_DONE;
+      btn.textContent = CFG.doneText;
       box.classList.add('copied');
 
       setTimeout(() => {
-        btn.textContent = COPY_CODE_TEXT;
+        btn.textContent = CFG.buttonText;
         box.classList.remove('copied');
-      }, COPY_RESET_TIMEOUT);
+      }, CFG.resetTimeout);
     });
   }
 

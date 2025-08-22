@@ -1,5 +1,6 @@
 (() => {
   'use strict';
+  const { $, $$, createEl } = window.helpers;
 
   const CFG = window.ScriptConfig || {};
   const SETTINGS = {
@@ -26,25 +27,27 @@
     return;
 
   const ensureToastRoot = () => {
-    let root = document.querySelector('.toast-root');
+    let root = $('.toast-root');
     if (root) return root;
-    root = document.createElement('div');
-    root.className = 'toast-root';
-    root.setAttribute('role', 'status');
-    root.setAttribute('aria-live', 'polite');
-    root.setAttribute('aria-atomic', 'true');
+    root = createEl('div', {
+      className: 'toast-root',
+      role: 'status',
+      'aria-live': 'polite',
+      'aria-atomic': 'true',
+    });
     document.body.appendChild(root);
     return root;
   };
 
   const showToast = (message, { type = 'info', duration = 3000 } = {}) => {
     const root = ensureToastRoot();
-    const el = document.createElement('div');
-    el.className = `toast toast--${type}`;
-    el.innerHTML = `<div class="toast__content">${message}</div><button class="toast__close" type="button" aria-label="Закрыть">\u00D7</button>`;
+    const el = createEl('div', {
+      className: `toast toast--${type}`,
+      html: `<div class="toast__content">${message}</div><button class="toast__close" type="button" aria-label="Закрыть">\u00D7</button>`,
+    });
     root.appendChild(el);
     const remove = () => el.isConnected && el.remove();
-    el.querySelector('.toast__close')?.addEventListener('click', remove);
+    $('.toast__close', el)?.addEventListener('click', remove);
     if (duration > 0) setTimeout(remove, duration);
   };
 
@@ -54,24 +57,14 @@
     { type = 'info', duration = 0 } = {},
   ) => {
     const root = ensureToastRoot();
-    const el = document.createElement('div');
-    el.className = `toast toast--${type} toast--action`;
-    el.innerHTML = `
+    const el = createEl('div', {
+      className: `toast toast--${type} toast--action`,
+      html: `
       <div class="toast__content">${message}</div>
       <div class="toast__actions"></div>
-      <button class="toast__close" type="button" aria-label="Закрыть">\u00D7</button>`;
-    const actionsWrap = el.querySelector('.toast__actions');
-    actions.forEach((a) => {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = `toast__btn ${
-        a.variant ? `toast__btn--${a.variant}` : ''
-      }`.trim();
-      btn.textContent = a.label;
-      btn.addEventListener('click', () => resolveAndRemove(a.value));
-      actionsWrap.appendChild(btn);
+      <button class="toast__close" type="button" aria-label="Закрыть">\u00D7</button>`,
     });
-    root.appendChild(el);
+    const actionsWrap = $('.toast__actions', el);
     let resolve;
     const p = new Promise((r) => (resolve = r));
     const cleanup = () => el.isConnected && el.remove();
@@ -79,7 +72,19 @@
       resolve(val);
       cleanup();
     };
-    el.querySelector('.toast__close')?.addEventListener('click', () =>
+    actions.forEach((a) => {
+      const btn = createEl('button', {
+        type: 'button',
+        className: `toast__btn ${
+          a.variant ? `toast__btn--${a.variant}` : ''
+        }`.trim(),
+        text: a.label,
+      });
+      btn.addEventListener('click', () => resolveAndRemove(a.value));
+      actionsWrap.appendChild(btn);
+    });
+    root.appendChild(el);
+    $('.toast__close', el)?.addEventListener('click', () =>
       resolveAndRemove(null),
     );
     if (duration > 0) setTimeout(() => resolveAndRemove(null), duration);
@@ -96,22 +101,20 @@
       )
       .replace(/\[quote(?:=[^\]]+)?\][\s\S]*?\[\/quote\]/gi, '');
 
-    const wrap = document.createElement('div');
+    const wrap = createEl('div');
     wrap.innerHTML = raw;
 
-    wrap.querySelectorAll('.quote-box, blockquote').forEach((q) => q.remove());
-    wrap.querySelectorAll('a[href]').forEach((a) => {
+    $$('.quote-box, blockquote', wrap).forEach((q) => q.remove());
+    $$('a[href]', wrap).forEach((a) => {
       const href = a.getAttribute('href') || '';
       const text = a.textContent.trim() || href;
       a.textContent = `${text} (${href})`;
     });
-    wrap.querySelectorAll('br').forEach((br) => br.replaceWith('[[BR]]'));
-    wrap
-      .querySelectorAll('p')
-      .forEach((p) => p.insertAdjacentText('afterend', '[[PARA]]'));
-    wrap
-      .querySelectorAll('li,blockquote,tr,td,th,h1,h2,h3,h4,h5,h6')
-      .forEach((el) => el.insertAdjacentText('afterend', '[[BR]]'));
+    $$('br', wrap).forEach((br) => br.replaceWith('[[BR]]'));
+    $$('p', wrap).forEach((p) => p.insertAdjacentText('afterend', '[[PARA]]'));
+    $$('li,blockquote,tr,td,th,h1,h2,h3,h4,h5,h6', wrap).forEach((el) =>
+      el.insertAdjacentText('afterend', '[[BR]]'),
+    );
 
     let text = wrap.textContent || '';
 
@@ -140,34 +143,10 @@
     return out.join('\n').replace(/\uE000/g, ' ');
   };
 
-  const copyToClipboard = async (text) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      return true;
-    } catch {
-      try {
-        const ta = document.createElement('textarea');
-        ta.value = text;
-        ta.style.position = 'fixed';
-        ta.style.opacity = '0';
-        document.body.appendChild(ta);
-        ta.focus();
-        ta.select();
-        const ok = document.execCommand('copy');
-        ta.remove();
-        return ok;
-      } catch {
-        return false;
-      }
-    }
-  };
-
   const downloadTxt = (text, filename = 'topic.txt') => {
     const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
+    const a = createEl('a', { href: url, download: filename });
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -176,7 +155,7 @@
 
   const makeTopicFilename = () => {
     const id = TOPIC_ID || 'topic';
-    const title = (document.querySelector('#pun-main h1')?.textContent || '')
+    const title = ($('#pun-main h1')?.textContent || '')
       .trim()
       .replace(/\s+/g, ' ')
       .slice(0, 80)
@@ -205,25 +184,25 @@
     return all;
   };
 
-  document.querySelectorAll('div.post').forEach((post) => {
+  $$('div.post').forEach((post) => {
     if (!SETTINGS.singleInsertAfterSelector) return;
-    if (post.querySelector('.copy-post-btn')) return;
-    const anchor = post.querySelector(SETTINGS.singleInsertAfterSelector);
+    if ($('.copy-post-btn', post)) return;
+    const anchor = $(SETTINGS.singleInsertAfterSelector, post);
     if (!anchor) return;
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'copy-post-btn';
-    btn.textContent = SETTINGS.singleBtnLabel;
-    btn.title = 'Скопировать этот пост';
+    const btn = createEl('button', {
+      type: 'button',
+      className: 'copy-post-btn',
+      text: SETTINGS.singleBtnLabel,
+      title: 'Скопировать этот пост',
+    });
     btn.addEventListener('click', async () => {
       const author =
-        post.querySelector('.pa-author a')?.textContent?.trim() ||
-        'Неизвестный автор';
-      const src = post.querySelector('.post-content');
+        $('.pa-author a', post)?.textContent?.trim() || 'Неизвестный автор';
+      const src = $('.post-content', post);
       let html = '';
       if (src) {
         const clone = src.cloneNode(true);
-        clone.querySelector('.post-sig')?.remove();
+        $('.post-sig', clone)?.remove();
         html = clone.innerHTML;
       }
       const payload = `${author}:\n${htmlToPlain(html)}`;
@@ -240,7 +219,7 @@
         if (choice === 'download')
           return downloadTxt(payload, makeTopicFilename());
       }
-      const ok = await copyToClipboard(payload);
+      const ok = await window.helpers.copyToClipboard(payload);
       if (ok) {
         showToast('Пост скопирован в буфер обмена.', { type: 'success' });
       } else {
@@ -256,14 +235,15 @@
   });
 
   const allAnchor = SETTINGS.allInsertAfterSelector
-    ? document.querySelector(SETTINGS.allInsertAfterSelector)
+    ? $(SETTINGS.allInsertAfterSelector)
     : null;
-  if (allAnchor && !document.querySelector('.copy-all-btn')) {
-    const allBtn = document.createElement('button');
-    allBtn.type = 'button';
-    allBtn.className = 'copy-all-btn';
-    allBtn.textContent = SETTINGS.allBtnLabel;
-    allBtn.title = 'Скопировать все посты в теме';
+  if (allAnchor && !$('.copy-all-btn')) {
+    const allBtn = createEl('button', {
+      type: 'button',
+      className: 'copy-all-btn',
+      text: SETTINGS.allBtnLabel,
+      title: 'Скопировать все посты в теме',
+    });
     allBtn.addEventListener('click', async () => {
       const topicId = TOPIC_ID;
       if (!topicId)
@@ -291,7 +271,7 @@
           if (choice === 'download')
             return downloadTxt(plain, makeTopicFilename());
         }
-        const ok = await copyToClipboard(plain);
+        const ok = await window.helpers.copyToClipboard(plain);
         if (ok) {
           showToast('Весь текст темы скопирован.', { type: 'success' });
         } else {

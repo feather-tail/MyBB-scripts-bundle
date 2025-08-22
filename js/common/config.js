@@ -223,5 +223,31 @@
       ajaxFolder: 'pages/',
       charset: 'windows-1251',
     },
+    cleanQuote: {
+      selectors: {
+        post: (id) => `#p${id}`,
+        signature: '.post-sig',
+        lastEdit: 'p.lastedit',
+        content: '.post-content',
+        textarea: 'textarea',
+      },
+      replacements: [
+        { from: /<br\s*\/?>/gi, to: '\n' },
+        { from: /<strong>/gi, to: '[b]' },
+        { from: /<\/strong>/gi, to: '[/b]' },
+      ],
+    },
+    copyCode: {
+      buttonText: 'Скопировать код',
+      doneText: 'Скопировано',
+      resetTimeout: 1200,
+    },
+    defaultAvatars: {
+      DEFAULT_AVATAR: 'YOUR_LINK',
+      avatarByRole: {
+        Гость: 'YOUR_LINK',
+        PR: 'YOUR_LINK',
+      },
+    },
   };
 })();
