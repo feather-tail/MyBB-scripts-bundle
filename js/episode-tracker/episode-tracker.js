@@ -1,21 +1,17 @@
 (() => {
   'use strict';
 
-  const ALLOWED_GROUP_IDS = new Set([1, 2, 4]);
-  const ONE_DAY = 86400000;
-  const MAX_PARTICIPANTS = 10;
-  const INSERT_AFTER_SELECTOR = '';
+  const { $, $$, copyToClipboard } = window.helpers;
+  const CFG = window.ScriptConfig.episodeTracker;
 
+  const ALLOWED_GROUP_IDS = new Set(CFG.allowedGroupIds);
   if (!ALLOWED_GROUP_IDS.has(window.GroupID)) return;
 
   const CURRENT_USER = (window.UserLogin || '').trim();
   const LEGACY_OWNER = 'Не определён';
 
-  const $ = (sel, root = document) => root.querySelector(sel);
-  const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
   const norm = (s) => s.trim().replace(/\s+/g, ' ').toLowerCase();
   const isSame = (a, b) => a === b || a.startsWith(b) || b.startsWith(a);
-  const copyText = (t) => navigator.clipboard?.writeText(t);
 
   const store = {
     KEY_DATA: 'forumEpisodes',
@@ -60,7 +56,7 @@
     return null;
   };
 
-  const anchorSel = INSERT_AFTER_SELECTOR || '#h-uploads';
+  const anchorSel = CFG.selectors.insertAfter || CFG.selectors.anchor;
   const waitAnchor = (done) => {
     const el = $(anchorSel);
     if (el) return done(el);
@@ -245,7 +241,7 @@
       ev.preventDefault();
       el.modal.style.display = 'block';
 
-      if (Date.now() - store.lastStamp > ONE_DAY) {
+      if (Date.now() - store.lastStamp > CFG.oneDayMs) {
         el.list.textContent = 'Автообновление…';
         await refreshEpisodes();
         store.lastStamp = Date.now();
@@ -274,7 +270,7 @@
     });
 
     el.btnAddPart.addEventListener('click', () => {
-      if (participantCount >= MAX_PARTICIPANTS) return;
+      if (participantCount >= CFG.maxParticipants) return;
       const last = el.partBox.querySelector('label:last-child input');
       if (!last.value.trim()) return last.focus();
 
@@ -283,7 +279,8 @@
         'beforeend',
         `<label>Участник ${participantCount}:<input type="text" name="participant"></label>`,
       );
-      if (participantCount >= MAX_PARTICIPANTS) el.btnAddPart.disabled = true;
+      if (participantCount >= CFG.maxParticipants)
+        el.btnAddPart.disabled = true;
     });
 
     el.form.addEventListener('submit', async (ev) => {
@@ -353,7 +350,7 @@
     }
 
     el.btnExport.addEventListener('click', () =>
-      copyText(JSON.stringify(store.episodes, null, 2)),
+      copyToClipboard(JSON.stringify(store.episodes, null, 2)),
     );
 
     el.btnImport.addEventListener('click', () => {
@@ -427,7 +424,7 @@
       });
 
       participantCount = ep.participants.length;
-      el.btnAddPart.disabled = participantCount >= MAX_PARTICIPANTS;
+      el.btnAddPart.disabled = participantCount >= CFG.maxParticipants;
       el.form.style.display = 'flex';
       el.btnShowForm.style.display = 'none';
       el.btnSave.textContent = 'Сохранить';

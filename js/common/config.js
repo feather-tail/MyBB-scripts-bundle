@@ -249,5 +249,14 @@
         PR: 'YOUR_LINK',
       },
     },
+    episodeTracker: {
+      allowedGroupIds: [1, 2, 4],
+      oneDayMs: 86400000,
+      maxParticipants: 10,
+      selectors: {
+        anchor: '#h-uploads',
+        insertAfter: '',
+      },
+    },
   };
 })();
