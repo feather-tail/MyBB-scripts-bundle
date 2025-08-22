@@ -58,6 +58,32 @@
     );
     return m ? decodeURIComponent(m[1]) : null;
   };
+  const parseHTML = (html) =>
+    new DOMParser().parseFromString(html, 'text/html');
+  const withTimeout = (p, ms) =>
+    Promise.race([
+      p,
+      new Promise((_, rej) =>
+        setTimeout(() => rej(new Error('Таймаут запроса')), ms),
+      ),
+    ]);
+  const parseAccessMap = (obj = {}) => {
+    const res = {};
+    Object.keys(obj).forEach((k) => {
+      res[k] = Array.isArray(obj[k]) ? obj[k].slice() : [];
+    });
+    return res;
+  };
+  const crc32 = (s) => {
+    let c = ~0;
+    for (let i = 0; i < s.length; i++) {
+      c ^= s.charCodeAt(i);
+      for (let k = 0; k < 8; k++) {
+        c = (c >>> 1) ^ (0xedb88320 & -(c & 1));
+      }
+    }
+    return (~c >>> 0).toString(16).padStart(8, '0');
+  };
   window.helpers = {
     $,
     $$,
@@ -67,5 +93,9 @@
     copyToClipboard,
     setCookie,
     getCookie,
+    parseHTML,
+    withTimeout,
+    crc32,
+    parseAccessMap,
   };
 })();

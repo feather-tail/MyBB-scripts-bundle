@@ -1,130 +1,13 @@
 (() => {
   'use strict';
+  const { $, $$, createEl, debounce, parseAccessMap } = window.helpers;
+  const CFG = window.ScriptConfig.bbcodeMask;
+  const SELECTORS = CFG.selectors;
+  const MAX_CACHE_ENTRIES = CFG.maxCacheEntries;
 
-  const CONFIG = {
-    blockTag: 'mask',
-    defaultAvatar: 'https://i.imgur.com/bQuC3S1.png',
-    buttonIcon: 'https://i.imgur.com/ONu0llO.png',
-    storageKey: 'maskListUser',
-    storageLimit: 5,
-    localDraftKey: 'maskFormDraft',
-    safeProtocols: ['http:', 'https:', 'mailto:', 'ftp:'],
-    allowedGroups: [1, 2],
-    userFieldOrder: [
-      'pa-author',
-      'pa-title',
-      'pa-avatar',
-      'custom-field',
-      'post-sig',
-    ],
-    bbTagMap: { b: 'strong', i: 'em', u: 'u', s: 's' },
-    forumAccess: {},
-    forumAccessExtended: {},
-    guestAccess: ['Архив игровых тем', 'Архив неигровых тем'],
-    fields: {
-      author: {
-        tags: ['nick', 'nic', 'o'],
-        class: 'pa-author',
-        max: 25,
-        label: 'Ник',
-        defaultCode: 'Имя Персонажа',
-        type: 'text',
-      },
-      status: {
-        tags: ['status', 'sta', 'q'],
-        class: 'pa-title',
-        max: 50,
-        label: 'Статус',
-        defaultCode: 'Профессия, раса, состояние',
-        type: 'text',
-      },
-      avatar: {
-        tags: ['icon', 'ava', '9'],
-        class: 'pa-avatar',
-        label: 'Аватар',
-        defaultCode: 'https://i.imgur.com/bQuC3S1.png',
-        type: 'avatar',
-      },
-      signature: {
-        tags: ['sign', 'sgn', 't'],
-        class: 'post-sig',
-        label: 'Подпись',
-        defaultCode: '[b]Информация о персонаже[/b]',
-        type: 'bbcode',
-      },
-      custom: {
-        tags: ['custom', 'custom-field'],
-        class: 'custom-field',
-        label: 'Кастомное поле',
-        max: 40,
-        defaultCode: 'Текст для кастомного поля',
-        type: 'html',
-      },
-    },
-    sanitize: {
-      allowedTags: [
-        'b',
-        'i',
-        'u',
-        's',
-        'strong',
-        'em',
-        'a',
-        'img',
-        'br',
-        'span',
-        'div',
-        'sup',
-        'sub',
-        'mark',
-        'abbr',
-        'blockquote',
-        'details',
-        'summary',
-        'ul',
-        'ol',
-        'li',
-        'table',
-        'tr',
-        'td',
-        'hr',
-      ],
-      allowedAttrs: {
-        a: ['href', 'target', 'rel'],
-        img: ['src', 'alt'],
-        abbr: ['title'],
-        mark: ['title'],
-        blockquote: ['title'],
-        details: ['title'],
-        summary: ['title'],
-        span: ['style'],
-        div: ['style'],
-      },
-      allowedInlineStyles: ['color', 'text-align', 'font-size', 'font-family'],
-      blockSvgInImg: true,
-      safeProtocols: ['http:', 'https:', 'ftp:', 'mailto:'],
-    },
-  };
-
-  CONFIG.allTags = Object.values(CONFIG.fields)
+  CFG.allTags = Object.values(CFG.fields)
     .flatMap((f) => f.tags)
-    .concat(CONFIG.blockTag);
-
-  const SELECTORS = {
-    post: '.post',
-    content: '.post-content',
-    profile: '.post-author ul',
-    toolbarRow: '#form-buttons tr, #form-buttons',
-    textarea: [
-      '#message',
-      'textarea[name="req_message"]',
-      'textarea[name="message"]',
-      'textarea:not([readonly]):not([disabled])',
-    ],
-    previewBox: '#post-preview',
-  };
-
-  const MAX_CACHE_ENTRIES = 300;
+    .concat(CFG.blockTag);
 
   const Cache = {
     parsedMask: new Map(),
@@ -172,28 +55,20 @@
     templateSelect: null,
   };
 
-  function debounce(fn, ms = 200) {
-    let t;
-    return function (...a) {
-      clearTimeout(t);
-      t = setTimeout(() => fn.apply(this, a), ms);
-    };
-  }
-
   const debouncedPreviewAndDraft = debounce(() => {
     updatePreview();
     saveDraft();
   }, 150);
 
   const cacheDomElements = () => {
-    nodes.overlay = document.getElementById('mask-overlay');
-    nodes.dialog = document.getElementById('mask-dialog');
+    nodes.overlay = $('#mask-overlay');
+    nodes.dialog = $('#mask-dialog');
     if (!nodes.dialog) return;
-    nodes.previewPanel = nodes.dialog.querySelector('.mask-preview-panel');
-    nodes.formEl = nodes.dialog.querySelector('.mask-form');
-    nodes.storagePanel = nodes.dialog.querySelector('.mask-storage-panel');
-    nodes.actionsPanel = nodes.dialog.querySelector('.mask-actions');
-    nodes.templateSelect = nodes.dialog.querySelector('#mask-template-select');
+    nodes.previewPanel = $('.mask-preview-panel', nodes.dialog);
+    nodes.formEl = $('.mask-form', nodes.dialog);
+    nodes.storagePanel = $('.mask-storage-panel', nodes.dialog);
+    nodes.actionsPanel = $('.mask-actions', nodes.dialog);
+    nodes.templateSelect = $('#mask-template-select', nodes.dialog);
   };
 
   const sanitizeStorageData = (rawDecoded) =>
@@ -216,13 +91,13 @@
       try {
         const params = new URLSearchParams({
           method: 'storage.get',
-          key: CONFIG.storageKey,
+          key: CFG.storageKey,
         });
         const resp = await fetch(`/api.php?${params}`, {
           credentials: 'same-origin',
         });
         const json = await resp.json();
-        const raw = json.response?.storage?.data?.[CONFIG.storageKey] || '';
+        const raw = json.response?.storage?.data?.[CFG.storageKey] || '';
         const decoded = raw ? decodeURIComponent(raw) : '';
         const cleaned = decoded ? sanitizeStorageData(decoded) : '';
         this.masks = cleaned ? cleaned.split('|splitKey|') : [];
@@ -235,7 +110,7 @@
       const body = new URLSearchParams({
         method: 'storage.set',
         token: window.ForumAPITicket,
-        key: CONFIG.storageKey,
+        key: CFG.storageKey,
         value: encodeURIComponent(joined),
       });
       await fetch('/api.php', {
@@ -246,7 +121,7 @@
       });
     },
     add(record) {
-      if (this.masks.length >= CONFIG.storageLimit) {
+      if (this.masks.length >= CFG.storageLimit) {
         this.masks.pop();
         showToast({
           text: 'Самая старая маска была удалена из-за переполнения.',
@@ -293,9 +168,9 @@
     placeholderEl: null,
     onDragStart(e, wrap, index) {
       e.stopPropagation();
-      document.querySelectorAll('.mask-placeholder').forEach((t) => t.remove());
+      $$('.mask-placeholder').forEach((t) => t.remove());
       this.draggedIndex = index;
-      this.placeholderEl = document.createElement('div');
+      this.placeholderEl = createEl('div');
       this.placeholderEl.className = 'mask-placeholder';
       this.placeholderEl.style.height = `${wrap.offsetHeight}px`;
       wrap.parentNode.insertBefore(this.placeholderEl, wrap.nextSibling);
@@ -306,9 +181,9 @@
       e.stopPropagation();
       wrap.style.opacity = '';
       wrap.classList.remove('mask-dragging');
-      document
-        .querySelectorAll('.mask-storage-item.highlight')
-        .forEach((el) => el.classList.remove('highlight'));
+      $$('.mask-storage-item.highlight').forEach((el) =>
+        el.classList.remove('highlight'),
+      );
       if (this.placeholderEl) {
         this.placeholderEl.remove();
         this.placeholderEl = null;
@@ -351,9 +226,7 @@
   };
 
   const getFieldKeyByClass = (className) =>
-    Object.keys(CONFIG.fields).find(
-      (k) => CONFIG.fields[k].class === className,
-    );
+    Object.keys(CFG.fields).find((k) => CFG.fields[k].class === className);
 
   const normalizeUrl = (raw) => {
     let url = String(raw || '').trim();
@@ -361,7 +234,7 @@
     if (!/^[a-z][a-z0-9+.-]*:/i.test(url)) url = 'http://' + url;
     try {
       const obj = new URL(url);
-      return CONFIG.safeProtocols.includes(obj.protocol) ? obj.href : '#';
+      return CFG.safeProtocols.includes(obj.protocol) ? obj.href : '#';
     } catch {
       return '#';
     }
@@ -372,7 +245,7 @@
     if (window.FORUM?.topic?.forum_name) {
       name = window.FORUM.topic.forum_name;
     } else {
-      const crumbs = document.getElementById('pun-crumbs1');
+      const crumbs = $('#pun-crumbs1');
       const links = crumbs?.querySelectorAll('a[href*="viewforum"]');
       if (links && links.length) name = links[links.length - 1].textContent;
     }
@@ -380,54 +253,44 @@
     return name.trim().replace(/\u00AD/g, '');
   };
 
-  const parseAccessMap = (obj = {}) => {
-    const res = {};
-    Object.keys(obj).forEach((k) => {
-      res[k] = Array.isArray(obj[k]) ? obj[k].slice() : [];
-    });
-    return res;
-  };
-
   const accessConfig = {
-    forumAccess: parseAccessMap(CONFIG.forumAccess),
-    forumAccessExtended: parseAccessMap(CONFIG.forumAccessExtended),
-    guestAccess: Array.isArray(CONFIG.guestAccess)
-      ? CONFIG.guestAccess.slice()
-      : [],
+    forumAccess: parseAccessMap(CFG.forumAccess),
+    forumAccessExtended: parseAccessMap(CFG.forumAccessExtended),
+    guestAccess: Array.isArray(CFG.guestAccess) ? CFG.guestAccess.slice() : [],
   };
 
   const clearFormFields = () => {
-    Object.keys(CONFIG.fields).forEach((key) => {
-      const el = document.getElementById(`mask-${key}`);
+    Object.keys(CFG.fields).forEach((key) => {
+      const el = $(`#mask-${key}`);
       if (el) el.value = '';
     });
   };
 
   const saveDraft = () => {
     const obj = {};
-    Object.keys(CONFIG.fields).forEach((key) => {
-      const el = document.querySelector(`#mask-${key}`);
+    Object.keys(CFG.fields).forEach((key) => {
+      const el = $(`#mask-${key}`);
       if (el?.value.trim()) obj[key] = el.value.trim();
     });
-    localStorage.setItem(CONFIG.localDraftKey, JSON.stringify(obj));
+    localStorage.setItem(CFG.localDraftKey, JSON.stringify(obj));
   };
 
   const loadDraft = () => {
-    const str = localStorage.getItem(CONFIG.localDraftKey);
+    const str = localStorage.getItem(CFG.localDraftKey);
     if (!str) return;
     try {
       const obj = JSON.parse(str);
-      Object.keys(CONFIG.fields).forEach((k) => {
-        const el = document.querySelector(`#mask-${k}`);
+      Object.keys(CFG.fields).forEach((k) => {
+        const el = $(`#mask-${k}`);
         if (el && obj[k]) el.value = obj[k];
       });
     } catch {}
   };
 
-  const clearDraft = () => localStorage.removeItem(CONFIG.localDraftKey);
+  const clearDraft = () => localStorage.removeItem(CFG.localDraftKey);
 
   const validateField = (fieldKey, value) => {
-    const fld = CONFIG.fields[fieldKey];
+    const fld = CFG.fields[fieldKey];
     if (!fld) return '';
     const v = String(value ?? '');
     if (v === '') return '';
@@ -440,7 +303,7 @@
         const url = new URL(v);
         if (!/\.(jpg|jpeg|png|gif|webp)$/i.test(url.pathname))
           return 'Аватар должен быть ссылкой на картинку (jpg, jpeg, png, gif, webp)';
-        if (!CONFIG.safeProtocols.includes(url.protocol))
+        if (!CFG.safeProtocols.includes(url.protocol))
           return 'Аватар: недопустимый протокол';
       } catch {
         return 'Аватар: некорректный URL';
@@ -461,8 +324,8 @@
     s = s.replace(
       /\[(b|i|u|s)\]([\s\S]*?)\[\/\1\]/gi,
       (_, tag, content) =>
-        `<${CONFIG.bbTagMap[tag.toLowerCase()]}>${content}</${
-          CONFIG.bbTagMap[tag.toLowerCase()]
+        `<${CFG.bbTagMap[tag.toLowerCase()]}>${content}</${
+          CFG.bbTagMap[tag.toLowerCase()]
         }>`,
     );
     s = s.replace(
@@ -526,16 +389,16 @@
 
   const sanitizeHtml = (html) => {
     if (!html) return '';
-    const decoder = document.createElement('textarea');
+    const decoder = createEl('textarea');
     decoder.innerHTML = html;
     html = decoder.value;
-    const wrapper = document.createElement('div');
+    const wrapper = createEl('div');
     wrapper.innerHTML = html;
-    const ALLOWED_TAGS = CONFIG.sanitize.allowedTags;
-    const ALLOWED_ATTRS = CONFIG.sanitize.allowedAttrs;
-    const SAFE_PROTOCOLS = CONFIG.sanitize.safeProtocols;
-    const ALLOWED_STYLES = CONFIG.sanitize.allowedInlineStyles;
-    const BLOCK_SVG = !!CONFIG.sanitize.blockSvgInImg;
+    const ALLOWED_TAGS = CFG.sanitize.allowedTags;
+    const ALLOWED_ATTRS = CFG.sanitize.allowedAttrs;
+    const SAFE_PROTOCOLS = CFG.sanitize.safeProtocols;
+    const ALLOWED_STYLES = CFG.sanitize.allowedInlineStyles;
+    const BLOCK_SVG = !!CFG.sanitize.blockSvgInImg;
 
     const clean = (node) => {
       if (node.nodeType === Node.TEXT_NODE) return;
@@ -611,8 +474,8 @@
   }
 
   function showUndoToast(onUndo) {
-    document.querySelector('.mask-toast')?.remove();
-    const toast = document.createElement('div');
+    $('.mask-toast')?.remove();
+    const toast = createEl('div');
     toast.className = 'mask-toast';
     toast.innerHTML = `<span>Маска удалена.</span><button type="button" class="mask-toast-undo" tabindex="0">Отменить</button>`;
     document.body.appendChild(toast);
@@ -633,7 +496,7 @@
       codeBlocks.push(m);
       return `${placeholder}${codeBlocks.length - 1}${placeholder}`;
     });
-    const tags = CONFIG.allTags.join('|');
+    const tags = CFG.allTags.join('|');
     html = html.replace(
       new RegExp(`\\[(${tags})\\][\\s\\S]*?\\[\\/\\1\\]`, 'gi'),
       '',
@@ -652,17 +515,17 @@
   };
 
   function createFormField(fieldConfig, key, value) {
-    const wrap = document.createElement('div');
+    const wrap = createEl('div');
     wrap.className = 'mask-form-field';
     if (fieldConfig.label) {
-      const lbl = document.createElement('label');
+      const lbl = createEl('label');
       lbl.className = 'mask-field-label';
       lbl.htmlFor = `mask-${key}`;
       lbl.textContent = fieldConfig.label;
       wrap.append(lbl);
     }
     if (fieldConfig.defaultCode) {
-      const btn = document.createElement('button');
+      const btn = createEl('button');
       btn.type = 'button';
       btn.className = 'mask-template-btn';
       btn.textContent = '« вставить шаблон';
@@ -673,8 +536,8 @@
       fieldConfig.type === 'bbcode' ||
       fieldConfig.type === 'html' ||
       key === 'signature'
-        ? document.createElement('textarea')
-        : document.createElement('input');
+        ? createEl('textarea')
+        : createEl('input');
     input.id = `mask-${key}`;
     input.className = 'mask-field-input';
     input.placeholder = fieldConfig.label || key;
@@ -686,7 +549,7 @@
   }
 
   function createActionButton(text, action) {
-    const btn = document.createElement('button');
+    const btn = createEl('button');
     btn.type = 'button';
     btn.className = 'mask-action-btn';
     btn.textContent = text;
@@ -695,8 +558,8 @@
   }
 
   function showToast({ text, type = 'info', timeout = 4000 } = {}) {
-    document.querySelector('.mask-toast')?.remove();
-    const toast = document.createElement('div');
+    $('.mask-toast')?.remove();
+    const toast = createEl('div');
     toast.className = `mask-toast mask-toast--${type}`;
     toast.innerHTML = `<span>${text}</span>`;
     document.body.appendChild(toast);
@@ -708,7 +571,7 @@
   }
 
   const observePreviewChanges = () => {
-    const box = document.querySelector(SELECTORS.previewBox);
+    const box = $(SELECTORS.previewBox);
     if (!box) return;
     if (previewObserver) previewObserver.disconnect();
     previewObserver = new MutationObserver(() => {
@@ -723,7 +586,7 @@
   };
 
   function scrubPreview() {
-    const box = document.querySelector(SELECTORS.previewBox);
+    const box = $(SELECTORS.previewBox);
     if (!box) return;
     const target = box.querySelector('.post-content') || box;
     const cleaned = Cache.getCleaned(target.innerHTML);
@@ -732,7 +595,7 @@
 
   const extractMaskTags_noCache = (html) => {
     const res = {};
-    for (const [fieldKey, fieldConfig] of Object.entries(CONFIG.fields)) {
+    for (const [fieldKey, fieldConfig] of Object.entries(CFG.fields)) {
       for (const tag of fieldConfig.tags) {
         const re = new RegExp(`\\[${tag}\\]([\\s\\S]*?)\\[\\/${tag}\\]`, 'i');
         const m = html.match(re);
@@ -755,18 +618,18 @@
   const getOrCreateProfileField = (profileBlock, className) => {
     let li = profileBlock.querySelector('.' + className);
     if (li) return li;
-    const idx = CONFIG.userFieldOrder.indexOf(className);
+    const idx = CFG.userFieldOrder.indexOf(className);
     let insertBefore;
     if (idx !== -1) {
-      for (let i = idx + 1; i < CONFIG.userFieldOrder.length; i++) {
-        const el = profileBlock.querySelector('.' + CONFIG.userFieldOrder[i]);
+      for (let i = idx + 1; i < CFG.userFieldOrder.length; i++) {
+        const el = profileBlock.querySelector('.' + CFG.userFieldOrder[i]);
         if (el) {
           insertBefore = el;
           break;
         }
       }
     }
-    li = document.createElement('li');
+    li = createEl('li');
     li.className = className;
     insertBefore
       ? profileBlock.insertBefore(li, insertBefore)
@@ -849,13 +712,8 @@
     const doAvatar = !!data.avatar;
 
     if (doAvatar && (onlyAvatar || allowAll)) {
-      const li = getOrCreateProfileField(
-        profileBlock,
-        CONFIG.fields.avatar.class,
-      );
-      const img =
-        li.querySelector('img') ||
-        li.appendChild(document.createElement('img'));
+      const li = getOrCreateProfileField(profileBlock, CFG.fields.avatar.class);
+      const img = li.querySelector('img') || li.appendChild(createEl('img'));
       img.src = normalizeUrl(
         typeof data.avatar === 'object' ? data.avatar.content : data.avatar,
       );
@@ -863,10 +721,10 @@
     }
 
     if (allowAll) {
-      CONFIG.userFieldOrder.forEach((className) => {
+      CFG.userFieldOrder.forEach((className) => {
         const key = getFieldKeyByClass(className);
         if (!key || !data[key]) return;
-        const fld = CONFIG.fields[key];
+        const fld = CFG.fields[key];
         const value =
           typeof data[key] === 'object' ? data[key].content : data[key];
         if (key === 'avatar') return;
@@ -875,7 +733,7 @@
           if (!contentEl) return;
           let dl = contentEl.querySelector('.post-sig');
           if (!dl) {
-            dl = document.createElement('dl');
+            dl = createEl('dl');
             dl.className = fld.class;
             dl.innerHTML = '<dt><span>Подпись автора</span></dt><dd></dd>';
             contentEl.appendChild(dl);
@@ -886,9 +744,7 @@
           li.innerHTML = sanitizeHtml(value);
         } else if (fld.type === 'link') {
           const li = getOrCreateProfileField(profileBlock, fld.class);
-          const a =
-            li.querySelector('a') ||
-            li.appendChild(document.createElement('a'));
+          const a = li.querySelector('a') || li.appendChild(createEl('a'));
           a.href = normalizeUrl(value);
           a.textContent = value;
           a.target = '_blank';
@@ -928,7 +784,7 @@
   };
 
   const processPosts = async () => {
-    const posts = [...document.querySelectorAll(SELECTORS.post)];
+    const posts = [...$$(SELECTORS.post)];
     if (!posts.length) return;
     const changed = [];
     for (const post of posts) {
@@ -990,7 +846,7 @@
     )
       return active;
     for (const sel of SELECTORS.textarea) {
-      const el = document.querySelector(sel);
+      const el = $(sel);
       if (
         el?.tagName === 'TEXTAREA' &&
         !el.disabled &&
@@ -999,7 +855,7 @@
       )
         return el;
     }
-    return [...document.querySelectorAll('textarea')].find(
+    return [...$$('textarea')].find(
       (el) =>
         !el.disabled &&
         !el.readOnly &&
@@ -1011,9 +867,8 @@
 
   const addToolbarButton = () => {
     const tryInsert = () => {
-      const addition = document.getElementById('button-addition');
-      const row =
-        addition?.closest('tr') || document.querySelector(SELECTORS.toolbarRow);
+      const addition = $('#button-addition');
+      const row = addition?.closest('tr') || $(SELECTORS.toolbarRow);
       if (!row) return;
       insertBtnAfterAddition(addition, row);
       observer.disconnect();
@@ -1024,14 +879,14 @@
   };
 
   const insertBtnAfterAddition = (additionTd, row) => {
-    if (document.getElementById('button-mask')) return;
+    if ($('#button-mask')) return;
     const isTableRow = row.tagName === 'TR' || additionTd;
     if (isTableRow) {
-      const btn = document.createElement('td');
+      const btn = createEl('td');
       btn.id = 'button-mask';
       btn.title = 'Маска профиля';
       btn.innerHTML = '<img src="/i/blank.gif">';
-      btn.style.backgroundImage = `url("${CONFIG.buttonIcon}")`;
+      btn.style.backgroundImage = `url("${CFG.buttonIcon}")`;
       btn.style.backgroundRepeat = 'no-repeat';
       btn.style.backgroundPosition = '50% 4px';
       btn.style.display = 'table-cell';
@@ -1043,14 +898,14 @@
         additionTd.parentNode.insertBefore(btn, additionTd.nextSibling);
       else row.appendChild(btn);
     } else {
-      const btn = document.createElement('span');
+      const btn = createEl('span');
       btn.id = 'maskBtn';
       btn.style.display = 'inline-block';
       btn.style.verticalAlign = 'middle';
       btn.style.marginLeft = '8px';
       btn.title = 'Маска профиля';
       btn.style.cursor = 'pointer';
-      btn.innerHTML = `<img src="${CONFIG.buttonIcon}" alt="Маска">`;
+      btn.innerHTML = `<img src="${CFG.buttonIcon}" alt="Маска">`;
       btn.addEventListener('click', (e) => {
         if (e.ctrlKey || e.metaKey) return insertQuickIcon();
         openDialog();
@@ -1082,7 +937,7 @@
   };
 
   const showTooltip = (e, html) => {
-    const tip = document.createElement('div');
+    const tip = createEl('div');
     tip.className = 'mask-tooltip';
     tip.innerHTML = html;
     tip.style.left = e.clientX + 16 + 'px';
@@ -1111,23 +966,23 @@
 
   const validateForm = () => {
     const errors = [];
-    CONFIG.userFieldOrder.forEach((className) => {
+    CFG.userFieldOrder.forEach((className) => {
       const key = getFieldKeyByClass(className);
       if (!key) return;
-      const el = document.querySelector(`#mask-${key}`);
+      const el = $(`#mask-${key}`);
       if (!el) return;
       const err = validateField(key, el.value.trim());
       if (err) errors.push({ key, err });
     });
 
-    CONFIG.userFieldOrder.forEach((className) => {
+    CFG.userFieldOrder.forEach((className) => {
       const key = getFieldKeyByClass(className);
       if (!key) return;
-      const field = document.querySelector(`#mask-${key}`);
+      const field = $(`#mask-${key}`);
       if (!field) return;
       let errBox = field.nextElementSibling;
       if (!errBox || !errBox.classList.contains('mask-field-error')) {
-        errBox = document.createElement('div');
+        errBox = createEl('div');
         errBox.className = 'mask-field-error';
         field.after(errBox);
       }
@@ -1138,9 +993,9 @@
     if (errorContainer)
       errorContainer.textContent = errors.map((e) => e.err).join('; ');
 
-    const hasAnyValue = CONFIG.userFieldOrder.some((className) => {
+    const hasAnyValue = CFG.userFieldOrder.some((className) => {
       const key = getFieldKeyByClass(className);
-      const el = document.querySelector(`#mask-${key}`);
+      const el = $(`#mask-${key}`);
       return el && el.value.trim() !== '';
     });
 
@@ -1155,52 +1010,52 @@
 
   const updatePreview = () => {
     currentMask = {};
-    CONFIG.userFieldOrder.forEach((className) => {
+    CFG.userFieldOrder.forEach((className) => {
       const key = getFieldKeyByClass(className);
       if (!key) return;
-      const el = document.querySelector(`#mask-${key}`);
+      const el = $(`#mask-${key}`);
       if (el?.value.trim()) currentMask[key] = el.value.trim();
     });
     const code =
-      `[${CONFIG.blockTag}]` +
+      `[${CFG.blockTag}]` +
       Object.entries(currentMask)
         .map(
           ([k, v]) =>
-            `[${CONFIG.fields[k].tags[0]}]${v}[/${CONFIG.fields[k].tags[0]}]`,
+            `[${CFG.fields[k].tags[0]}]${v}[/${CFG.fields[k].tags[0]}]`,
         )
         .join('') +
-      `[/${CONFIG.blockTag}]`;
+      `[/${CFG.blockTag}]`;
 
     if (previewContainer) previewContainer.innerHTML = '';
 
-    CONFIG.userFieldOrder.forEach((className) => {
+    CFG.userFieldOrder.forEach((className) => {
       const key = getFieldKeyByClass(className);
       if (!key) return;
-      const fld = CONFIG.fields[key];
+      const fld = CFG.fields[key];
       if (!fld) return;
       const value = currentMask[key];
       let el;
       if (fld.type === 'avatar') {
-        el = document.createElement('img');
+        el = createEl('img');
         el.className = 'mask-preview-avatar';
-        el.src = value || CONFIG.defaultAvatar;
+        el.src = value || CFG.defaultAvatar;
       } else if (fld.type === 'bbcode') {
-        el = document.createElement('div');
+        el = createEl('div');
         el.className = 'mask-preview-bbcode';
         el.innerHTML = convertBbcodeToHtml(value || '');
       } else if (fld.type === 'html') {
-        el = document.createElement('div');
+        el = createEl('div');
         el.className = 'mask-preview-html';
         el.innerHTML = sanitizeHtml(value || '');
       } else if (fld.type === 'link') {
-        el = document.createElement('a');
+        el = createEl('a');
         el.className = 'mask-preview-link';
         el.href = normalizeUrl(value || '');
         el.target = '_blank';
         el.rel = 'noopener noreferrer';
         el.textContent = value || fld.label || key;
       } else {
-        el = document.createElement('div');
+        el = createEl('div');
         el.className = 'mask-preview-text';
         el.textContent = value || fld.label || key;
       }
@@ -1208,7 +1063,7 @@
     });
 
     nodes.dialog?.querySelector('#mask-preview')?.remove();
-    const codeEl = document.createElement('pre');
+    const codeEl = createEl('pre');
     codeEl.id = 'mask-preview';
     codeEl.className = 'mask-preview-code';
     codeEl.textContent = code;
@@ -1218,8 +1073,8 @@
   };
 
   const insertTemplate = (key) => {
-    const fld = CONFIG.fields[key];
-    const el = document.querySelector(`#mask-${key}`);
+    const fld = CFG.fields[key];
+    const el = $(`#mask-${key}`);
     if (fld?.defaultCode && el) {
       el.value = fld.defaultCode;
       el.dispatchEvent(new Event('input'));
@@ -1227,10 +1082,10 @@
   };
 
   const fillForm = (data) => {
-    CONFIG.userFieldOrder.forEach((className) => {
+    CFG.userFieldOrder.forEach((className) => {
       const key = getFieldKeyByClass(className);
       if (!key) return;
-      const el = document.querySelector(`#mask-${key}`);
+      const el = $(`#mask-${key}`);
       if (el) el.value = data[key] || '';
     });
     updatePreview();
@@ -1238,7 +1093,7 @@
   };
 
   const insertCode = () => {
-    const codeEl = document.querySelector('#mask-preview');
+    const codeEl = $('#mask-preview');
     if (!codeEl) return;
     const code = codeEl.textContent;
     const ta = getActiveTextarea();
@@ -1270,11 +1125,11 @@
 
   function createMaskItem(record, index) {
     const m = JSON.parse(record);
-    const wrap = document.createElement('div');
+    const wrap = createEl('div');
     wrap.className = 'mask-storage-item';
     wrap.draggable = false;
     wrap.dataset.index = index;
-    const handle = document.createElement('span');
+    const handle = createEl('span');
     handle.className = 'drag-handle';
     handle.innerHTML = '&#x22EE;';
     handle.draggable = true;
@@ -1292,7 +1147,7 @@
       handle.draggable = false;
       handle.dispatchEvent(new DragEvent('dragend', { bubbles: true }));
     });
-    const upBtn = document.createElement('button');
+    const upBtn = createEl('button');
     upBtn.type = 'button';
     upBtn.className = 'mask-move-up';
     upBtn.title = 'Переместить вверх';
@@ -1300,7 +1155,7 @@
     upBtn.tabIndex = 0;
     upBtn.setAttribute('aria-label', 'Переместить вверх');
     wrap.append(upBtn);
-    const downBtn = document.createElement('button');
+    const downBtn = createEl('button');
     downBtn.type = 'button';
     downBtn.className = 'mask-move-down';
     downBtn.title = 'Переместить вниз';
@@ -1308,21 +1163,21 @@
     downBtn.tabIndex = 0;
     downBtn.setAttribute('aria-label', 'Переместить вниз');
     wrap.append(downBtn);
-    const img = document.createElement('img');
-    img.src = m.avatar || CONFIG.defaultAvatar;
+    const img = createEl('img');
+    img.src = m.avatar || CFG.defaultAvatar;
     img.className = 'mask-storage-avatar';
     wrap.append(img);
     const tooltipHtml = Object.entries(m)
       .map(
         ([k, v]) =>
           `<div class="mask-tooltip-field"><b>${escHtml(
-            CONFIG.fields[k]?.tags[0] || k,
+            CFG.fields[k]?.tags[0] || k,
           )}</b>: ${escHtml(v)}</div>`,
       )
       .join('');
     img.addEventListener('mouseenter', (e) => showTooltip(e, tooltipHtml));
     img.addEventListener('mouseleave', hideTooltip);
-    const del = document.createElement('span');
+    const del = createEl('span');
     del.className = 'mask-delete-btn';
     del.textContent = '\u00D7';
     del.title = 'Удалить';
@@ -1333,7 +1188,7 @@
   function renderStoragePanel(storagePanel) {
     storagePanel.innerHTML = '';
     if (!MaskStore.masks.length) {
-      const emptyMsg = document.createElement('div');
+      const emptyMsg = createEl('div');
       emptyMsg.className = 'mask-storage-empty';
       emptyMsg.innerHTML =
         '<div><div>📋</div><b>Нет сохранённых масок</b><br><span>Используйте форму, чтобы добавить первую маску.</span></div>';
@@ -1347,14 +1202,14 @@
   }
 
   const openDialog = async () => {
-    if (document.querySelector('#mask-overlay')) return;
-    nodes.overlay = document.body.appendChild(document.createElement('div'));
+    if ($('#mask-overlay')) return;
+    nodes.overlay = document.body.appendChild(createEl('div'));
     nodes.overlay.id = 'mask-overlay';
     nodes.overlay.addEventListener('click', (e) => {
       if (e.target === nodes.overlay) closeDialog();
     });
     document.body.classList.add('mask-modal-open');
-    nodes.dialog = nodes.overlay.appendChild(document.createElement('div'));
+    nodes.dialog = nodes.overlay.appendChild(createEl('div'));
     nodes.dialog.id = 'mask-dialog';
     nodes.dialog.innerHTML = `
     <div class="mask-content">
@@ -1456,14 +1311,14 @@
     templateSelect.addEventListener('change', (e) => {
       fillForm(templates[Number(e.target.value)]);
       showToast({ text: 'Шаблон подставлен', type: 'info' });
-      setTimeout(() => document.getElementById('mask-author')?.focus(), 0);
+      setTimeout(() => $('#mask-author')?.focus(), 0);
     });
 
     formEl.innerHTML = '';
-    CONFIG.userFieldOrder.forEach((className) => {
+    CFG.userFieldOrder.forEach((className) => {
       const key = getFieldKeyByClass(className);
       if (!key) return;
-      const fld = CONFIG.fields[key];
+      const fld = CFG.fields[key];
       const value = currentMask[key] || '';
       const field = createFormField(fld, key, value);
       field
@@ -1476,12 +1331,12 @@
       if (e.target.matches('.mask-template-btn')) {
         insertTemplate(e.target.dataset.field);
         showToast({ text: 'Шаблон поля подставлен', type: 'info' });
-        setTimeout(() => document.getElementById('mask-author')?.focus(), 0);
+        setTimeout(() => $('#mask-author')?.focus(), 0);
       }
     });
 
     previewContainer = previewPanel;
-    errorContainer = document.createElement('div');
+    errorContainer = createEl('div');
     errorContainer.className = 'mask-errors';
     formEl.after(errorContainer);
 
@@ -1555,7 +1410,7 @@
         editingIndex = idx;
         fillForm(JSON.parse(MaskStore.masks[idx]));
         showToast({ text: 'Маска загружена для редактирования', type: 'info' });
-        setTimeout(() => document.getElementById('mask-author')?.focus(), 0);
+        setTimeout(() => $('#mask-author')?.focus(), 0);
         return;
       }
       if (e.target.matches('.mask-move-up') && idx > 0) {
@@ -1579,7 +1434,7 @@
 
     loadDraft();
     updatePreview();
-    setTimeout(() => document.getElementById('mask-author')?.focus(), 0);
+    setTimeout(() => $('#mask-author')?.focus(), 0);
   };
 
   let initialized = false;
@@ -1591,7 +1446,7 @@
     document.addEventListener('pun_edit', () => processPosts());
     addToolbarButton();
 
-    if (document.querySelector(SELECTORS.previewBox)) {
+    if ($(SELECTORS.previewBox)) {
       observePreviewChanges();
       document.addEventListener('pun_preview', scrubPreview);
       document.addEventListener('pun_preedit', scrubPreview);
@@ -1599,12 +1454,12 @@
 
     if (window.GroupID === 1) {
       const toSave = {
-        fields: CONFIG.fields,
-        userFields: CONFIG.userFieldOrder,
-        blockTag: CONFIG.blockTag,
-        defaultAvatar: CONFIG.defaultAvatar,
-        buttonImage: CONFIG.buttonIcon,
-        sanitize: CONFIG.sanitize,
+        fields: CFG.fields,
+        userFields: CFG.userFieldOrder,
+        blockTag: CFG.blockTag,
+        defaultAvatar: CFG.defaultAvatar,
+        buttonImage: CFG.buttonIcon,
+        sanitize: CFG.sanitize,
       };
       const getParams = new URLSearchParams({
         method: 'storage.get',
@@ -1636,7 +1491,7 @@
     }
 
     processPosts();
-    window.MASK_SCRIPT = { CONFIG, removeMaskTagsFromPreview, Cache };
+    window.MASK_SCRIPT = { CONFIG: CFG, removeMaskTagsFromPreview, Cache };
   }
 
   if (document.readyState !== 'loading') init();

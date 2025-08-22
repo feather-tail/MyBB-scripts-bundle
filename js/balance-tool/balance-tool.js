@@ -1,49 +1,14 @@
 (() => {
   'use strict';
 
-  const CONFIG = {
-    ui: {
-      insertAfterSelector: '.post-rating',
-      openButtonText: 'Баланс',
-      runButtonText: 'Выполнить',
-      labels: { type: 'Тип операции', amount: 'Количество' },
-      inputStyle: 'color:#111 !important',
-    },
-    access: { allowedTopicIds: ['1', '2', '3'], allowedGroupIds: [1] },
-    profileFieldKey: 'auto',
-    operations: [
-      { title: 'Начисление', factor: 1, topics: 'all' },
-      { title: 'Списание', factor: -1, topics: 'all' },
-    ],
-    decimals: 2,
-    decoratePost: true,
-    simulateOnly: false,
-    rate: { max: 10, windowMs: 300000 },
-    wrapper: {
-      start: `[spoiler="[b]ОБРАБОТАНО[/b] ({{ADMIN_NAME}}) — было: {{CACHE_BEFORE}}, стало: {{CACHE_AFTER}}"]\n[b]Операция:[/b] авто&#8209;начисление из темы банка\n\n`,
-      end: `\n[/spoiler]`,
-    },
-    adminAliases: { 1: 'АМС' },
-    endpoints: {
-      profileUrl: (uid) => `/profile.php?section=fields&id=${uid}`,
-      profileFormSelector: 'form[action*="profile.php"][method="post"]',
-      postEditUrl: (pid) => `/edit.php?id=${pid}&action=edit`,
-      postEditFormSelector: 'form[action*="edit.php"][method="post"]',
-      postEditMessageField: 'req_message',
-    },
-  };
-
-  const $ = (s, r = document) => r.querySelector(s);
-  const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
-  const parseHTML = (html) =>
-    new DOMParser().parseFromString(html, 'text/html');
+  const { $, $$, parseHTML, withTimeout, crc32 } = window.helpers;
+  const CFG = window.ScriptConfig.balanceTool;
   const topicId = () => new URLSearchParams(location.search).get('id') || '';
-  const allowedTopic = (id) =>
-    CONFIG.access.allowedTopicIds.includes(String(id));
+  const allowedTopic = (id) => CFG.access.allowedTopicIds.includes(String(id));
   const allowedGroup = (gid) =>
-    CONFIG.access.allowedGroupIds.includes(Number(gid));
+    CFG.access.allowedGroupIds.includes(Number(gid));
   const pickAdminName = () =>
-    CONFIG.adminAliases?.[window.UserID] || window.UserLogin || 'Администратор';
+    CFG.adminAliases?.[window.UserID] || window.UserLogin || 'Администратор';
   const roundVal = (v, d) => {
     if (!Number.isFinite(v)) return 0;
     if (d === 0) return Math.trunc(v);
@@ -56,17 +21,6 @@
   const topicsMatch = (opTopics, id) =>
     opTopics === 'all' ||
     (Array.isArray(opTopics) && opTopics.includes(String(id)));
-
-  const crc32 = (s) => {
-    let c = ~0;
-    for (let i = 0; i < s.length; i++) {
-      c ^= s.charCodeAt(i);
-      for (let k = 0; k < 8; k++) {
-        c = (c >>> 1) ^ (0xedb88320 & -(c & 1));
-      }
-    }
-    return (~c >>> 0).toString(16).padStart(8, '0');
-  };
   const fieldsHash = (form) => {
     const arr = [];
     for (const el of Array.from(form.elements || [])) {
@@ -78,16 +32,11 @@
     return crc32(arr.join('&'));
   };
 
-  const withTimeout = (p, ms = 15000) =>
-    Promise.race([
-      p,
-      new Promise((_, rej) =>
-        setTimeout(() => rej(new Error('Таймаут запроса')), ms),
-      ),
-    ]);
-
   const fetchDoc = async (url) => {
-    const res = await withTimeout(fetch(url, { credentials: 'same-origin' }));
+    const res = await withTimeout(
+      fetch(url, { credentials: 'same-origin' }),
+      CFG.requestTimeoutMs,
+    );
     if (!res.ok) throw new Error(`GET ${url} ${res.status}`);
     const buf = await res.arrayBuffer();
     let txt;
@@ -116,6 +65,7 @@
         referrerPolicy: 'strict-origin-when-cross-origin',
         mode: 'same-origin',
       }),
+      CFG.requestTimeoutMs,
     );
     if (!res.ok) throw new Error(`POST ${url} ${res.status}`);
     return res;
@@ -233,7 +183,7 @@
     document.body.appendChild(el);
     setTimeout(() => {
       el.remove();
-    }, 2200);
+    }, CFG.toastDurationMs);
   };
 
   const LS_KEY = 'balance-tool:last';
@@ -268,15 +218,14 @@
   const ring = [];
   const rateOk = () => {
     const now = Date.now();
-    while (ring.length && now - ring[0] > CONFIG.rate.windowMs) ring.shift();
-    if (ring.length >= CONFIG.rate.max) return false;
+    while (ring.length && now - ring[0] > CFG.rate.windowMs) ring.shift();
+    if (ring.length >= CFG.rate.max) return false;
     ring.push(now);
     return true;
   };
 
   const resolveMoneyFieldName = (profileForm) => {
-    if (CONFIG.profileFieldKey !== 'auto')
-      return `form[${CONFIG.profileFieldKey}]`;
+    if (CFG.profileFieldKey !== 'auto') return `form[${CFG.profileFieldKey}]`;
     const legends = ['деньги', 'баланс'];
     for (const fs of profileForm.querySelectorAll('fieldset')) {
       const t = (
@@ -300,7 +249,7 @@
     }</dd><dt>Количество</dt><dd>${qty}</dd><dt>Было</dt><dd>${before}</dd><dt>Стало</dt><dd>${after}</dd></dl><p>Новые значения будут видны после обновления страницы.</p></div>`;
 
   const mountAll = () => {
-    $$(CONFIG.ui.insertAfterSelector).forEach((a) => {
+    $$(CFG.ui.insertAfterSelector).forEach((a) => {
       if (a.dataset.btMounted) return;
       a.dataset.btMounted = '1';
       try {
@@ -324,7 +273,7 @@
     anchor.insertAdjacentElement('afterend', wrap);
     const btnOpen = document.createElement('input');
     btnOpen.type = 'button';
-    btnOpen.value = CONFIG.ui.openButtonText;
+    btnOpen.value = CFG.ui.openButtonText;
     btnOpen.className = 'balance-tool__open';
     btnOpen.setAttribute('aria-expanded', 'false');
     btnOpen.setAttribute('aria-controls', '');
@@ -337,7 +286,7 @@
     const sel = document.createElement('select');
     sel.className = 'balance-tool__select';
     sel.append(new Option('Не выбрано', ''));
-    const ops = CONFIG.operations.filter((op) =>
+    const ops = CFG.operations.filter((op) =>
       topicsMatch(op.topics, topicId()),
     );
     for (const op of ops) {
@@ -351,14 +300,14 @@
     const amt = document.createElement('input');
     amt.type = 'number';
     amt.min = '0';
-    amt.step = CONFIG.decimals > 0 ? String(1 / 10 ** CONFIG.decimals) : '1';
+    amt.step = CFG.decimals > 0 ? String(1 / 10 ** CFG.decimals) : '1';
     amt.className = 'balance-tool__amount';
-    amt.setAttribute('style', CONFIG.ui.inputStyle);
+    amt.setAttribute('style', CFG.ui.inputStyle);
     amt.setAttribute('inputmode', 'decimal');
     amt.setAttribute('aria-label', 'Количество');
     const btnRun = document.createElement('input');
     btnRun.type = 'button';
-    btnRun.value = CONFIG.ui.runButtonText;
+    btnRun.value = CFG.ui.runButtonText;
     btnRun.className = 'balance-tool__run';
     btnRun.disabled = true;
     btnRun.setAttribute('aria-disabled', 'true');
@@ -366,14 +315,14 @@
     rowType.className = 'balance-tool__row';
     const labelType = document.createElement('label');
     labelType.className = 'balance-tool__label';
-    labelType.textContent = CONFIG.ui.labels.type;
+    labelType.textContent = CFG.ui.labels.type;
     labelType.htmlFor = '';
     rowType.append(labelType, sel);
     const rowAmt = document.createElement('p');
     rowAmt.className = 'balance-tool__row';
     const labelAmt = document.createElement('label');
     labelAmt.className = 'balance-tool__label';
-    labelAmt.textContent = CONFIG.ui.labels.amount;
+    labelAmt.textContent = CFG.ui.labels.amount;
     labelAmt.htmlFor = '';
     rowAmt.append(labelAmt, amt);
     const statusArea = document.createElement('div');
@@ -441,10 +390,10 @@
   async function applyOperation({ postRoot, statusArea, factor, qty }) {
     const userId = getUserId(postRoot);
     const postId = getPostId(postRoot);
-    const profileUrl = CONFIG.endpoints.profileUrl(userId);
+    const profileUrl = CFG.endpoints.profileUrl(userId);
     const profileForm = await fetchForm(
       profileUrl,
-      CONFIG.endpoints.profileFormSelector,
+      CFG.endpoints.profileFormSelector,
     );
     const profileAction = profileForm.getAttribute('action') || profileUrl;
     const moneyField = resolveMoneyFieldName(profileForm);
@@ -452,8 +401,8 @@
       `input[name="${CSS.escape(moneyField)}"]`,
     );
     const current = parseFloat(moneyInput?.value || '0') || 0;
-    const next = roundVal(current + factor * qty, CONFIG.decimals);
-    if (CONFIG.simulateOnly) {
+    const next = roundVal(current + factor * qty, CFG.decimals);
+    if (CFG.simulateOnly) {
       statusArea.innerHTML =
         buildReport(factor, qty, current, next) +
         `<p>&#129514; Предпросмотр: без сохранения.</p>`;
@@ -465,13 +414,13 @@
     await postForm(profileAction, profileParams, profileAction);
     const afterForm = await fetchForm(
       profileAction,
-      CONFIG.endpoints.profileFormSelector,
+      CFG.endpoints.profileFormSelector,
     );
     const afterInput = afterForm.querySelector(
       `input[name="${CSS.escape(moneyField)}"]`,
     );
     const saved = parseFloat(afterInput?.value || '0') || 0;
-    const ok = Math.abs(saved - next) < 1 / 10 ** (CONFIG.decimals + 1);
+    const ok = Math.abs(saved - next) < 1 / 10 ** (CFG.decimals + 1);
     const afterHash = fieldsHash(afterForm);
     const hashChanged = beforeHash !== afterHash;
     statusArea.innerHTML =
@@ -483,14 +432,14 @@
         ? `<p>&#8505;&#65039; Профиль изменён: возможно, кто-то редактировал параллельно.</p>`
         : '');
     toast(ok ? 'Баланс обновлён' : 'Проверка не прошла', ok);
-    if (!CONFIG.decoratePost) return;
-    const editUrl = CONFIG.endpoints.postEditUrl(postId);
+    if (!CFG.decoratePost) return;
+    const editUrl = CFG.endpoints.postEditUrl(postId);
     const editForm = await fetchForm(
       editUrl,
-      CONFIG.endpoints.postEditFormSelector,
+      CFG.endpoints.postEditFormSelector,
     );
     const editAction = editForm.getAttribute('action') || editUrl;
-    let msgField = CONFIG.endpoints.postEditMessageField;
+    let msgField = CFG.endpoints.postEditMessageField;
     let msgEl =
       editForm.querySelector(`textarea[name="${CSS.escape(msgField)}"]`) ||
       editForm.querySelector('textarea[name="message"]') ||
@@ -500,7 +449,7 @@
       throw new Error('Поле текста сообщения не найдено');
     msgField = msgEl.name;
     const original = msgEl.value || '';
-    let decorated = CONFIG.wrapper.start + original + CONFIG.wrapper.end;
+    let decorated = CFG.wrapper.start + original + CFG.wrapper.end;
     decorated = decorated
       .replaceAll('{{CACHE_BEFORE}}', String(current))
       .replaceAll('{{CACHE_AFTER}}', String(ok ? saved : next))
