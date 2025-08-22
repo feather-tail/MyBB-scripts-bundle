@@ -1,10 +1,8 @@
 (() => {
   'use strict';
-  const CFG = {
-    maxDice: 9,
-    maxSides: 100,
-    obfOffset: 1193,
-  };
+
+  const { $, $$, createEl } = window.helpers;
+  const CFG = window.ScriptConfig.dice;
   const bbRe = /\[dice=((?:\d+-)+)(\d+):(\d+)\]/g;
 
   let diceButton = null;
@@ -28,7 +26,7 @@
   }
 
   function createModal() {
-    modalOverlay = document.createElement('div');
+    modalOverlay = createEl('div');
     modalOverlay.className = 'dice-overlay';
     modalOverlay.setAttribute('aria-hidden', 'true');
     modalOverlay.innerHTML = `
@@ -50,10 +48,10 @@
       `;
     document.body.appendChild(modalOverlay);
 
-    countInput = modalOverlay.querySelector('#dice-count');
-    sidesInput = modalOverlay.querySelector('#dice-sides');
-    cancelBtn = modalOverlay.querySelector('#dice-cancel');
-    okBtn = modalOverlay.querySelector('#dice-ok');
+    countInput = $('#dice-count', modalOverlay);
+    sidesInput = $('#dice-sides', modalOverlay);
+    cancelBtn = $('#dice-cancel', modalOverlay);
+    okBtn = $('#dice-ok', modalOverlay);
 
     function closeModal() {
       modalOverlay.classList.remove('active');
@@ -77,9 +75,7 @@
 
     modalOverlay.addEventListener('keydown', (e) => {
       if (e.key !== 'Tab') return;
-      const focusable = Array.from(
-        modalOverlay.querySelectorAll('input, button'),
-      );
+      const focusable = $$('input, button', modalOverlay);
       const first = focusable[0],
         last = focusable[focusable.length - 1];
       if (e.shiftKey) {
@@ -129,7 +125,7 @@
     } else if (typeof insert === 'function') {
       insert(' ' + code + ' ');
     } else {
-      const ta = document.querySelector('textarea');
+      const ta = $('textarea');
       if (ta) {
         ta.value += '\n' + code;
         ta.focus();
@@ -159,7 +155,7 @@
   }
 
   function initDice() {
-    document.querySelectorAll('.post-content').forEach((pc) => {
+    $$('.post-content').forEach((pc) => {
       if (pc.textContent.includes('[dice=')) {
         renderDiceInPost(pc);
       }
@@ -198,8 +194,8 @@
     if (initialized) return;
     initialized = true;
 
-    diceButton = document.getElementById('dice-roll-btn');
-    postContainer = document.getElementById('pun-viewtopic');
+    diceButton = $('#dice-roll-btn');
+    postContainer = $('#pun-viewtopic');
     if (!diceButton) return;
 
     createModal();
