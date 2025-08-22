@@ -1,34 +1,24 @@
 (() => {
   'use strict';
-  const JUSTIFY_CONFIG = {
-    insertAfterSelector: '#button-right',
-    buttonId: 'button-justify',
-    iconSrc: '/i/blank.gif',
-    title: 'Выравнивание по ширине',
-    bbcodeOpen: '[align=justify]',
-    bbcodeClose: '[/align]',
-  };
+
+  const { createEl } = window.helpers;
+  const CFG = window.ScriptConfig.bbcodeJustify;
 
   let initialized = false;
   function init() {
     if (initialized) return;
     initialized = true;
 
-    const refTd = document.querySelector(JUSTIFY_CONFIG.insertAfterSelector);
+    const refTd = document.querySelector(CFG.insertAfterSelector);
     if (!refTd || refTd.tagName !== 'TD') return;
 
-    const td = document.createElement('td');
-    td.id = JUSTIFY_CONFIG.buttonId;
-    td.title = JUSTIFY_CONFIG.title;
-
-    const img = document.createElement('img');
-    img.src = JUSTIFY_CONFIG.iconSrc;
-    img.alt = JUSTIFY_CONFIG.title;
+    const td = createEl('td', { id: CFG.buttonId, title: CFG.title });
+    const img = createEl('img', { src: CFG.iconSrc, alt: CFG.title });
     td.appendChild(img);
 
     td.addEventListener('click', () => {
       if (typeof bbcode === 'function') {
-        bbcode(JUSTIFY_CONFIG.bbcodeOpen, JUSTIFY_CONFIG.bbcodeClose);
+        bbcode(CFG.bbcodeOpen, CFG.bbcodeClose);
       } else {
         td.classList.add('inactive');
         td.title = 'Функция bbcode не найдена';

@@ -1,39 +1,29 @@
 (() => {
   'use strict';
 
-  const BUTTON_AFTER = 'td#button-link';
-  const POST_CONTENT_SEL = '.post-content';
-  const PREVIEW_SEL = '#post-preview .post-content';
-  const TOOLBAR_ID = 'float-toolbar';
-  const FLOAT_BTN_ID = 'button-float';
+  const { $, $$, createEl } = window.helpers;
+  const CFG = window.ScriptConfig.bbcodeFloat;
   const BB_INSERT_FN = window.bbcode || (() => {});
 
-  const FLOAT_STYLES = {
-    left: 'float:left;margin:25px;text-align:left;display:inline-block;max-width:90%',
-    right:
-      'float:right;margin:25px;text-align:right;display:inline-block;max-width:90%',
-  };
-  const FLOAT_RX = /\[float=(left|right)\]([\s\S]{1,11000}?)\[\/float\]/gi;
-
   function injectUI() {
-    const ref = document.querySelector(BUTTON_AFTER);
-    if (!ref || document.getElementById(FLOAT_BTN_ID)) return;
+    const ref = $(CFG.buttonAfterSelector);
+    if (!ref || $(`#${CFG.floatButtonId}`)) return;
 
-    const td = document.createElement('td');
-    td.id = FLOAT_BTN_ID;
+    const td = createEl('td');
+    td.id = CFG.floatButtonId;
     td.title = 'Обтекание';
     td.innerHTML = '<img src="/i/blank.gif" style="cursor:pointer">';
     ref.after(td);
 
-    let bar = document.getElementById(TOOLBAR_ID);
+    let bar = $(`#${CFG.toolbarId}`);
     if (!bar) {
-      bar = document.createElement('div');
-      bar.id = TOOLBAR_ID;
+      bar = createEl('div');
+      bar.id = CFG.toolbarId;
       bar.className = 'float-toolbar';
       bar.style.display = 'none';
-      bar.innerHTML = `
-        <strong>Обтекание</strong>
-        <span class="float-btn" data-dir="left"  title="Слева"><i class="fa-solid fa-indent"></i></span>
+      bar.innerHTML = `␊
+        <strong>Обтекание</strong>␊
+        <span class="float-btn" data-dir="left"  title="Слева"><i class="fa-solid fa-indent"></i></span>␊
         <span class="float-btn" data-dir="right" title="Справа"><i class="fa-solid fa-indent" style="transform:scaleX(-1)"></i></span>`;
       document.body.append(bar);
     }
@@ -51,7 +41,7 @@
     });
     bar.addEventListener('click', (e) => e.stopPropagation());
 
-    bar.querySelectorAll('.float-btn').forEach((btn) => {
+    $$('.float-btn', bar).forEach((btn) => {
       btn.addEventListener('click', () => {
         BB_INSERT_FN(`[float=${btn.dataset.dir}]`, '[/float]');
         bar.style.display = 'none';
@@ -60,22 +50,24 @@
   }
 
   function transformFloats(root) {
-    root
-      .querySelectorAll(`${POST_CONTENT_SEL}, ${PREVIEW_SEL}`)
-      .forEach((el) => {
-        if (FLOAT_RX.test(el.innerHTML)) {
+    const rx = CFG.floatRx;
+    $$(`${CFG.postContentSelector}, ${CFG.previewSelector}`, root).forEach(
+      (el) => {
+        rx.lastIndex = 0;
+        if (rx.test(el.innerHTML)) {
           el.innerHTML = el.innerHTML.replace(
-            FLOAT_RX,
+            rx,
             (_, dir, html) =>
-              `<span style="${FLOAT_STYLES[dir]}">${html}</span>`,
+              `<span style="${CFG.floatStyles[dir]}">${html}</span>`,
           );
         }
-      });
+      },
+    );
   }
 
   let previewObserver;
   function watchPreview() {
-    const box = document.querySelector(PREVIEW_SEL);
+    const box = $(CFG.previewSelector);
     if (box && !previewObserver) {
       previewObserver = new MutationObserver(() => transformFloats(document));
       previewObserver.observe(box, { childList: true, subtree: true });

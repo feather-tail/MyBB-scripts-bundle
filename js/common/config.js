@@ -171,5 +171,57 @@
       },
       maxCacheEntries: 300,
     },
+    bbcodeFloat: {
+      buttonAfterSelector: 'td#button-link',
+      postContentSelector: '.post-content',
+      previewSelector: '#post-preview .post-content',
+      toolbarId: 'float-toolbar',
+      floatButtonId: 'button-float',
+      floatStyles: {
+        left: 'float:left;margin:25px;text-align:left;display:inline-block;max-width:90%',
+        right:
+          'float:right;margin:25px;text-align:right;display:inline-block;max-width:90%',
+      },
+      floatRx: /\[float=(left|right)\]([\s\S]{1,11000}?)\[\/float\]/gi,
+    },
+    bbcodeHideProfile: {
+      allowedGroups: [1, 2, 4],
+      selectors: {
+        post: '.post',
+        postBody: '.post-body',
+        buttonInsert: '',
+      },
+      buttonIcon: '/i/blank.gif',
+    },
+    bbcodeIndent: {
+      bbcode: '[indent]',
+      marginLeft: '2em',
+      selectors: '.post-content, #post-preview .post-content',
+    },
+    bbcodeJustify: {
+      insertAfterSelector: '#button-right',
+      buttonId: 'button-justify',
+      iconSrc: '/i/blank.gif',
+      title: 'Выравнивание по ширине',
+      bbcodeOpen: '[align=justify]',
+      bbcodeClose: '[/align]',
+    },
+    characterModal: {
+      id: 'character-modal',
+      classes: {
+        wrap: 'modal__wrap',
+        close: 'modal__close',
+        bg: 'modal__bg',
+        open: 'open',
+        hidden: 'hidden',
+        tab: 'modal__tab',
+        active: 'active',
+        tabContent: 'modal__content',
+        tabs: 'modal__tabs',
+      },
+      delays: { open: 20, close: 220 },
+      ajaxFolder: 'pages/',
+      charset: 'windows-1251',
+    },
   };
 })();

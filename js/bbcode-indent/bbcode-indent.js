@@ -1,35 +1,32 @@
 (() => {
   'use strict';
 
-  const SETTINGS = {
-    buttonSelector: '#button-strike',
-    buttonId: 'button-indent',
-    buttonTitle: 'Отступы',
-    iconSrc: '/i/blank.gif',
-    bbcode: '',
-    marginLeft: '2em',
-    contentSel: '.post-content, #post-preview .post-content',
-  };
+  const { $, $$, createEl } = window.helpers;
+  const CFG = window.ScriptConfig.bbcodeIndent;
+
+  const BUTTON_AFTER = '#button-strike';
+  const BUTTON_ID = 'button-indent';
+  const BUTTON_TITLE = 'Отступы';
+  const ICON_SRC = '/i/blank.gif';
 
   const escapeRegExp = (s) => s.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
 
   function injectButton() {
-    const ref = document.querySelector(SETTINGS.buttonSelector);
-    if (!ref || document.getElementById(SETTINGS.buttonId)) return;
+    const ref = $(BUTTON_AFTER);
+    if (!ref || document.getElementById(BUTTON_ID)) return;
 
-    const td = document.createElement('td');
-    td.id = SETTINGS.buttonId;
-    td.title = SETTINGS.buttonTitle;
-    td.innerHTML = `<img src="${SETTINGS.iconSrc}" style="cursor:pointer">`;
+    const td = createEl('td', {
+      id: BUTTON_ID,
+      title: BUTTON_TITLE,
+      html: `<img src="${ICON_SRC}" style="cursor:pointer">`,
+    });
 
     td.addEventListener('click', () => {
-      const ta = document.querySelector(
-        '#main-reply, textarea[name="req_message"]',
-      );
+      const ta = $('#main-reply, textarea[name="req_message"]');
       if (!ta) return;
 
       const pos = ta.selectionStart;
-      ta.setRangeText(SETTINGS.bbcode, pos, pos, 'end');
+      ta.setRangeText(CFG.bbcode, pos, pos, 'end');
       ta.focus();
 
       document.dispatchEvent(new Event('pun_preview'));
@@ -39,8 +36,8 @@
   }
 
   function processIndent(container) {
-    const rxTag = new RegExp(escapeRegExp(SETTINGS.bbcode), 'gi');
-    const spanHTML = `<span style="display:inline-block;margin-left:${SETTINGS.marginLeft};"></span>`;
+    const rxTag = new RegExp(escapeRegExp(CFG.bbcode), 'gi');
+    const spanHTML = `<span style="display:inline-block;margin-left:${CFG.marginLeft};"></span>`;
 
     if (!rxTag.test(container.innerHTML)) return;
 
@@ -64,9 +61,9 @@
 
     injectButton();
 
-    document.querySelectorAll(SETTINGS.contentSel).forEach(processIndent);
+    $$(CFG.selectors).forEach(processIndent);
 
-    const prevBox = document.querySelector('#post-preview .post-content');
+    const prevBox = $('#post-preview .post-content');
     if (prevBox && !window._indentObserver) {
       const obs = new MutationObserver(() => {
         obs.disconnect();
