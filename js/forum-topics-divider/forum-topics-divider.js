@@ -1,37 +1,49 @@
 (() => {
   'use strict';
 
+  const { $, $$, createEl } = window.helpers;
+  const CFG = window.ScriptConfig.forumTopicsDivider;
+
   let initialized = false;
   function init() {
     if (initialized) return;
     initialized = true;
 
-    const forumContainer = document.getElementById('pun-viewforum');
+    const forumContainer = $(CFG.selectors.forum);
     if (!forumContainer) return;
 
-    const stickyRows = Array.from(
-      forumContainer.querySelectorAll('tr[class$="isticky"]'),
-    );
+    const stickyRows = $$(CFG.selectors.stickyRows, forumContainer);
     if (stickyRows.length > 0) {
       const firstStickyRow = stickyRows[0];
-      firstStickyRow.insertAdjacentHTML(
-        'beforebegin',
-        '<tr class="tr-divider imp"><td class="td-divider" colspan="4">Важные темы</td></tr>',
+      const impRow = createEl('tr', { className: 'tr-divider imp' });
+      impRow.appendChild(
+        createEl('td', {
+          className: 'td-divider',
+          text: CFG.headers.important,
+          colSpan: 4,
+        }),
       );
+      firstStickyRow.parentNode.insertBefore(impRow, firstStickyRow);
 
       const lastStickyRow = stickyRows[stickyRows.length - 1];
       const nextRowAfterLastSticky = lastStickyRow.nextElementSibling;
       if (nextRowAfterLastSticky) {
-        nextRowAfterLastSticky.insertAdjacentHTML(
-          'beforebegin',
-          '<tr class="tr-divider st"><td class="td-divider" colspan="4">Темы форума</td></tr>',
+        const topicsRow = createEl('tr', { className: 'tr-divider st' });
+        topicsRow.appendChild(
+          createEl('td', {
+            className: 'td-divider',
+            text: CFG.headers.regular,
+            colSpan: 4,
+          }),
+        );
+        lastStickyRow.parentNode.insertBefore(
+          topicsRow,
+          nextRowAfterLastSticky,
         );
       }
     }
 
-    document
-      .querySelectorAll('.stickytext')
-      .forEach((labelEl) => labelEl.remove());
+    $$(CFG.selectors.stickyLabel).forEach((labelEl) => labelEl.remove());
   }
 
   if (document.readyState !== 'loading') init();

@@ -258,5 +258,45 @@
         insertAfter: '',
       },
     },
+    forumTopicsDivider: {
+      selectors: {
+        forum: '#pun-viewforum',
+        stickyRows: 'tr[class$="isticky"]',
+        stickyLabel: '.stickytext',
+      },
+      headers: {
+        important: 'Важные темы',
+        regular: 'Темы форума',
+      },
+    },
+    gamepostCounter: {
+      viewerGroups: [1, 2, 4],
+      includeFirstPost: false,
+      forumsRules: {
+        defaultMode: 'all',
+        perForum: new Map([
+          ['2', { mode: 'all' }],
+          // ['10', { mode: 'include', topics: new Set([27]) }],
+          // ['14', { mode: 'exclude', topics: new Set([101]) }],
+        ]),
+      },
+      ui: {
+        showBadgesInTopic: true,
+        badgeSource: 'week',
+        profileBadgeSource: 'week',
+        fieldId: 2,
+        maxUsersToDecorate: 40,
+        launcherAfter: '#button-addition',
+        launcherText: 'Статистика постов',
+        forumsOnly: [2],
+      },
+      backend: {
+        endpoint: 'https://feathertail.ru/gamestats/index.php',
+        subscription: 'KSPIRITS-TEST',
+        tableKey: 'ks-global',
+        limit: 20,
+        scope: 'site',
+      },
+    },
   };
 })();

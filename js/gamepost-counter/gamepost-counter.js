@@ -1,40 +1,8 @@
 (() => {
   'use strict';
 
-  const SETTINGS = {
-    viewerGroups: [1, 2, 4],
-    includeFirstPost: false,
-    forumsRules: {
-      defaultMode: 'all',
-      perForum: new Map([
-        ['2', { mode: 'all' }],
-        // ['10', { mode:'include', topics:new Set([27]) }],
-        // ['14', { mode:'exclude', topics:new Set([101]) }],
-      ]),
-    },
-
-    ui: {
-      showBadgesInTopic: true,
-      badgeSource: 'week',
-      profileBadgeSource: 'week',
-      fieldId: 2,
-      maxUsersToDecorate: 40,
-      launcherAfter: '#button-addition',
-      launcherText: 'Статистика постов',
-      forumsOnly: [2],
-    },
-
-    backend: {
-      endpoint: 'https://feathertail.ru/gamestats/index.php',
-      subscription: 'KSPIRITS-TEST',
-      tableKey: 'ks-global',
-      limit: 20,
-      scope: 'site',
-    },
-  };
-
-  const $ = (sel, root = document) => root.querySelector(sel);
-  const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+  const { $, $$ } = window.helpers;
+  const CFG = window.ScriptConfig.gamepostCounter;
   const last = (sel, root = document) => {
     const L = root.querySelectorAll(sel);
     return L.length ? L[L.length - 1] : null;
@@ -91,9 +59,9 @@
   };
 
   function isCountable({ fid, tid, isFirstPost }) {
-    if (!SETTINGS.includeFirstPost && isFirstPost) return false;
-    const r = SETTINGS.forumsRules.perForum.get(String(fid));
-    const mode = r?.mode || SETTINGS.forumsRules.defaultMode || 'all';
+    if (!CFG.includeFirstPost && isFirstPost) return false;
+    const r = CFG.forumsRules.perForum.get(String(fid));
+    const mode = r?.mode || CFG.forumsRules.defaultMode || 'all';
     if (mode === 'all') return true;
     const topics = r?.topics || new Set();
     if (mode === 'include') return topics.has(Number(tid));
@@ -102,7 +70,7 @@
   }
 
   function sendUpdateFetch(body) {
-    return fetch(`${SETTINGS.backend.endpoint}?method=update`, {
+    return fetch(`${CFG.backend.endpoint}?method=update`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
@@ -115,9 +83,9 @@
 
   async function getUserStats(userId) {
     const u =
-      `${SETTINGS.backend.endpoint}?method=get_user` +
-      `&subscription=${encodeURIComponent(SETTINGS.backend.subscription)}` +
-      `&tableKey=${encodeURIComponent(SETTINGS.backend.tableKey)}` +
+      `${CFG.backend.endpoint}?method=get_user` +
+      `&subscription=${encodeURIComponent(CFG.backend.subscription)}` +
+      `&tableKey=${encodeURIComponent(CFG.backend.tableKey)}` +
       `&userId=${userId}`;
     const res = await fetch(u, { credentials: 'include' });
     const data = await res.json().catch(() => null);
@@ -126,11 +94,11 @@
 
   async function getTable() {
     const url =
-      `${SETTINGS.backend.endpoint}?method=get_table` +
-      `&subscription=${encodeURIComponent(SETTINGS.backend.subscription)}` +
-      `&tableKey=${encodeURIComponent(SETTINGS.backend.tableKey)}` +
-      `&limit=${SETTINGS.backend.limit}` +
-      `&scope=${SETTINGS.backend.scope}`;
+      `${CFG.backend.endpoint}?method=get_table` +
+      `&subscription=${encodeURIComponent(CFG.backend.subscription)}` +
+      `&tableKey=${encodeURIComponent(CFG.backend.tableKey)}` +
+      `&limit=${CFG.backend.limit}` +
+      `&scope=${CFG.backend.scope}`;
     const res = await fetch(url, { credentials: 'include' });
     return res.json().catch(() => null);
   }
@@ -199,9 +167,7 @@
   }
 
   function injectBadgeIntoPost(postEl, value) {
-    const li = postEl.querySelector(
-      `.post-author li.pa-fld${SETTINGS.ui.fieldId}`,
-    );
+    const li = postEl.querySelector(`.post-author li.pa-fld${CFG.ui.fieldId}`);
     if (li) normalizeCounterLi(li, value);
   }
   function valueFromUserObj(user, source) {
@@ -219,7 +185,7 @@
     });
     const profBox = $('#viewprofile-next');
     if (profBox && profBox.className.includes(`id-${userId}`)) {
-      const li = document.getElementById(`pa-fld${SETTINGS.ui.fieldId}`);
+      const li = document.getElementById(`pa-fld${CFG.ui.fieldId}`);
       if (li) normalizeCounterLi(li, String(value));
     }
   }
@@ -230,9 +196,9 @@
   }
 
   async function decorateAuthorsOnTopic() {
-    if (!SETTINGS.ui.showBadgesInTopic) return;
+    if (!CFG.ui.showBadgesInTopic) return;
     const { group, id: myId } = getUser();
-    if (!SETTINGS.viewerGroups.includes(group)) return;
+    if (!CFG.viewerGroups.includes(group)) return;
 
     const posts = $$('.post[data-user-id]');
     const allIds = Array.from(
@@ -241,10 +207,10 @@
     if (!allIds.includes(myId)) allIds.push(myId);
 
     let ids = allIds;
-    if (ids.length > SETTINGS.ui.maxUsersToDecorate) {
+    if (ids.length > CFG.ui.maxUsersToDecorate) {
       const rest = ids
         .filter((i) => i !== myId)
-        .slice(0, SETTINGS.ui.maxUsersToDecorate - 1);
+        .slice(0, CFG.ui.maxUsersToDecorate - 1);
       ids = [myId, ...rest];
     }
 
@@ -256,7 +222,7 @@
       }),
     );
 
-    const source = SETTINGS.ui.badgeSource || 'week';
+    const source = CFG.ui.badgeSource || 'week';
     for (const post of posts) {
       const id = Number(post.getAttribute('data-user-id'));
       const user = cache.get(id);
@@ -280,10 +246,9 @@
     const data = await getUserStats(uid);
     if (!data) return;
 
-    const source =
-      SETTINGS.ui.profileBadgeSource || SETTINGS.ui.badgeSource || 'week';
+    const source = CFG.ui.profileBadgeSource || CFG.ui.badgeSource || 'week';
     const value = valueFromUserObj(data, source);
-    const li = document.getElementById(`pa-fld${SETTINGS.ui.fieldId}`);
+    const li = document.getElementById(`pa-fld${CFG.ui.fieldId}`);
     if (li) normalizeCounterLi(li, value);
   }
 
@@ -342,20 +307,19 @@
 
   async function injectLauncher() {
     const { group } = getUser();
-    if (!SETTINGS.viewerGroups.includes(group)) return;
+    if (!CFG.viewerGroups.includes(group)) return;
 
     const fidNum = Number(getForumId());
     const allowed =
-      !SETTINGS.ui.forumsOnly ||
-      (Array.isArray(SETTINGS.ui.forumsOnly) &&
-        SETTINGS.ui.forumsOnly.includes(fidNum));
+      !CFG.ui.forumsOnly ||
+      (Array.isArray(CFG.ui.forumsOnly) && CFG.ui.forumsOnly.includes(fidNum));
     if (!allowed) return;
 
     document
       .querySelectorAll('#form-buttons li.gpc-open-li')
       .forEach((n) => n.remove());
 
-    const anchorSel = SETTINGS.ui.launcherAfter || '#button-addition';
+    const anchorSel = CFG.ui.launcherAfter || '#button-addition';
     const anchor = await waitForElement(anchorSel);
     if (!anchor) return;
     if (document.getElementById('gpc-open-btn')) return;
@@ -365,13 +329,13 @@
 
     const td = document.createElement('td');
     td.className = 'gpc-open-td';
-    td.title = SETTINGS.ui.launcherText || 'Статистика постов';
+    td.title = CFG.ui.launcherText || 'Статистика постов';
 
     const btn = document.createElement('button');
     btn.id = 'gpc-open-btn';
     btn.type = 'button';
     btn.className = 'gpc-open-btn';
-    btn.textContent = SETTINGS.ui.launcherIcon || '?';
+    btn.textContent = CFG.ui.launcherIcon || '?';
     ['pointerdown', 'mousedown', 'mouseup', 'pointerup'].forEach((t) => {
       btn.addEventListener(
         t,
@@ -438,8 +402,8 @@
 
   function buildPayload(fid, tid, isFirstPost, { userId, username, action }) {
     return {
-      subscription: SETTINGS.backend.subscription,
-      tableKey: SETTINGS.backend.tableKey,
+      subscription: CFG.backend.subscription,
+      tableKey: CFG.backend.tableKey,
       userId,
       username,
       action,
@@ -469,10 +433,7 @@
     });
     sendUpdateFetch(payload).then((res) => {
       if (res?.ok && res.user) {
-        const val = valueFromUserObj(
-          res.user,
-          SETTINGS.ui.badgeSource || 'week',
-        );
+        const val = valueFromUserObj(res.user, CFG.ui.badgeSource || 'week');
         optimisticUpdate(u.id, val);
       }
     });
@@ -493,7 +454,7 @@
     sendUpdateFetch(payload).then(async () => {
       const user = await getUserStats(payload.userId).catch(() => null);
       if (user) {
-        const val = valueFromUserObj(user, SETTINGS.ui.badgeSource || 'week');
+        const val = valueFromUserObj(user, CFG.ui.badgeSource || 'week');
         optimisticUpdate(payload.userId, val);
       }
       clearDelIntent();
@@ -545,7 +506,7 @@
           if (res?.ok && res.user) {
             const val = valueFromUserObj(
               res.user,
-              SETTINGS.ui.badgeSource || 'week',
+              CFG.ui.badgeSource || 'week',
             );
             optimisticUpdate(u.id, val);
           }
@@ -684,7 +645,8 @@
   else document.addEventListener('DOMContentLoaded', init);
 
   window.GPC = {
-    SETTINGS,
+    CFG,
+    SETTINGS: CFG,
     getUserStats,
     updateGlobal({
       userId,
@@ -695,8 +657,8 @@
       isFirstPost = false,
     }) {
       const payload = {
-        subscription: SETTINGS.backend.subscription,
-        tableKey: SETTINGS.backend.tableKey,
+        subscription: CFG.backend.subscription,
+        tableKey: CFG.backend.tableKey,
         userId,
         username,
         action,
