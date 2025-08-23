@@ -1,7 +1,7 @@
 (() => {
   'use strict';
   const { $, createEl } = window.helpers;
-  const CFG = window.ScriptConfig.prQuickLogin;
+  const CFG = helpers.getConfig('prQuickLogin', {});
 
   function addPrButton() {
     if (typeof window.GroupID !== 'number' || window.GroupID !== 3) return;

@@ -2,7 +2,7 @@
   'use strict';
 
   const { $ } = window.helpers;
-  const CFG = window.ScriptConfig.scrollRails;
+  const CFG = helpers.getConfig('scrollRails', {});
 
   let upScrollButton;
   let downScrollButton;

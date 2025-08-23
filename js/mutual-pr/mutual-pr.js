@@ -2,7 +2,7 @@
   'use strict';
 
   const { $, createEl, showToast } = window.helpers;
-  const CFG = window.ScriptConfig.mutualPR;
+  const CFG = helpers.getConfig('mutualPR', {});
 
   function getGroupID() {
     return typeof window.GroupID !== 'undefined' ? +window.GroupID : null;

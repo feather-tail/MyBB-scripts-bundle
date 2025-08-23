@@ -2,7 +2,7 @@
   'use strict';
 
   const { $, $$, createEl } = window.helpers;
-  const CFG = window.ScriptConfig.forumTopicsDivider;
+  const CFG = helpers.getConfig('forumTopicsDivider', {});
 
   let initialized = false;
   function init() {

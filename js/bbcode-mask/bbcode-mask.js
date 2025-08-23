@@ -2,7 +2,7 @@
   'use strict';
   const { $, $$, createEl, debounce, parseAccessMap, showToast, dialog } =
     window.helpers;
-  const CFG = window.ScriptConfig.bbcodeMask;
+  const CFG = helpers.getConfig('bbcodeMask', {});
   const SELECTORS = CFG.selectors;
   const MAX_CACHE_ENTRIES = CFG.maxCacheEntries;
 
@@ -1470,7 +1470,12 @@
     }
 
     processPosts();
-    window.MASK_SCRIPT = { CONFIG: CFG, removeMaskTagsFromPreview, Cache };
+    window.scripts = window.scripts || {};
+    window.scripts.bbcodeMask = {
+      CONFIG: CFG,
+      removeMaskTagsFromPreview,
+      Cache,
+    };
   }
 
   helpers.ready(init);

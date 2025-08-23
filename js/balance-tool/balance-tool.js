@@ -2,7 +2,7 @@
   'use strict';
 
   const { $, $$, parseHTML, withTimeout, crc32, showToast } = window.helpers;
-  const CFG = window.ScriptConfig.balanceTool;
+  const CFG = helpers.getConfig('balanceTool', {});
   const topicId = () => new URLSearchParams(location.search).get('id') || '';
   const allowedTopic = (id) => CFG.access.allowedTopicIds.includes(String(id));
   const allowedGroup = (gid) =>

@@ -1,7 +1,7 @@
 (() => {
   'use strict';
   const { $, createEl } = window.helpers;
-  const CFG = window.ScriptConfig.replyHotkeys;
+  const CFG = helpers.getConfig('replyHotkeys', {});
   const HOTKEYS = new Map(CFG.HOTKEYS);
 
   let initialized = false;

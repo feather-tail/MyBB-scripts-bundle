@@ -3,7 +3,7 @@
 
   const { $, $$, createEl, countGraphemes } = window.helpers;
 
-  const CFG = window.ScriptConfig?.postsCharCounter || {};
+  const CFG = helpers.getConfig('postsCharCounter', {});
   const ALLOWED_FORUM_IDS = CFG.allowedForumIds || [2, 3];
   const SELECTORS = {
     posts: '.post:not(.topicpost)',

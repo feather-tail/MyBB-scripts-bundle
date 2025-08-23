@@ -1,7 +1,7 @@
 (() => {
   'use strict';
   const { $ } = window.helpers;
-  const CFG = window.ScriptConfig.insertAddress;
+  const CFG = helpers.getConfig('insertAddress', {});
   const messageField = $(CFG.selector);
 
   const insertAddress = (userName) => {
@@ -16,5 +16,6 @@
     }
   };
 
-  window.to = insertAddress;
+  window.scripts = window.scripts || {};
+  window.scripts.insertAddress = insertAddress;
 })();

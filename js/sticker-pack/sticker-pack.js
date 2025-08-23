@@ -2,7 +2,7 @@
   'use strict';
 
   const { $, $$, createEl } = window.helpers;
-  const CFG = window.ScriptConfig.stickerPack;
+  const CFG = helpers.getConfig('stickerPack', {});
 
   const stickerPack = {
     isLoading: false,

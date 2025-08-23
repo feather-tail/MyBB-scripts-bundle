@@ -2,7 +2,7 @@
   'use strict';
 
   const { $, $$, createEl } = window.helpers;
-  const CFG = window.ScriptConfig.fontResizer;
+  const CFG = helpers.getConfig('fontResizer', {});
 
   const getStoredSize = () => {
     const v = parseInt(localStorage.getItem(CFG.storageKey), 10);

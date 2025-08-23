@@ -2,7 +2,7 @@
   'use strict';
 
   const { $, $$, copyToClipboard, showToast, dialog } = window.helpers;
-  const CFG = window.ScriptConfig.episodeTracker;
+  const CFG = helpers.getConfig('episodeTracker', {});
 
   const ALLOWED_GROUP_IDS = new Set(CFG.allowedGroupIds);
   if (!ALLOWED_GROUP_IDS.has(window.GroupID)) return;

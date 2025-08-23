@@ -2,7 +2,7 @@
   'use strict';
 
   const { $, $$, setCookie, getCookie, debounce } = window.helpers;
-  const CFG = window.ScriptConfig.postPreview;
+  const CFG = helpers.getConfig('postPreview', {});
 
   const fid = Number(window.FORUM?.get('topic.forum_id'));
   if (!CFG.allowedForums.includes(fid)) return;

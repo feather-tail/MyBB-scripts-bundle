@@ -2,7 +2,7 @@
   'use strict';
 
   const { $, $$, copyToClipboard } = window.helpers;
-  const CFG = window.ScriptConfig.copyCode;
+  const CFG = helpers.getConfig('copyCode', {});
 
   let initialized = false;
   function init() {

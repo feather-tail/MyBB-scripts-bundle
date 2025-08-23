@@ -2,7 +2,7 @@
   'use strict';
 
   const { $$ } = window.helpers;
-  const CFG = window.ScriptConfig.replaceDash;
+  const CFG = helpers.getConfig('replaceDash', {});
 
   let initialized = false;
   function init() {

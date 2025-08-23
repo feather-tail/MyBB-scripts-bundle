@@ -120,6 +120,10 @@
     }
     return `${location.origin}/uploads/${filename}`;
   };
+  const getConfig = (name, defaults = {}) => ({
+    ...defaults,
+    ...(window.ScriptConfig?.[name] || {}),
+  });
   window.helpers = {
     $,
     $$,
@@ -137,7 +141,9 @@
     uid,
     formatBytes,
     getUserId,
+    getConfig,
     buildForumUploadsURL,
     showToast: (...args) => window.showToast?.(...args),
+    showToast: (...args) => window.scripts?.toast?.(...args),
   };
 })();

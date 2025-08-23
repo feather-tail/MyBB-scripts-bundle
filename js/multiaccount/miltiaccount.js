@@ -2,7 +2,7 @@
   'use strict';
 
   const { $, createEl, showToast } = window.helpers;
-  const CFG = window.ScriptConfig.multiaccount;
+  const CFG = helpers.getConfig('multiaccount', {});
 
   let initialized = false;
   function init() {

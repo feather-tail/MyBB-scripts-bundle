@@ -2,7 +2,7 @@
   'use strict';
 
   const { createEl } = window.helpers;
-  const CFG = window.ScriptConfig.bbcodeJustify;
+  const CFG = helpers.getConfig('bbcodeJustify', {});
 
   let initialized = false;
   function init() {

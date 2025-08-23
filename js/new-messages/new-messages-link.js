@@ -2,7 +2,7 @@
   'use strict';
 
   const { $, createEl } = window.helpers;
-  const CFG = window.ScriptConfig.newMessagesLink;
+  const CFG = helpers.getConfig('newMessagesLink', {});
   const ALLOWED_GROUPS = new Set(CFG.allowedGroupIds);
 
   function init() {

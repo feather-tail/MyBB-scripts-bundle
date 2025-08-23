@@ -2,7 +2,7 @@
   'use strict';
   const { $, $$, createEl, showToast } = window.helpers;
 
-  const CFG = window.ScriptConfig || {};
+  const CFG = helpers.getConfig('copyPosts', {});
   const SETTINGS = {
     allowedForumIds: Array.isArray(CFG.allowedForumIds)
       ? CFG.allowedForumIds.map(String)

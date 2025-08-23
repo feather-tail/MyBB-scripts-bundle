@@ -2,7 +2,7 @@
   'use strict';
 
   const { $$ } = window.helpers;
-  const CFG = window.ScriptConfig.defaultAvatars;
+  const CFG = helpers.getConfig('defaultAvatars', {});
   const avatarByRole = new Map(Object.entries(CFG.avatarByRole));
 
   function getAvatarUrl(authorName) {

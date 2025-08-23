@@ -2,7 +2,7 @@
   'use strict';
 
   const { $$, createEl } = window.helpers;
-  const CFG = window.ScriptConfig.quotePostLink;
+  const CFG = helpers.getConfig('quotePostLink', {});
 
   $$(CFG.selectors.cite).forEach((cite) => {
     const text = cite.textContent;

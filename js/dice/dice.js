@@ -2,7 +2,7 @@
   'use strict';
 
   const { $, $$, createEl, showToast } = window.helpers;
-  const CFG = window.ScriptConfig.dice;
+  const CFG = helpers.getConfig('dice', {});
   const bbRe = /\[dice=((?:\d+-)+)(\d+):(\d+)\]/g;
 
   let diceButton = null;

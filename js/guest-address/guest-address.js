@@ -2,7 +2,7 @@
   'use strict';
 
   const { $, createEl } = window.helpers;
-  const CFG = window.ScriptConfig.guestAddress;
+  const CFG = helpers.getConfig('guestAddress', {});
   const insertAddress = window.insertAddress || window.to;
 
   let initialized = false;

@@ -2,8 +2,7 @@
   'use strict';
 
   const { createEl } = window.helpers;
-  const CFG = window.ScriptConfig.bbcodeHideProfile;
-
+  const CFG = helpers.getConfig('bbcodeHideProfile', {});
   const TAG = '[hideprofile]';
   const HIDE_CLASS = 'hide-profile';
   const BUTTON_TEXT = 'Скрыть минипрофиль';
@@ -65,5 +64,8 @@
 
   helpers.ready(init);
 
-  window.applyHideProfileToAllPosts = applyHideProfileToAllPosts;
+  window.scripts = window.scripts || {};
+  window.scripts.bbcodeHideProfile = {
+    applyToAllPosts: applyHideProfileToAllPosts,
+  };
 })();

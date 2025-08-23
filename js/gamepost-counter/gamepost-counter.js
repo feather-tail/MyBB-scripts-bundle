@@ -2,7 +2,7 @@
   'use strict';
 
   const { $, $$ } = window.helpers;
-  const CFG = window.ScriptConfig.gamepostCounter;
+  const CFG = helpers.getConfig('gamepostCounter', {});
   const last = (sel, root = document) => {
     const L = root.querySelectorAll(sel);
     return L.length ? L[L.length - 1] : null;
@@ -625,7 +625,8 @@
 
   helpers.ready(init);
 
-  window.GPC = {
+  window.scripts = window.scripts || {};
+  window.scripts.gamepostCounter = {
     CFG,
     SETTINGS: CFG,
     getUserStats,

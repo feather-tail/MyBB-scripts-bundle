@@ -2,7 +2,7 @@
   'use strict';
 
   const { $$ } = window.helpers;
-  const CFG = window.ScriptConfig.replaceQuotes;
+  const CFG = helpers.getConfig('replaceQuotes', {});
 
   let initialized = false;
   function init() {

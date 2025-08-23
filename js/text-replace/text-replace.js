@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  const CFG = window.ScriptConfig.textReplace;
+  const CFG = helpers.getConfig('textReplace', {});
 
   let initialized = false;
   function init() {

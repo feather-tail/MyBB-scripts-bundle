@@ -2,7 +2,7 @@
   'use strict';
 
   const { $, $$, createEl } = window.helpers;
-  const CFG = window.ScriptConfig.bbcodeFloat;
+  const CFG = helpers.getConfig('bbcodeFloat', {});
   const BB_INSERT_FN = window.bbcode || (() => {});
 
   function injectUI() {

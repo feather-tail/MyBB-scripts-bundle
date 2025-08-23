@@ -1,7 +1,7 @@
 (() => {
   'use strict';
   const { createEl } = window.helpers;
-  const CFG = window.ScriptConfig.characterModal;
+  const CFG = helpers.getConfig('characterModal', {});
   document.body.addEventListener('click', async (e) => {
     const link = e.target.closest('.modal-link');
     if (!link) return;

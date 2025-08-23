@@ -2,7 +2,7 @@
   'use strict';
 
   const { $, $$ } = window.helpers;
-  const CFG = window.ScriptConfig.themeSwitcher;
+  const CFG = helpers.getConfig('themeSwitcher', {});
   let switcherContainer;
   let initialized = false;
 

@@ -2,7 +2,7 @@
   'use strict';
 
   const { $ } = window.helpers;
-  const CFG = window.ScriptConfig.quoteBubble;
+  const CFG = helpers.getConfig('quoteBubble', {});
 
   (() => {
     const topic = $(`#${CFG.topicId}`);

@@ -2,7 +2,7 @@
   'use strict';
 
   const { $, createEl } = window.helpers;
-  const CFG = window.ScriptConfig.cleanQuote;
+  const CFG = helpers.getConfig('cleanQuote', {});
 
   const getSelectedText = () => {
     let sel = '';
@@ -63,5 +63,6 @@
     }
   }
 
-  window.quote = quote;
+  window.scripts = window.scripts || {};
+  window.scripts.cleanQuote = { quote };
 })();
