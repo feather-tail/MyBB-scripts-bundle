@@ -1,9 +1,11 @@
 (() => {
   'use strict';
-  const messageField = document.querySelector('textarea');
+  const { $ } = window.helpers;
+  const CFG = window.ScriptConfig.insertAddress;
+  const messageField = $(CFG.selector);
 
   const insertAddress = (userName) => {
-    const snippet = `[b]${userName}[/b], `;
+    const snippet = CFG.snippet.replace('{{USER}}', userName);
 
     if (typeof insert === 'function') {
       insert(snippet);

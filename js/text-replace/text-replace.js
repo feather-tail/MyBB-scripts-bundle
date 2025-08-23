@@ -1,5 +1,6 @@
 (() => {
   'use strict';
+  const CFG = window.ScriptConfig.textReplace;
 
   let initialized = false;
   function init() {
@@ -36,19 +37,9 @@
       });
     };
 
-    updateParentText('#navadmin', 'Администрирование', 'Амс');
-    updateParentText('li.item1 span', 'Всего тем: ', 'Тем: ');
-    updateParentText('li.item2 span', 'Всего сообщений: ', 'Сообщений: ');
-    updateParentText(
-      'li.item3 span',
-      'Зарегистрированных пользователей: ',
-      'Жителей: ',
-    );
-    updateParentText(
-      'li.item4 span',
-      'Последним зарегистрировался: ',
-      'Приветствуем: ',
-    );
+    CFG.rules.forEach(({ selector, search, replace }) => {
+      updateParentText(selector, search, replace);
+    });
   }
 
   if (document.readyState !== 'loading') init();

@@ -1,16 +1,15 @@
 (() => {
   'use strict';
 
-  const ANGLE_QUOTE_REGEX = /"([^"]*?)"/g;
+  const { $$ } = window.helpers;
+  const CFG = window.ScriptConfig.replaceQuotes;
 
   let initialized = false;
   function init() {
     if (initialized) return;
     initialized = true;
 
-    const paragraphNodes = document.querySelectorAll('.post-content p');
-
-    paragraphNodes.forEach((paragraphNode) => {
+    $$(CFG.selector).forEach((paragraphNode) => {
       const textWalker = document.createTreeWalker(
         paragraphNode,
         NodeFilter.SHOW_TEXT,
@@ -21,7 +20,7 @@
       let textNode;
       while ((textNode = textWalker.nextNode())) {
         const originalText = textNode.nodeValue;
-        const newText = originalText.replace(ANGLE_QUOTE_REGEX, '«$1»');
+        const newText = originalText.replace(CFG.regex, '«$1»');
         if (newText !== originalText) {
           textNode.nodeValue = newText;
         }

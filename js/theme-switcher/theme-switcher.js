@@ -1,47 +1,50 @@
 (() => {
   'use strict';
 
-  const THEMES = [
-    { class: 'CLASS_NAME_1', title: 'NAME_1' },
-    { class: 'CLASS_NAME_2', title: 'NAME_2' },
-    { class: 'CLASS_NAME_3', title: 'NAME_3' },
-  ];
-
-  const STORAGE_KEY = 'selectedTheme';
+  const { $, $$ } = window.helpers;
+  const CFG = window.ScriptConfig.themeSwitcher;
   let switcherContainer;
   let initialized = false;
 
   function applyTheme(theme) {
-    document.documentElement.classList.remove(...THEMES.map((t) => t.class));
+    document.documentElement.classList.remove(
+      ...CFG.themes.map((t) => t.class),
+    );
     document.documentElement.classList.add(theme);
-    localStorage.setItem(STORAGE_KEY, theme);
+    localStorage.setItem(CFG.storageKey, theme);
   }
 
   function renderThemeSwitcher() {
-    switcherContainer.innerHTML = THEMES.map(
-      (t) =>
-        `<li title="${t.title}">
+    switcherContainer.innerHTML = CFG.themes
+      .map(
+        (t) =>
+          `<li title="${t.title}">
         <span class="radio">
           <input type="radio" name="switcher" id="theme-${t.class}" value="${t.class}">
           <label for="theme-${t.class}">${t.title}</label>
         </span>
       </li>`,
-    ).join('');
+      )
+      .join('');
   }
 
   function restoreTheme() {
-    const saved = localStorage.getItem(STORAGE_KEY) || THEMES[0].class;
+    const saved = localStorage.getItem(CFG.storageKey) || CFG.themes[0].class;
     applyTheme(saved);
-    const radio = switcherContainer.querySelector(`[value="${saved}"]`);
-    if (radio) radio.checked = true;
+    $$("input[name='switcher']", switcherContainer).forEach(
+      (r) => (r.checked = r.value === saved),
+    );
   }
 
   function init() {
     if (initialized) return;
     initialized = true;
 
-    switcherContainer = document.getElementById('theme_switcher');
+    switcherContainer = $('#theme_switcher');
     if (!switcherContainer) return;
+
+    renderThemeSwitcher();
+    restoreTheme();
 
     switcherContainer.addEventListener('change', (e) => {
       if (e.target.name === 'switcher') {

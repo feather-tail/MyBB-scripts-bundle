@@ -1,30 +1,21 @@
 (() => {
   'use strict';
-  const PR_SETTINGS = {
-    login: 'Реклама',
-    pass: '1111',
-  };
-  const PR_BTN_ID = 'pr-quick-login';
-  const NAV_LOGIN_ID = '#navlogin';
-  const FORM_SELECTOR = 'form[action*="login"]';
-  const USER_INPUT = 'input[name="req_username"]';
-  const PASS_INPUT = 'input[name="req_password"]';
-  const SUBMIT_INPUT = 'input[type="submit"]';
-
-  const PR_REDIRECT_URL = 'LINK_FOR_REDIRECT';
+  const { $, createEl } = window.helpers;
+  const CFG = window.ScriptConfig.prQuickLogin;
 
   function addPrButton() {
     if (typeof window.GroupID !== 'number' || window.GroupID !== 3) return;
-    if (document.getElementById(PR_BTN_ID)) return;
-    const loginLi = document.querySelector(NAV_LOGIN_ID);
+    if ($(CFG.selectors.btn)) return;
+    const loginLi = $(CFG.selectors.navLogin);
     if (!loginLi) return;
-    const btn = document.createElement('li');
-    btn.id = PR_BTN_ID;
-    btn.innerHTML = '<a href="javascript:void 0;">PR-вход</a>';
+    const btn = createEl('li', {
+      id: CFG.selectors.btn.replace(/^#/, ''),
+      html: '<a href="javascript:void 0;">PR-вход</a>',
+    });
     btn.addEventListener('click', () => {
       let url = '/login.php?login=1&pr=1';
-      if (PR_REDIRECT_URL) {
-        url += '&redirect=' + encodeURIComponent(PR_REDIRECT_URL);
+      if (CFG.redirectUrl) {
+        url += '&redirect=' + encodeURIComponent(CFG.redirectUrl);
       }
       location.href = url;
     });
@@ -37,21 +28,19 @@
       !location.search.includes('pr=1')
     )
       return;
-    const form = document.querySelector(FORM_SELECTOR);
+    const form = $(CFG.selectors.form);
     if (!form) return;
 
-    form.querySelector(USER_INPUT).value = PR_SETTINGS.login;
-    form.querySelector(PASS_INPUT).value = PR_SETTINGS.pass;
+    $(CFG.selectors.userInput, form).value = CFG.login;
+    $(CFG.selectors.passInput, form).value = CFG.pass;
 
     const params = new URLSearchParams(location.search);
     const redirectUrl = params.get('redirect');
-    const redirectField = form.querySelector('input[name="redirect_url"]');
-    if (redirectField) {
-      if (redirectUrl) {
-        redirectField.value = redirectUrl;
-      }
+    const redirectField = $(CFG.selectors.redirectField, form);
+    if (redirectField && redirectUrl) {
+      redirectField.value = redirectUrl;
     }
-    form.querySelector(SUBMIT_INPUT).click();
+    $(CFG.selectors.submitInput, form).click();
   }
 
   let initialized = false;

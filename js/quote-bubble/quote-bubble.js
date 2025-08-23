@@ -1,28 +1,21 @@
 (() => {
   'use strict';
 
-  const SETTINGS = {
-    bubbleId: 'quote-bubble',
-    iconUrl:
-      'http://www.iconsearch.ru/uploads/icons/crystalclear/16x16/comment.png',
-    postSel: '.post[id]',
-    topicId: 'pun-viewtopic',
-    offsetX: 8,
-    offsetY: 8,
-  };
+  const { $ } = window.helpers;
+  const CFG = window.ScriptConfig.quoteBubble;
 
   (() => {
-    const topic = document.getElementById(SETTINGS.topicId);
+    const topic = $(`#${CFG.topicId}`);
     if (!topic) return;
 
-    const bubble = document.getElementById(SETTINGS.bubbleId);
-    bubble.querySelector('img').src = SETTINGS.iconUrl;
+    const bubble = $(`#${CFG.bubbleId}`);
+    $('img', bubble).src = CFG.iconUrl;
 
     let currentPost = null;
 
     function showBubble(rect, post) {
-      bubble.style.left = window.scrollX + rect.right + SETTINGS.offsetX + 'px';
-      bubble.style.top = window.scrollY + rect.bottom + SETTINGS.offsetY + 'px';
+      bubble.style.left = window.scrollX + rect.right + CFG.offsetX + 'px';
+      bubble.style.top = window.scrollY + rect.bottom + CFG.offsetY + 'px';
       bubble.classList.add('show');
       currentPost = post;
     }
@@ -34,7 +27,7 @@
     bubble.addEventListener('mousedown', (e) => e.preventDefault());
     bubble.addEventListener('click', (e) => {
       if (!currentPost) return;
-      const quoteBtn = currentPost.querySelector('.pl-quote a, .post-quote a');
+      const quoteBtn = $('.pl-quote a, .post-quote a', currentPost);
       if (quoteBtn) quoteBtn.click();
       hideBubble();
     });
@@ -48,7 +41,7 @@
 
       let node = sel.anchorNode;
       if (node && node.nodeType === 3) node = node.parentNode;
-      const post = node?.closest(SETTINGS.postSel);
+      const post = node?.closest(CFG.postSel);
       if (post) showBubble(rect, post);
       else hideBubble();
     }
@@ -56,10 +49,10 @@
     document.addEventListener('touchend', handleSelection);
 
     document.addEventListener('mousedown', (e) => {
-      if (!e.target.closest('#' + SETTINGS.bubbleId)) hideBubble();
+      if (!e.target.closest('#' + CFG.bubbleId)) hideBubble();
     });
     document.addEventListener('touchstart', (e) => {
-      if (!e.target.closest('#' + SETTINGS.bubbleId)) hideBubble();
+      if (!e.target.closest('#' + CFG.bubbleId)) hideBubble();
     });
 
     document.addEventListener('selectionchange', () => {

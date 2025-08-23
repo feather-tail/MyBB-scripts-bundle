@@ -1,14 +1,8 @@
 (() => {
   'use strict';
 
-  const ALLOWED_GROUPS = [1, 2, 4, 5];
-  const TARGET_TOPIC = 'Техническая тема';
-  const PR_TEMPLATES = [
-    `[align=center][url=YOUR_LINK][img]YOUR_IMG[/img][/url][/align]`,
-  ];
-  const COPY_SUCCESS_TEXT =
-    'Наш шаблон и ссылка на взаимную рекламу скопированы!';
-  const BUTTON_LABEL = 'Взаимная реклама';
+  const { $, createEl } = window.helpers;
+  const CFG = window.ScriptConfig.mutualPR;
 
   function getGroupID() {
     return typeof window.GroupID !== 'undefined' ? +window.GroupID : null;
@@ -20,8 +14,8 @@
 
   function isAllowed() {
     return (
-      ALLOWED_GROUPS.includes(getGroupID()) &&
-      getTopicSubject().includes(TARGET_TOPIC)
+      CFG.ALLOWED_GROUPS.includes(getGroupID()) &&
+      getTopicSubject().includes(CFG.TARGET_TOPIC)
     );
   }
 
@@ -35,32 +29,28 @@
 
   function addMutualPRButtons() {
     document.querySelectorAll('.post').forEach((post) => {
-      if (post.querySelector('.pl-mutualPR')) return;
+      if ($('.pl-mutualPR', post)) return;
 
-      const permalink = post.querySelector('h3 span > a.permalink');
+      const permalink = $('h3 span > a.permalink', post);
       if (!permalink) return;
       const linkBB = `\n\n[url=${permalink.href}]Взаимная реклама[/url]`;
 
       const template =
-        PR_TEMPLATES[Math.floor(Math.random() * PR_TEMPLATES.length)];
+        CFG.PR_TEMPLATES[Math.floor(Math.random() * CFG.PR_TEMPLATES.length)];
 
-      const linksUl = post.querySelector('.post-links ul');
+      const linksUl = $('.post-links ul', post);
       if (!linksUl) return;
 
-      const li = document.createElement('li');
-      li.className = 'pl-mutualPR';
-      const btn = document.createElement('a');
-      btn.href = '#';
-      btn.textContent = BUTTON_LABEL;
+      const li = createEl('li', { className: 'pl-mutualPR' });
+      const btn = createEl('a', { href: '#', text: CFG.BUTTON_LABEL });
       btn.onclick = (e) => {
         e.preventDefault();
-        const textarea = document.createElement('textarea');
-        textarea.value = template + linkBB;
+        const textarea = createEl('textarea', { value: template + linkBB });
         document.body.appendChild(textarea);
         textarea.select();
         try {
           document.execCommand('copy');
-          showNotification(COPY_SUCCESS_TEXT);
+          showNotification(CFG.COPY_SUCCESS_TEXT);
         } finally {
           document.body.removeChild(textarea);
         }

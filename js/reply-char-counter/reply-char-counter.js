@@ -1,27 +1,9 @@
 (() => {
   'use strict';
 
-  const SELECTORS = {
-    textarea: '#main-reply',
-    insertAfter: '',
-    defaultBefore: '.formsubmit',
-  };
-
-  const OPTIONS = {
-    stripMaskBBCode: true,
-    useGraphemeCounter: true,
-    watchProgrammaticChanges: true,
-  };
-
-  const countGraphemes = (str) => {
-    if (OPTIONS.useGraphemeCounter && window.Intl?.Segmenter) {
-      const seg = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
-      let n = 0;
-      for (const _ of seg.segment(str)) n++;
-      return n;
-    }
-    return Array.from(str).length;
-  };
+  const { $$, countGraphemes } = window.helpers;
+  const CFG = window.ScriptConfig.replyCharCounter;
+  const { selectors: SELECTORS, options: OPTIONS } = CFG;
 
   const stripMaskBlocks = (s) => s.replace(/\[mask\b[\s\S]*?\[\/mask\]/gi, '');
 
@@ -49,7 +31,7 @@
     } else if (beforeEl && beforeEl.parentNode) {
       beforeEl.parentNode.insertBefore(box, beforeEl);
     }
-    return box.querySelector('.reply-char-counter-value');
+    return $$('.reply-char-counter-value', box)[0];
   };
 
   let initialized = false;
@@ -57,11 +39,9 @@
     if (initialized) return;
     initialized = true;
 
-    const ta = document.querySelector(SELECTORS.textarea);
-    const defaultBefore = document.querySelector(SELECTORS.defaultBefore);
-    const after = SELECTORS.insertAfter
-      ? document.querySelector(SELECTORS.insertAfter)
-      : null;
+    const [ta] = $$(SELECTORS.textarea);
+    const [defaultBefore] = $$(SELECTORS.defaultBefore);
+    const after = SELECTORS.insertAfter ? $$(SELECTORS.insertAfter)[0] : null;
     if (!ta || !defaultBefore) return;
 
     const valueEl = insertCounter(after, defaultBefore);
@@ -71,7 +51,10 @@
 
     const update = () => {
       const clean = sanitize(ta.value);
-      valueEl.textContent = countGraphemes(clean);
+      const length = OPTIONS.useGraphemeCounter
+        ? countGraphemes(clean)
+        : clean.length;
+      valueEl.textContent = length;
       lastValue = ta.value;
     };
 

@@ -1,13 +1,8 @@
 (() => {
   'use strict';
 
-  const STICKER_DATA_URL = 'LINK_YOUR_STICKERS';
-  const STICKER_STYLESHEET_URL = 'LINK_STYLES';
-  const BUTTON_AFTER_ID = 'button-smile';
-  const MY_TAB_NAME = 'Свои';
-  const STORAGE_KEY = 'stickerPackUserData';
-  const USER_GROUP_HIDE_MY = 3;
-  const MAX_JSON_SIZE = 65000;
+  const { $, $$, createEl } = window.helpers;
+  const CFG = window.ScriptConfig.stickerPack;
 
   const stickerPack = {
     isLoading: false,
@@ -23,7 +18,7 @@
     if (initialized) return;
     initialized = true;
 
-    if (!document.getElementById(BUTTON_AFTER_ID)) return;
+    if (!$(`#${CFG.buttonAfterId}`)) return;
     addStickerPackStyles();
     addStickerPackButton();
   }
@@ -32,18 +27,20 @@
   else document.addEventListener('DOMContentLoaded', init);
 
   function addStickerPackStyles() {
-    const link = document.createElement('link');
-    link.rel = 'stylesheet';
-    link.href = STICKER_STYLESHEET_URL;
+    const link = createEl('link', {
+      rel: 'stylesheet',
+      href: CFG.stylesheetUrl,
+    });
     document.head.appendChild(link);
   }
 
   function addStickerPackButton() {
-    const buttonTd = document.createElement('td');
-    buttonTd.id = 'sticker-pack-button';
-    buttonTd.title = 'Стикеры';
-    buttonTd.onclick = onStickerPackButtonClick;
-    const afterElem = document.getElementById(BUTTON_AFTER_ID);
+    const buttonTd = createEl('td', {
+      id: 'sticker-pack-button',
+      title: 'Стикеры',
+      onclick: onStickerPackButtonClick,
+    });
+    const afterElem = $(`#${CFG.buttonAfterId}`);
     afterElem?.after(buttonTd);
     stickerPack.elements.button = buttonTd;
   }
@@ -56,7 +53,7 @@
     setStickerPackLoading(true);
     Promise.all([
       loadForumStickerPacks(),
-      window.GroupID !== USER_GROUP_HIDE_MY
+      window.GroupID !== CFG.hideMyGroupId
         ? loadUserStickers()
         : Promise.resolve(),
     ]).finally(() => {
@@ -68,17 +65,27 @@
   function renderStickerPackModal() {
     if (stickerPack.elements.modal) return toggleStickerPackModal(true);
 
-    const modalContainer = createElement('div', 'sticker-pack-modal-container');
-    const modal = createElement('div', 'sticker-pack-modal');
-    const tabs = createElement('div', 'sticker-pack-modal-tabs');
-    const content = createElement('div', 'sticker-pack-modal-content');
-    const addBox = createElement('div', 'sticker-pack-modal-add', 'hidden');
-    const input = createElement('input', 'sticker-pack-modal-input');
-    input.type = 'text';
-    input.placeholder = 'URL стикера';
-    const addBtn = createElement('input', 'sticker-pack-modal-add-btn');
-    addBtn.type = 'button';
-    addBtn.value = '+';
+    const modalContainer = createEl('div', {
+      className: 'sticker-pack-modal-container',
+    });
+    const modal = createEl('div', { className: 'sticker-pack-modal' });
+    const tabs = createEl('div', { className: 'sticker-pack-modal-tabs' });
+    const content = createEl('div', {
+      className: 'sticker-pack-modal-content',
+    });
+    const addBox = createEl('div', {
+      className: 'sticker-pack-modal-add hidden',
+    });
+    const input = createEl('input', {
+      className: 'sticker-pack-modal-input',
+      type: 'text',
+      placeholder: 'URL стикера',
+    });
+    const addBtn = createEl('input', {
+      className: 'sticker-pack-modal-add-btn',
+      type: 'button',
+      value: '+',
+    });
 
     addBox.append(input, addBtn);
     modal.append(content, addBox, tabs);
@@ -87,8 +94,8 @@
     stickerPack.packs.forEach((pack) => {
       if (pack.stickers.length) tabs.append(createTab(pack.name));
     });
-    if (window.GroupID !== USER_GROUP_HIDE_MY)
-      tabs.append(createTab(MY_TAB_NAME));
+    if (window.GroupID !== CFG.hideMyGroupId)
+      tabs.append(createTab(CFG.myTabName));
 
     tabs.onclick = (e) => {
       const tab = e.target.closest('.sticker-pack-modal-tab');
@@ -116,7 +123,7 @@
   }
 
   function createTab(name) {
-    const div = createElement('div', 'sticker-pack-modal-tab');
+    const div = createEl('div', { className: 'sticker-pack-modal-tab' });
     div.dataset.pack = name;
     div.textContent = name;
     return div;
@@ -128,8 +135,7 @@
     if (!modal) return;
     modal.classList.toggle('active', stickerPack.isModalOpen);
     if (stickerPack.isModalOpen) {
-      const ref =
-        document.getElementById('post') || document.getElementById('post-form');
+      const ref = $('#post') || $('#post-form');
       if (ref) {
         const rect = ref.getBoundingClientRect();
         modalContainer.style.position = 'absolute';
@@ -163,14 +169,12 @@
 
   function setStickerPackTab(tab) {
     stickerPack.activeTab = tab || stickerPack.packs[0]?.name || '';
-    stickerPack.elements.tabs
-      .querySelectorAll('.sticker-pack-modal-tab')
-      .forEach((t) =>
-        t.classList.toggle('active', t.dataset.pack === stickerPack.activeTab),
-      );
-    const isCustom = stickerPack.activeTab === MY_TAB_NAME;
+    $$('.sticker-pack-modal-tab', stickerPack.elements.tabs).forEach((t) =>
+      t.classList.toggle('active', t.dataset.pack === stickerPack.activeTab),
+    );
+    const isCustom = stickerPack.activeTab === CFG.myTabName;
     const pack = isCustom
-      ? { name: MY_TAB_NAME, stickers: stickerPack.userStickers }
+      ? { name: CFG.myTabName, stickers: stickerPack.userStickers }
       : stickerPack.packs.find((p) => p.name === stickerPack.activeTab) || {
           stickers: [],
         };
@@ -179,17 +183,20 @@
     const fragment = document.createDocumentFragment();
 
     for (const url of pack.stickers) {
-      const div = createElement('div', 'sticker-pack-item');
+      const div = createEl('div', { className: 'sticker-pack-item' });
       div.dataset.sticker = url;
-      const img = document.createElement('img');
-      img.src = url;
-      img.loading = 'lazy';
-      img.onclick = () => window.smile?.(`[img]${url}[/img]`);
+      const img = createEl('img', {
+        src: url,
+        loading: 'lazy',
+        onclick: () => window.smile?.(`[img]${url}[/img]`),
+      });
       div.append(img);
       if (isCustom) {
-        const btn = createElement('span', 'sticker-pack-remove-item');
-        btn.title = 'Удалить';
-        btn.textContent = 'x';
+        const btn = createEl('span', {
+          className: 'sticker-pack-remove-item',
+          title: 'Удалить',
+          text: 'x',
+        });
         div.append(btn);
       }
       fragment.append(div);
@@ -205,7 +212,7 @@
     const idx = stickerPack.userStickers.indexOf(url);
     if (idx >= 0) {
       stickerPack.userStickers.splice(idx, 1);
-      setStickerPackTab(MY_TAB_NAME);
+      setStickerPackTab(CFG.myTabName);
       saveUserStickers();
     }
   }
@@ -218,25 +225,25 @@
     ) {
       stickerPack.userStickers.push(url);
       saveUserStickers();
-      setStickerPackTab(MY_TAB_NAME);
+      setStickerPackTab(CFG.myTabName);
       input.value = '';
     }
   }
 
   function saveUserStickers() {
     let json = JSON.stringify(stickerPack.userStickers);
-    if (json.length >= MAX_JSON_SIZE) {
+    if (json.length >= CFG.maxJsonSize) {
       window.jGrowl?.('Слишком много стикеров, последний не был сохранён 😔');
       stickerPack.userStickers.pop();
       return saveUserStickers();
     }
-    fetch('/api.php', {
+    fetch(CFG.apiUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
-        method: 'storage.set',
+        method: CFG.apiSetMethod,
         token: window.ForumAPITicket,
-        key: STORAGE_KEY,
+        key: CFG.storageKey,
         value: json,
       }),
     });
@@ -268,7 +275,7 @@
   }
 
   function loadForumStickerPacks() {
-    return fetch(STICKER_DATA_URL)
+    return fetch(CFG.dataUrl)
       .then((r) => r.text())
       .then(parseForumStickerData)
       .catch(() =>
@@ -280,15 +287,17 @@
 
   function loadUserStickers() {
     if (window.UserID === 1) return Promise.resolve();
-    return fetch('/api.php?method=storage.get&key=' + STORAGE_KEY)
+    return fetch(
+      `${CFG.apiUrl}?method=${CFG.apiGetMethod}&key=${CFG.storageKey}`,
+    )
       .then((r) => r.json())
       .then((result) => {
-        const str = result?.response?.storage?.data?.[STORAGE_KEY] || '';
+        const str = result?.response?.storage?.data?.[CFG.storageKey] || '';
         if (str) {
           try {
             stickerPack.userStickers = JSON.parse(str);
           } catch (err) {
-            if (err instanceof SyntaxError && str.length > MAX_JSON_SIZE) {
+            if (err instanceof SyntaxError && str.length > CFG.maxJsonSize) {
               saveUserStickers();
               window.jGrowl?.(
                 'Стикеры сохранились критично неправильно, пришлось очистить хранилище. Извините 😥',
@@ -302,11 +311,5 @@
           'Твои стикеры не прогрузились, придется пользоваться форумными 😒',
         ),
       );
-  }
-
-  function createElement(tag, ...classes) {
-    const el = document.createElement(tag);
-    classes.forEach((c) => el.classList.add(c));
-    return el;
   }
 })();

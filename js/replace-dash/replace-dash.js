@@ -1,13 +1,15 @@
 (() => {
   'use strict';
 
+  const { $$ } = window.helpers;
+  const CFG = window.ScriptConfig.replaceDash;
+
   let initialized = false;
   function init() {
     if (initialized) return;
     initialized = true;
 
-    const paragraphElements = document.querySelectorAll('.post-content p');
-    const DASH_REGEX = /(^|[\s\u00A0])-(?=[\s\u00A0])/g;
+    const paragraphElements = $$(CFG.paragraphSelector);
 
     paragraphElements.forEach((paraNode) => {
       const walker = document.createTreeWalker(
@@ -20,7 +22,7 @@
       let textNode;
       while ((textNode = walker.nextNode())) {
         const originalText = textNode.nodeValue;
-        const newText = originalText.replace(DASH_REGEX, '$1\u2014');
+        const newText = originalText.replace(CFG.dashRegex, '$1\u2014');
         if (newText !== originalText) {
           textNode.nodeValue = newText;
         }

@@ -1,6 +1,9 @@
 (() => {
   'use strict';
 
+  const { $ } = window.helpers;
+  const CFG = window.ScriptConfig.scrollRails;
+
   let upScrollButton;
   let downScrollButton;
   let rootDocument;
@@ -13,12 +16,11 @@
   function updateScrollButtons() {
     const scrollY = window.scrollY;
     const maxScroll = rootDocument.scrollHeight - window.innerHeight;
-    const edgeOffset = 80;
 
-    upScrollButton.classList.toggle('hidden', scrollY <= edgeOffset);
+    upScrollButton.classList.toggle('hidden', scrollY <= CFG.edgeOffset);
     downScrollButton.classList.toggle(
       'hidden',
-      scrollY >= maxScroll - edgeOffset,
+      scrollY >= maxScroll - CFG.edgeOffset,
     );
 
     ticking = false;
@@ -35,8 +37,8 @@
     if (initialized) return;
     initialized = true;
 
-    upScrollButton = document.querySelector('.scroll-rail.rail-up');
-    downScrollButton = document.querySelector('.scroll-rail.rail-down');
+    upScrollButton = $(CFG.classes.up);
+    downScrollButton = $(CFG.classes.down);
     rootDocument = document.documentElement;
     if (!upScrollButton || !downScrollButton) return;
 

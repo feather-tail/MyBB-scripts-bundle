@@ -1,24 +1,32 @@
 (() => {
   'use strict';
 
-  document.querySelectorAll('.quote-box>cite').forEach((cite) => {
+  const { $$, createEl } = window.helpers;
+  const CFG = window.ScriptConfig.quotePostLink;
+
+  $$(CFG.selectors.cite).forEach((cite) => {
     const text = cite.textContent;
     const match = text.match(/^(#p\d+),(.*)$/s);
     if (!match) return;
     const postId = match[1].trim();
     const label = match[2].trim();
     let href = '';
-    if (document.querySelector(`.post${postId}`)) {
-      href = `<a class="qc-post-link" href="${postId}">${label}</a>`;
+    if (document.querySelector(CFG.selectors.post(postId))) {
+      href = CFG.linkTemplates.sameTopic(postId);
     } else {
-      const pidNum = postId.slice(2);
-      href = `<a class="qc-post-link" href="/viewtopic.php?pid=${pidNum}${postId}">${label}</a>`;
+      href = CFG.linkTemplates.otherTopic(postId.slice(2), postId);
     }
-    cite.innerHTML = href;
+    const link = createEl('a', {
+      className: 'qc-post-link',
+      href,
+      text: label,
+    });
+    cite.innerHTML = '';
+    cite.appendChild(link);
   });
 
-  document.querySelectorAll('#pun-viewtopic .pl-quote > a').forEach((a) => {
-    const post = a.closest('.post');
+  $$(CFG.selectors.inlineQuote).forEach((a) => {
+    const post = a.closest(CFG.selectors.postRoot);
     if (!post) return;
     const postId = post.id;
     a.href = a.href.replace("('", `('#${postId},`);
