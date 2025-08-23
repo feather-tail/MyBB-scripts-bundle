@@ -541,8 +541,6 @@
     });
   }
 
-  helpers.ready(init);
-
-  window.scripts = window.scripts || {};
-  window.scripts.imageUploader = rfu;
+  helpers.ready(helpers.once(init));
+  helpers.register('imageUploader', rfu);
 })();

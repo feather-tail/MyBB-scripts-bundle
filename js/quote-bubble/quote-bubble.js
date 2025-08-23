@@ -64,5 +64,5 @@
     bubble.addEventListener('blur', hideBubble);
   }
 
-  helpers.ready(init);
+  helpers.ready(helpers.once(init));
 })();

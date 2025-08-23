@@ -63,6 +63,5 @@
     }
   }
 
-  window.scripts = window.scripts || {};
-  window.scripts.cleanQuote = { quote };
+  helpers.register('cleanQuote', { quote });
 })();

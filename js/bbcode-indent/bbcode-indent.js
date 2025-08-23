@@ -3,7 +3,7 @@
 
   const { $, $$, createEl } = window.helpers;
   const config = helpers.getConfig('bbcodeIndent', {});
-  const scripts = (window.scripts = window.scripts || {});
+  const state = helpers.register('bbcodeIndent', {});
   const BUTTON_AFTER = '#button-strike';
   const BUTTON_ID = 'button-indent';
   const BUTTON_TITLE = 'Отступы';
@@ -60,14 +60,14 @@
     $$(config.selectors).forEach(processIndent);
 
     const prevBox = $('#post-preview .post-content');
-    if (prevBox && !scripts.bbcodeIndentObserver) {
+    if (prevBox && !state.bbcodeIndentObserver) {
       const obs = new MutationObserver(() => {
         obs.disconnect();
         processIndent(prevBox);
         obs.observe(prevBox, { childList: true, subtree: true });
       });
       obs.observe(prevBox, { childList: true, subtree: true });
-      scripts.bbcodeIndentObserver = obs;
+      state.bbcodeIndentObserver = obs;
     }
   }
 

@@ -68,8 +68,6 @@
     return promise || Promise.resolve();
   }
 
-  window.scripts = window.scripts || {};
-  window.scripts.toast = showToast;
-  if (window.helpers)
-    window.helpers.showToast = (...args) => showToast(...args);
+  helpers.register('toast', showToast);
+  helpers.showToast = (...args) => showToast(...args);
 })();

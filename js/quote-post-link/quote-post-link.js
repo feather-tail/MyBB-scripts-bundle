@@ -34,5 +34,5 @@
     });
   }
 
-  helpers.ready(init);
+  helpers.ready(helpers.once(init));
 })();

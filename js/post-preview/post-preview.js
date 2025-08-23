@@ -91,5 +91,5 @@
     ta.addEventListener('input', debounce(firePreview, config.debounceDelay));
   }
 
-  helpers.ready(init);
+  helpers.ready(helpers.once(init));
 })();

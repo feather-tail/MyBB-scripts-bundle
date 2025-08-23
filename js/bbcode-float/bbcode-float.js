@@ -81,7 +81,8 @@
     watchPreview();
   }
 
-  helpers.ready(init);
-  document.addEventListener('pun_main_ready', init);
-  document.addEventListener('pun_preview', init);
+  const run = helpers.once(init);
+  helpers.ready(run);
+  document.addEventListener('pun_main_ready', run);
+  document.addEventListener('pun_preview', run);
 })();

@@ -61,9 +61,7 @@
   }
 
   helpers.ready(helpers.once(init));
-
-  window.scripts = window.scripts || {};
-  window.scripts.bbcodeHideProfile = {
+  helpers.register('bbcodeHideProfile', {
     applyToAllPosts: applyHideProfileToAllPosts,
-  };
+  });
 })();

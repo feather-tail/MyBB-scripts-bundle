@@ -1482,12 +1482,11 @@
     }
 
     processPosts();
-    window.scripts = window.scripts || {};
-    window.scripts.bbcodeMask = {
+    helpers.register('bbcodeMask', {
       CONFIG: config,
       removeMaskTagsFromPreview,
       Cache,
-    };
+    });
   }
 
   helpers.ready(helpers.once(init));

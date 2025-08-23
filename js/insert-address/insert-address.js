@@ -20,8 +20,6 @@
     messageField = $(config.selector);
   }
 
-  helpers.ready(init);
-
-  window.scripts = window.scripts || {};
-  window.scripts.insertAddress = insertAddress;
+  helpers.ready(helpers.once(init));
+  helpers.register('insertAddress', insertAddress);
 })();
