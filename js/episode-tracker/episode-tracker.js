@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const { $, $$, copyToClipboard } = window.helpers;
+  const { $, $$, copyToClipboard, showToast, dialog } = window.helpers;
   const CFG = window.ScriptConfig.episodeTracker;
 
   const ALLOWED_GROUP_IDS = new Set(CFG.allowedGroupIds);
@@ -291,7 +291,7 @@
       const participants = partsInp.map((i) => i.value.trim()).filter(Boolean);
 
       if (!url || !participants.length)
-        return alert('Заполните ссылку и участников');
+        return showToast('Заполните ссылку и участников', { type: 'error' });
 
       const info = parseUrl(url);
       const topicId = info?.id ?? null;
@@ -302,7 +302,8 @@
           (topicId ? ep.topicId === topicId : ep.url === url) &&
           idx !== editIndex,
       );
-      if (duplicate) return alert('Такой эпизод уже есть');
+      if (duplicate)
+        return showToast('Такой эпизод уже есть', { type: 'error' });
 
       let meta = { title: null, replies: 0, last: null };
       if (topicId && domain) meta = await fetchTopicMeta(domain, topicId);
@@ -352,8 +353,10 @@
       copyToClipboard(JSON.stringify(store.episodes, null, 2)),
     );
 
-    el.btnImport.addEventListener('click', () => {
-      const raw = prompt('Вставьте экспортированные данные:');
+    el.btnImport.addEventListener('click', async () => {
+      const raw = await dialog('Вставьте экспортированные данные:', {
+        prompt: true,
+      });
       if (!raw) return;
 
       let data;
@@ -361,7 +364,7 @@
         data = JSON.parse(raw);
         if (!Array.isArray(data)) throw 0;
       } catch {
-        return alert('Неверный формат');
+        return showToast('Неверный формат', { type: 'error' });
       }
 
       const arr = store.episodes;
@@ -384,16 +387,16 @@
 
       store.episodes = arr;
       renderAll();
-      alert(`Импорт: добавлено ${added}, повторов исключено ${skipped}`);
+      showToast(`Импорт: добавлено ${added}, повторов исключено ${skipped}`);
     });
 
-    el.list.addEventListener('click', (ev) => {
+    el.list.addEventListener('click', async (ev) => {
       const btn = ev.target.closest('.episode-action');
       if (!btn) return;
       const idx = +btn.closest('.episode').dataset.i;
 
       if (btn.classList.contains('episode-remove')) {
-        if (confirm('Удалить эпизод?')) {
+        if (await dialog('Удалить эпизод?')) {
           const arr = store.episodes;
           arr.splice(idx, 1);
           store.episodes = arr;

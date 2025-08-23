@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const { $, createEl } = window.helpers;
+  const { $, createEl, showToast } = window.helpers;
   const CFG = window.ScriptConfig.mutualPR;
 
   function getGroupID() {
@@ -22,8 +22,10 @@
   function showNotification(text) {
     if (window.jGrowl) {
       window.jGrowl(text);
+    } else if (showToast) {
+      showToast(text, { type: 'info' });
     } else {
-      alert(text);
+      console.log(text);
     }
   }
 

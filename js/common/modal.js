@@ -71,5 +71,64 @@
     return { close, overlay, content: node };
   }
 
-  window.helpers.modal = { openModal };
+  function dialog(message, opts = {}) {
+    const {
+      prompt = false,
+      placeholder = '',
+      defaultValue = '',
+      okText = 'OK',
+      cancelText = 'Отмена',
+    } = opts;
+
+    return new Promise((resolve) => {
+      const box = createEl('div', {
+        className: 'modal-dialog',
+        style: 'background:#fff;padding:20px;max-width:90%;',
+      });
+      box.appendChild(createEl('p', { text: message }));
+
+      let input;
+      if (prompt) {
+        input = createEl('input', {
+          type: 'text',
+          value: defaultValue,
+          placeholder,
+          style: 'margin-top:10px;',
+        });
+        box.appendChild(input);
+      }
+
+      const actions = createEl('div', {
+        className: 'modal-actions',
+        style: 'margin-top:15px;text-align:right;',
+      });
+      const btnCancel = createEl('button', {
+        type: 'button',
+        text: cancelText,
+      });
+      const btnOk = createEl('button', {
+        type: 'button',
+        text: okText,
+      });
+      actions.append(btnCancel, btnOk);
+      box.appendChild(actions);
+
+      const { close } = openModal(box, {
+        onClose: () => resolve(prompt ? null : false),
+      });
+      btnCancel.addEventListener('click', () => {
+        resolve(prompt ? null : false);
+        close();
+      });
+      btnOk.addEventListener('click', () => {
+        resolve(prompt ? input.value : true);
+        close();
+      });
+
+      (prompt ? input : btnOk).focus();
+    });
+  }
+
+  window.helpers.dialog = dialog;
+  window.helpers.modal = { openModal, dialog };
 })();

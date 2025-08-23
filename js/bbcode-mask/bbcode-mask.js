@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  const { $, $$, createEl, debounce, parseAccessMap, showToast } =
+  const { $, $$, createEl, debounce, parseAccessMap, showToast, dialog } =
     window.helpers;
   const CFG = window.ScriptConfig.bbcodeMask;
   const SELECTORS = CFG.selectors;
@@ -1373,7 +1373,7 @@
       const item = e.target.closest('.mask-storage-item');
       const idx = item ? +item.dataset.index : -1;
       if (e.target.matches('.mask-delete-btn') && idx > -1) {
-        if (!confirm('Удалить маску?')) return;
+        if (!(await dialog('Удалить маску?'))) return;
         MaskStore.remove(idx);
         await MaskStore.save();
         renderStoragePanel(storagePanel);

@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const { $, $$, createEl } = window.helpers;
+  const { $, $$, createEl, showToast } = window.helpers;
   const CFG = window.ScriptConfig.dice;
   const bbRe = /\[dice=((?:\d+-)+)(\d+):(\d+)\]/g;
 
@@ -52,11 +52,15 @@
       const cnt = parseInt(countInput.value, 10);
       const sides = parseInt(sidesInput.value, 10);
       if (!cnt || cnt < 1 || cnt > CFG.maxDice) {
-        alert(`Количество кубиков: от 1 до ${CFG.maxDice}`);
+        showToast(`Количество кубиков: от 1 до ${CFG.maxDice}`, {
+          type: 'error',
+        });
         return;
       }
       if (!sides || sides < 2 || sides > CFG.maxSides) {
-        alert(`Количество граней: от 2 до ${CFG.maxSides}`);
+        showToast(`Количество граней: от 2 до ${CFG.maxSides}`, {
+          type: 'error',
+        });
         return;
       }
       close();

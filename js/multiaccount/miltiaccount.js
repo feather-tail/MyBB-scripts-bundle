@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const { $, createEl } = window.helpers;
+  const { $, createEl, showToast } = window.helpers;
   const CFG = window.ScriptConfig.multiaccount;
 
   let initialized = false;
@@ -227,7 +227,7 @@
             const password = passwordInput.value;
 
             if (accounts.find((acc) => acc.username === username)) {
-              alert(CFG.texts.duplicateAccount);
+              showToast(CFG.texts.duplicateAccount, { type: 'error' });
               return;
             }
 
