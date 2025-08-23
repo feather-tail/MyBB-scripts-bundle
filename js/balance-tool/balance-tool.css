@@ -71,23 +71,3 @@
   opacity: 0.7;
   pointer-events: none;
 }
-.balance-tool__toast {
-  position: fixed;
-  left: 50%;
-  transform: translateX(-50%);
-  bottom: 16px;
-  background: #111;
-  color: #fff;
-  padding: 0.5rem 0.75rem;
-  border-radius: 0.5rem;
-  opacity: 0.95;
-  z-index: 9999;
-  max-width: 90%;
-  font: var(--bt-font);
-}
-.balance-tool__toast--ok {
-  background: var(--bt-ok);
-}
-.balance-tool__toast--err {
-  background: var(--bt-error);
-}

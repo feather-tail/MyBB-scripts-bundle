@@ -133,5 +133,6 @@
     formatBytes,
     getUserId,
     buildForumUploadsURL,
+    showToast: (...args) => window.showToast?.(...args),
   };
 })();

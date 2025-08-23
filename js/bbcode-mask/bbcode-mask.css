@@ -389,62 +389,6 @@ body.mask-modal-open {
   background: var(--primary-color);
 }
 
-.mask-toast {
-  position: fixed;
-  left: 50%;
-  bottom: 32px;
-  transform: translateX(-50%) translateY(40px);
-  background: #252f36;
-  color: #fff;
-  padding: 12px 28px;
-  border-radius: 8px;
-  box-shadow: 0 6px 32px rgba(0, 0, 0, 0.23);
-  font-size: 16px;
-  opacity: 0;
-  z-index: 9999;
-  pointer-events: none;
-  transition: opacity 0.23s, transform 0.25s cubic-bezier(0.22, 0.7, 0.4, 1.2);
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-.mask-toast--visible {
-  opacity: 1;
-  transform: translateX(-50%) translateY(0);
-  pointer-events: auto;
-}
-.mask-toast--success {
-  background: #259b24;
-}
-.mask-toast--error {
-  background: #e64a19;
-}
-.mask-toast--warn {
-  background: #ffd600;
-  color: #252f36;
-}
-.mask-toast--info {
-  background: #252f36;
-}
-
-.mask-toast-undo {
-  background: var(--button-bg);
-  color: var(--button-text);
-  border: none;
-  border-radius: 16px;
-  padding: 6px 14px;
-  margin-left: 6px;
-  font-size: 0.95em;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-.mask-toast-undo:hover,
-.mask-toast-undo:focus-visible {
-  background: var(--button-hover);
-  outline: 2px solid var(--input-focus);
-  outline-offset: 2px;
-}
-
 .mask-storage-empty {
   color: #aaa;
   text-align: center;
@@ -546,14 +490,6 @@ body.mask-modal-open {
     flex-direction: column;
     gap: 6px;
     padding: 8px 3vw;
-  }
-  .mask-toast {
-    font-size: 15px;
-    padding: 9px 10vw;
-    border-radius: 7px;
-    left: 50%;
-    min-width: 160px;
-    max-width: 92vw;
   }
 }
 

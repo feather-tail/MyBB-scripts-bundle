@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const { $, $$, parseHTML, withTimeout, crc32 } = window.helpers;
+  const { $, $$, parseHTML, withTimeout, crc32, showToast } = window.helpers;
   const CFG = window.ScriptConfig.balanceTool;
   const topicId = () => new URLSearchParams(location.search).get('id') || '';
   const allowedTopic = (id) => CFG.access.allowedTopicIds.includes(String(id));
@@ -174,18 +174,6 @@
     throw new Error('Не удалось определить ID поста');
   };
 
-  const toast = (msg, ok = true) => {
-    const el = document.createElement('div');
-    el.className =
-      'balance-tool__toast ' +
-      (ok ? 'balance-tool__toast--ok' : 'balance-tool__toast--err');
-    el.textContent = msg;
-    document.body.appendChild(el);
-    setTimeout(() => {
-      el.remove();
-    }, CFG.toastDurationMs);
-  };
-
   const LS_KEY = 'balance-tool:last';
   const saveLast = (factor, qty) => {
     try {
@@ -351,7 +339,10 @@
     }
     btnRun.addEventListener('click', () => {
       if (!rateOk()) {
-        toast('Слишком часто. Попробуйте позже.', false);
+        showToast('Слишком часто. Попробуйте позже.', {
+          type: 'error',
+          duration: CFG.toastDurationMs,
+        });
         return;
       }
       wrap.classList.add('is-busy');
@@ -372,7 +363,10 @@
           statusArea.innerHTML = `<p class="balance-tool__error">${
             e.message || e
           }</p>`;
-          toast('Ошибка операции', false);
+          showToast('Ошибка операции', {
+            type: 'error',
+            duration: CFG.toastDurationMs,
+          });
         } finally {
           wrap.classList.remove('is-busy');
           sel.disabled = false;
@@ -406,7 +400,10 @@
       statusArea.innerHTML =
         buildReport(factor, qty, current, next) +
         `<p>&#129514; Предпросмотр: без сохранения.</p>`;
-      toast('Предпросмотр выполнен');
+      showToast('Предпросмотр выполнен', {
+        type: 'success',
+        duration: CFG.toastDurationMs,
+      });
       return;
     }
     const beforeHash = fieldsHash(profileForm);
@@ -431,7 +428,10 @@
       (hashChanged
         ? `<p>&#8505;&#65039; Профиль изменён: возможно, кто-то редактировал параллельно.</p>`
         : '');
-    toast(ok ? 'Баланс обновлён' : 'Проверка не прошла', ok);
+    showToast(ok ? 'Баланс обновлён' : 'Проверка не прошла', {
+      type: ok ? 'success' : 'error',
+      duration: CFG.toastDurationMs,
+    });
     if (!CFG.decoratePost) return;
     const editUrl = CFG.endpoints.postEditUrl(postId);
     const editForm = await fetchForm(

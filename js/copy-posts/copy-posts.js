@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  const { $, $$, createEl } = window.helpers;
+  const { $, $$, createEl, showToast } = window.helpers;
 
   const CFG = window.ScriptConfig || {};
   const SETTINGS = {
@@ -25,71 +25,6 @@
   const TOPIC_ID = new URLSearchParams(location.search).get('id') || '';
   if (!window.FORUM || !ALLOWED_FORUMS.has(String(FORUM?.topic?.forum_id)))
     return;
-
-  const ensureToastRoot = () => {
-    let root = $('.toast-root');
-    if (root) return root;
-    root = createEl('div', {
-      className: 'toast-root',
-      role: 'status',
-      'aria-live': 'polite',
-      'aria-atomic': 'true',
-    });
-    document.body.appendChild(root);
-    return root;
-  };
-
-  const showToast = (message, { type = 'info', duration = 3000 } = {}) => {
-    const root = ensureToastRoot();
-    const el = createEl('div', {
-      className: `toast toast--${type}`,
-      html: `<div class="toast__content">${message}</div><button class="toast__close" type="button" aria-label="Закрыть">\u00D7</button>`,
-    });
-    root.appendChild(el);
-    const remove = () => el.isConnected && el.remove();
-    $('.toast__close', el)?.addEventListener('click', remove);
-    if (duration > 0) setTimeout(remove, duration);
-  };
-
-  const showActionToast = (
-    message,
-    actions = [],
-    { type = 'info', duration = 0 } = {},
-  ) => {
-    const root = ensureToastRoot();
-    const el = createEl('div', {
-      className: `toast toast--${type} toast--action`,
-      html: `
-      <div class="toast__content">${message}</div>
-      <div class="toast__actions"></div>
-      <button class="toast__close" type="button" aria-label="Закрыть">\u00D7</button>`,
-    });
-    const actionsWrap = $('.toast__actions', el);
-    let resolve;
-    const p = new Promise((r) => (resolve = r));
-    const cleanup = () => el.isConnected && el.remove();
-    const resolveAndRemove = (val) => {
-      resolve(val);
-      cleanup();
-    };
-    actions.forEach((a) => {
-      const btn = createEl('button', {
-        type: 'button',
-        className: `toast__btn ${
-          a.variant ? `toast__btn--${a.variant}` : ''
-        }`.trim(),
-        text: a.label,
-      });
-      btn.addEventListener('click', () => resolveAndRemove(a.value));
-      actionsWrap.appendChild(btn);
-    });
-    root.appendChild(el);
-    $('.toast__close', el)?.addEventListener('click', () =>
-      resolveAndRemove(null),
-    );
-    if (duration > 0) setTimeout(() => resolveAndRemove(null), duration);
-    return p;
-  };
 
   const enc = new TextEncoder();
 
@@ -208,14 +143,14 @@
       const payload = `${author}:\n${htmlToPlain(html)}`;
       const bytes = enc.encode(payload).length;
       if (bytes > SETTINGS.clipboardSoftLimitBytes) {
-        const choice = await showActionToast(
-          'Текст поста очень большой.',
-          [
+        const choice = await showToast('Текст поста очень большой.', {
+          type: 'warning',
+          actions: [
             { label: 'Скачать .txt', value: 'download', variant: 'primary' },
             { label: 'Копировать всё равно', value: 'copy' },
           ],
-          { type: 'warning' },
-        );
+          duration: 0,
+        });
         if (choice === 'download')
           return downloadTxt(payload, makeTopicFilename());
       }
@@ -223,10 +158,15 @@
       if (ok) {
         showToast('Пост скопирован в буфер обмена.', { type: 'success' });
       } else {
-        const choice = await showActionToast(
+        const choice = await showToast(
           'Не удалось скопировать в буфер обмена.',
-          [{ label: 'Скачать .txt', value: 'download', variant: 'primary' }],
-          { type: 'error' },
+          {
+            type: 'error',
+            actions: [
+              { label: 'Скачать .txt', value: 'download', variant: 'primary' },
+            ],
+            duration: 0,
+          },
         );
         if (choice === 'download') downloadTxt(payload, makeTopicFilename());
       }
@@ -260,14 +200,14 @@
           .join(SETTINGS.joinSeparator);
         const bytes = enc.encode(plain).length;
         if (bytes > SETTINGS.clipboardSoftLimitBytes) {
-          const choice = await showActionToast(
-            'Текст всей темы очень большой.',
-            [
+          const choice = await showToast('Текст всей темы очень большой.', {
+            type: 'warning',
+            actions: [
               { label: 'Скачать .txt', value: 'download', variant: 'primary' },
               { label: 'Копировать всё равно', value: 'copy' },
             ],
-            { type: 'warning' },
-          );
+            duration: 0,
+          });
           if (choice === 'download')
             return downloadTxt(plain, makeTopicFilename());
         }
@@ -275,10 +215,19 @@
         if (ok) {
           showToast('Весь текст темы скопирован.', { type: 'success' });
         } else {
-          const choice = await showActionToast(
+          const choice = await showToast(
             'Не удалось скопировать в буфер обмена.',
-            [{ label: 'Скачать .txt', value: 'download', variant: 'primary' }],
-            { type: 'error' },
+            {
+              type: 'error',
+              actions: [
+                {
+                  label: 'Скачать .txt',
+                  value: 'download',
+                  variant: 'primary',
+                },
+              ],
+              duration: 0,
+            },
           );
           if (choice === 'download') downloadTxt(plain, makeTopicFilename());
         }

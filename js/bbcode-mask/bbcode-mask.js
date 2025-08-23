@@ -1,6 +1,7 @@
 (() => {
   'use strict';
-  const { $, $$, createEl, debounce, parseAccessMap } = window.helpers;
+  const { $, $$, createEl, debounce, parseAccessMap, showToast } =
+    window.helpers;
   const CFG = window.ScriptConfig.bbcodeMask;
   const SELECTORS = CFG.selectors;
   const MAX_CACHE_ENTRIES = CFG.maxCacheEntries;
@@ -123,9 +124,8 @@
     add(record) {
       if (this.masks.length >= CFG.storageLimit) {
         this.masks.pop();
-        showToast({
-          text: 'Самая старая маска была удалена из-за переполнения.',
-          type: 'warn',
+        showToast('Самая старая маска была удалена из-за переполнения.', {
+          type: 'warning',
         });
       }
       this.masks.unshift(record);
@@ -474,18 +474,13 @@
   }
 
   function showUndoToast(onUndo) {
-    $('.mask-toast')?.remove();
-    const toast = createEl('div');
-    toast.className = 'mask-toast';
-    toast.innerHTML = `<span>Маска удалена.</span><button type="button" class="mask-toast-undo" tabindex="0">Отменить</button>`;
-    document.body.appendChild(toast);
-    const removeToast = () => toast.remove();
-    const timeout = setTimeout(removeToast, 5000);
-    toast.querySelector('.mask-toast-undo').onclick = () => {
-      clearTimeout(timeout);
-      removeToast();
-      onUndo?.();
-    };
+    showToast('Маска удалена.', {
+      type: 'info',
+      actions: [{ label: 'Отменить', value: 'undo', variant: 'primary' }],
+      duration: 5000,
+    }).then((res) => {
+      if (res === 'undo') onUndo?.();
+    });
   }
 
   const stripMaskTags_noCache = (html) => {
@@ -555,19 +550,6 @@
     btn.textContent = text;
     btn.dataset.action = action;
     return btn;
-  }
-
-  function showToast({ text, type = 'info', timeout = 4000 } = {}) {
-    $('.mask-toast')?.remove();
-    const toast = createEl('div');
-    toast.className = `mask-toast mask-toast--${type}`;
-    toast.innerHTML = `<span>${text}</span>`;
-    document.body.appendChild(toast);
-    setTimeout(() => toast.classList.add('mask-toast--visible'), 10);
-    setTimeout(() => {
-      toast.classList.remove('mask-toast--visible');
-      setTimeout(() => toast.remove(), 350);
-    }, timeout);
   }
 
   const observePreviewChanges = () => {
@@ -1113,10 +1095,10 @@
     const record = JSON.stringify(currentMask);
     if (editingIndex !== null) {
       MaskStore.update(editingIndex, record);
-      showToast({ text: 'Маска обновлена!', type: 'success' });
+      showToast('Маска обновлена!', { type: 'success' });
     } else {
       MaskStore.add(record);
-      showToast({ text: 'Маска сохранена!', type: 'success' });
+      showToast('Маска сохранена!', { type: 'success' });
     }
     await MaskStore.save();
     editingIndex = null;
@@ -1310,7 +1292,7 @@
     ];
     templateSelect.addEventListener('change', (e) => {
       fillForm(templates[Number(e.target.value)]);
-      showToast({ text: 'Шаблон подставлен', type: 'info' });
+      showToast('Шаблон подставлен', { type: 'info' });
       setTimeout(() => $('#mask-author')?.focus(), 0);
     });
 
@@ -1330,7 +1312,7 @@
     formEl.addEventListener('click', (e) => {
       if (e.target.matches('.mask-template-btn')) {
         insertTemplate(e.target.dataset.field);
-        showToast({ text: 'Шаблон поля подставлен', type: 'info' });
+        showToast('Шаблон поля подставлен', { type: 'info' });
         setTimeout(() => $('#mask-author')?.focus(), 0);
       }
     });
@@ -1357,7 +1339,7 @@
       const act = btn.dataset.action;
       if (act === 'save') {
         if (!validateForm()) {
-          showToast({ text: 'Исправьте ошибки в форме.', type: 'warn' });
+          showToast('Исправьте ошибки в форме.', { type: 'warning' });
           return;
         }
         insertCode();
@@ -1368,25 +1350,22 @@
         } catch {}
       } else if (act === 'insert') {
         if (!validateForm()) {
-          showToast({ text: 'Исправьте ошибки в форме.', type: 'warn' });
+          showToast('Исправьте ошибки в форме.', { type: 'warning' });
           return;
         }
         insertCode();
         clearDraft();
         closeDialog();
-        showToast({
-          text: 'Маска вставлена (без сохранения)',
-          type: 'success',
-        });
+        showToast('Маска вставлена (без сохранения)', { type: 'success' });
       } else if (act === 'clear') {
         editingIndex = null;
         clearFormFields();
         updatePreview();
         clearDraft();
-        showToast({ text: 'Поля очищены', type: 'info' });
+        showToast('Поля очищены', { type: 'info' });
       } else if (act === 'cancel') {
         closeDialog();
-        showToast({ text: 'Отмена', type: 'info' });
+        showToast('Отмена', { type: 'info' });
       }
     });
 
@@ -1402,14 +1381,14 @@
           MaskStore.undoDelete();
           await MaskStore.save();
           renderStoragePanel(storagePanel);
-          showToast({ text: 'Маска восстановлена.', type: 'success' });
+          showToast('Маска восстановлена.', { type: 'success' });
         });
         return;
       }
       if (e.target.matches('.mask-storage-avatar') && idx > -1) {
         editingIndex = idx;
         fillForm(JSON.parse(MaskStore.masks[idx]));
-        showToast({ text: 'Маска загружена для редактирования', type: 'info' });
+        showToast('Маска загружена для редактирования', { type: 'info' });
         setTimeout(() => $('#mask-author')?.focus(), 0);
         return;
       }
@@ -1417,7 +1396,7 @@
         MaskStore.move(idx, idx - 1);
         await MaskStore.save();
         renderStoragePanel(storagePanel);
-        showToast({ text: 'Маска перемещена', type: 'info' });
+        showToast('Маска перемещена', { type: 'info' });
         return;
       }
       if (
@@ -1427,7 +1406,7 @@
         MaskStore.move(idx, idx + 1);
         await MaskStore.save();
         renderStoragePanel(storagePanel);
-        showToast({ text: 'Маска перемещена', type: 'info' });
+        showToast('Маска перемещена', { type: 'info' });
         return;
       }
     });
