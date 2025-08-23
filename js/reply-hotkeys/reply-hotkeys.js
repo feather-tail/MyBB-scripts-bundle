@@ -4,11 +4,7 @@
   const CFG = helpers.getConfig('replyHotkeys', {});
   const HOTKEYS = new Map(CFG.HOTKEYS);
 
-  let initialized = false;
   function init() {
-    if (initialized) return;
-    initialized = true;
-
     const textarea = $(CFG.selectors.textarea);
     const fallbackAnchor = $(CFG.selectors.fallback);
     if (!textarea || !fallbackAnchor) return;
@@ -98,5 +94,5 @@
     });
   }
 
-  helpers.ready(init);
+  helpers.ready(helpers.once(init));
 })();

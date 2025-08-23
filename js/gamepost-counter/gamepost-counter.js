@@ -13,11 +13,7 @@
     isDelete: () => /\/delete\.php\b/i.test(location.pathname),
   };
 
-  const getUser = () => ({
-    id: Number(window.UserID || 0),
-    name: (window.UserLogin || '').trim(),
-    group: Number(window.GroupID || 0),
-  });
+  const getUser = () => helpers.getUserInfo();
 
   const parseQuery = () => {
     const obj = {};
@@ -536,7 +532,7 @@
         const uid = Number(post?.getAttribute('data-user-id') || 0);
         const uname = (
           post?.querySelector('.post-author .pa-author a')?.textContent ||
-          window.UserLogin ||
+          helpers.getUserInfo().name ||
           ''
         ).trim();
 
@@ -606,11 +602,7 @@
     });
   }
 
-  let initialized = false;
   function init() {
-    if (initialized) return;
-    initialized = true;
-
     hookPostSubmit();
     hookDeleteLinks();
     hookDeleteConfirmPage();
@@ -623,10 +615,9 @@
     setTimeout(() => trySendFromDelIntent(), 0);
   }
 
-  helpers.ready(init);
+  helpers.ready(helpers.once(init));
 
-  window.scripts = window.scripts || {};
-  window.scripts.gamepostCounter = {
+  helpers.register('gamepostCounter', {
     CFG,
     SETTINGS: CFG,
     getUserStats,
@@ -650,5 +641,5 @@
       };
       sendUpdateFetch(payload);
     },
-  };
+  });
 })();

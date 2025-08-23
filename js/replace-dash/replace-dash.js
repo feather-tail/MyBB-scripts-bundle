@@ -4,11 +4,7 @@
   const { $$ } = window.helpers;
   const CFG = helpers.getConfig('replaceDash', {});
 
-  let initialized = false;
   function init() {
-    if (initialized) return;
-    initialized = true;
-
     const paragraphElements = $$(CFG.paragraphSelector);
 
     paragraphElements.forEach((paraNode) => {
@@ -30,5 +26,5 @@
     });
   }
 
-  helpers.ready(init);
+  helpers.ready(helpers.once(init));
 })();

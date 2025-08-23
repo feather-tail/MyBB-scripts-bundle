@@ -4,11 +4,7 @@
   const { $, $$, copyToClipboard } = window.helpers;
   const CFG = helpers.getConfig('copyCode', {});
 
-  let initialized = false;
   function init() {
-    if (initialized) return;
-    initialized = true;
-
     $$('.code-box').forEach((box, i) => {
       const legend = $('.legend', box);
       if (legend) {
@@ -44,5 +40,6 @@
     });
   }
 
-  helpers.ready(init);
+  helpers.ready(helpers.once(init));
+  helpers.register('copyCode', { CFG, init });
 })();

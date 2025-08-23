@@ -1,13 +1,14 @@
 (() => {
   'use strict';
 
-  const { $, $$, copyToClipboard, showToast, dialog } = window.helpers;
+  const { $, $$, copyToClipboard, showToast, dialog, getGroupId, getUserInfo } =
+    window.helpers;
   const CFG = helpers.getConfig('episodeTracker', {});
 
   const ALLOWED_GROUP_IDS = new Set(CFG.allowedGroupIds);
-  if (!ALLOWED_GROUP_IDS.has(window.GroupID)) return;
+  if (!ALLOWED_GROUP_IDS.has(getGroupId())) return;
 
-  const CURRENT_USER = (window.UserLogin || '').trim();
+  const CURRENT_USER = getUserInfo().name;
   const LEGACY_OWNER = 'Не определён';
 
   const norm = (s) => s.trim().replace(/\s+/g, ' ').toLowerCase();

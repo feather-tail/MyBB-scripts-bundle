@@ -9,7 +9,7 @@
       return (
         !f.type ||
         rfu.CONFIG.allowedMimes.includes(f.type) ||
-        /\.(jpe?g|png|gif|webp|bmp)$/i.test(f.name)
+        /\.(jpe?g|png|gif|webp)$/i.test(f.name)
       );
     },
     readThumb(f) {
@@ -515,29 +515,33 @@
 
   rfu.HOSTS = { forum: rfu.host_forum, imgbb: rfu.host_imgbb };
 
-  document.addEventListener('paste', (e) => {
-    if (!rfu.CONFIG.showOnDemand) return;
-    const files = rfu.extractPastedFiles(e);
-    if (files.length) {
-      rfu.handleIncomingFiles(files);
-    }
-  });
-  document.addEventListener('drop', (e) => {
-    if (!rfu.CONFIG.showOnDemand) return;
-    const files = rfu.extractDragFiles(e);
-    if (files.length) {
-      e.preventDefault();
-      rfu.handleIncomingFiles(files);
-    }
-  });
-  document.addEventListener('dragover', (e) => {
-    if (!rfu.CONFIG.showOnDemand) return;
-    const dt = e.dataTransfer;
-    if (!dt) return;
-    const types = [...(dt.items || [])].map((i) => i.type || '');
-    const hasImage = types.some((t) => /^image\//.test(t));
-    if (hasImage) e.preventDefault();
-  });
+  function init() {
+    document.addEventListener('paste', (e) => {
+      if (!rfu.CONFIG.showOnDemand) return;
+      const files = rfu.extractPastedFiles(e);
+      if (files.length) {
+        rfu.handleIncomingFiles(files);
+      }
+    });
+    document.addEventListener('drop', (e) => {
+      if (!rfu.CONFIG.showOnDemand) return;
+      const files = rfu.extractDragFiles(e);
+      if (files.length) {
+        e.preventDefault();
+        rfu.handleIncomingFiles(files);
+      }
+    });
+    document.addEventListener('dragover', (e) => {
+      if (!rfu.CONFIG.showOnDemand) return;
+      const dt = e.dataTransfer;
+      if (!dt) return;
+      const types = [...(dt.items || [])].map((i) => i.type || '');
+      const hasImage = types.some((t) => /^image\//.test(t));
+      if (hasImage) e.preventDefault();
+    });
+  }
+
+  helpers.ready(init);
 
   window.scripts = window.scripts || {};
   window.scripts.imageUploader = rfu;

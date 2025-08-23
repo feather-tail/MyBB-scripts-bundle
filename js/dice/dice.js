@@ -143,11 +143,7 @@
     }).observe(postContainer, { childList: true, subtree: true });
   }
 
-  let initialized = false;
   function init() {
-    if (initialized) return;
-    initialized = true;
-
     diceButton = $('#dice-roll-btn');
     postContainer = $('#pun-viewtopic');
     if (!diceButton) return;
@@ -158,5 +154,5 @@
     observePosts();
   }
 
-  helpers.ready(init);
+  helpers.ready(helpers.once(init));
 })();

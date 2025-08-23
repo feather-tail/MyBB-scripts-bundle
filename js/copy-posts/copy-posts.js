@@ -23,10 +23,6 @@
 
   const ALLOWED_FORUMS = new Set(SETTINGS.allowedForumIds);
   const TOPIC_ID = new URLSearchParams(location.search).get('id') || '';
-  if (!window.FORUM || !ALLOWED_FORUMS.has(String(FORUM?.topic?.forum_id)))
-    return;
-
-  const enc = new TextEncoder();
 
   const htmlToPlain = (html) => {
     let raw = String(html)
@@ -119,88 +115,37 @@
     return all;
   };
 
-  $$('div.post').forEach((post) => {
-    if (!SETTINGS.singleInsertAfterSelector) return;
-    if ($('.copy-post-btn', post)) return;
-    const anchor = $(SETTINGS.singleInsertAfterSelector, post);
-    if (!anchor) return;
-    const btn = createEl('button', {
-      type: 'button',
-      className: 'copy-post-btn',
-      text: SETTINGS.singleBtnLabel,
-      title: 'Скопировать этот пост',
-    });
-    btn.addEventListener('click', async () => {
-      const author =
-        $('.pa-author a', post)?.textContent?.trim() || 'Неизвестный автор';
-      const src = $('.post-content', post);
-      let html = '';
-      if (src) {
-        const clone = src.cloneNode(true);
-        $('.post-sig', clone)?.remove();
-        html = clone.innerHTML;
-      }
-      const payload = `${author}:\n${htmlToPlain(html)}`;
-      const bytes = enc.encode(payload).length;
-      if (bytes > SETTINGS.clipboardSoftLimitBytes) {
-        const choice = await showToast('Текст поста очень большой.', {
-          type: 'warning',
-          actions: [
-            { label: 'Скачать .txt', value: 'download', variant: 'primary' },
-            { label: 'Копировать всё равно', value: 'copy' },
-          ],
-          duration: 0,
-        });
-        if (choice === 'download')
-          return downloadTxt(payload, makeTopicFilename());
-      }
-      const ok = await window.helpers.copyToClipboard(payload);
-      if (ok) {
-        showToast('Пост скопирован в буфер обмена.', { type: 'success' });
-      } else {
-        const choice = await showToast(
-          'Не удалось скопировать в буфер обмена.',
-          {
-            type: 'error',
-            actions: [
-              { label: 'Скачать .txt', value: 'download', variant: 'primary' },
-            ],
-            duration: 0,
-          },
-        );
-        if (choice === 'download') downloadTxt(payload, makeTopicFilename());
-      }
-    });
-    anchor.insertAdjacentElement('afterend', btn);
-  });
+  function init() {
+    if (!window.FORUM || !ALLOWED_FORUMS.has(String(FORUM?.topic?.forum_id)))
+      return;
 
-  const allAnchor = SETTINGS.allInsertAfterSelector
-    ? $(SETTINGS.allInsertAfterSelector)
-    : null;
-  if (allAnchor && !$('.copy-all-btn')) {
-    const allBtn = createEl('button', {
-      type: 'button',
-      className: 'copy-all-btn',
-      text: SETTINGS.allBtnLabel,
-      title: 'Скопировать все посты в теме',
-    });
-    allBtn.addEventListener('click', async () => {
-      const topicId = TOPIC_ID;
-      if (!topicId)
-        return showToast('Не удалось определить ID темы.', { type: 'error' });
-      try {
-        const list = await fetchAllPosts(topicId);
-        const plain = list
-          .map(
-            (p) =>
-              `${p.username || 'Неизвестный автор'}:\n${htmlToPlain(
-                p.message || '',
-              )}`,
-          )
-          .join(SETTINGS.joinSeparator);
-        const bytes = enc.encode(plain).length;
+    const enc = new TextEncoder();
+
+    $$('div.post').forEach((post) => {
+      if (!SETTINGS.singleInsertAfterSelector) return;
+      if ($('.copy-post-btn', post)) return;
+      const anchor = $(SETTINGS.singleInsertAfterSelector, post);
+      if (!anchor) return;
+      const btn = createEl('button', {
+        type: 'button',
+        className: 'copy-post-btn',
+        text: SETTINGS.singleBtnLabel,
+        title: 'Скопировать этот пост',
+      });
+      btn.addEventListener('click', async () => {
+        const author =
+          $('.pa-author a', post)?.textContent?.trim() || 'Неизвестный автор';
+        const src = $('.post-content', post);
+        let html = '';
+        if (src) {
+          const clone = src.cloneNode(true);
+          $('.post-sig', clone)?.remove();
+          html = clone.innerHTML;
+        }
+        const payload = `${author}:\n${htmlToPlain(html)}`;
+        const bytes = enc.encode(payload).length;
         if (bytes > SETTINGS.clipboardSoftLimitBytes) {
-          const choice = await showToast('Текст всей темы очень большой.', {
+          const choice = await showToast('Текст поста очень большой.', {
             type: 'warning',
             actions: [
               { label: 'Скачать .txt', value: 'download', variant: 'primary' },
@@ -209,11 +154,11 @@
             duration: 0,
           });
           if (choice === 'download')
-            return downloadTxt(plain, makeTopicFilename());
+            return downloadTxt(payload, makeTopicFilename());
         }
-        const ok = await window.helpers.copyToClipboard(plain);
+        const ok = await window.helpers.copyToClipboard(payload);
         if (ok) {
-          showToast('Весь текст темы скопирован.', { type: 'success' });
+          showToast('Пост скопирован в буфер обмена.', { type: 'success' });
         } else {
           const choice = await showToast(
             'Не удалось скопировать в буфер обмена.',
@@ -229,12 +174,81 @@
               duration: 0,
             },
           );
-          if (choice === 'download') downloadTxt(plain, makeTopicFilename());
+          if (choice === 'download') downloadTxt(payload, makeTopicFilename());
         }
-      } catch {
-        showToast('Не удалось получить данные о постах.', { type: 'error' });
-      }
+      });
+      anchor.insertAdjacentElement('afterend', btn);
     });
-    allAnchor.insertAdjacentElement('afterend', allBtn);
+    const allAnchor = SETTINGS.allInsertAfterSelector
+      ? $(SETTINGS.allInsertAfterSelector)
+      : null;
+    if (allAnchor && !$('.copy-all-btn')) {
+      const allBtn = createEl('button', {
+        type: 'button',
+        className: 'copy-all-btn',
+        text: SETTINGS.allBtnLabel,
+        title: 'Скопировать все посты в теме',
+      });
+      allBtn.addEventListener('click', async () => {
+        const topicId = TOPIC_ID;
+        if (!topicId)
+          return showToast('Не удалось определить ID темы.', {
+            type: 'error',
+          });
+        try {
+          const list = await fetchAllPosts(topicId);
+          const plain = list
+            .map(
+              (p) =>
+                `${p.username || 'Неизвестный автор'}:\n${htmlToPlain(
+                  p.message || '',
+                )}`,
+            )
+            .join(SETTINGS.joinSeparator);
+          const bytes = enc.encode(plain).length;
+          if (bytes > SETTINGS.clipboardSoftLimitBytes) {
+            const choice = await showToast('Текст всей темы очень большой.', {
+              type: 'warning',
+              actions: [
+                {
+                  label: 'Скачать .txt',
+                  value: 'download',
+                  variant: 'primary',
+                },
+                { label: 'Копировать всё равно', value: 'copy' },
+              ],
+              duration: 0,
+            });
+            if (choice === 'download')
+              return downloadTxt(plain, makeTopicFilename());
+          }
+          const ok = await window.helpers.copyToClipboard(plain);
+          if (ok) {
+            showToast('Весь текст темы скопирован.', { type: 'success' });
+          } else {
+            const choice = await showToast(
+              'Не удалось скопировать в буфер обмена.',
+              {
+                type: 'error',
+                actions: [
+                  {
+                    label: 'Скачать .txt',
+                    value: 'download',
+                    variant: 'primary',
+                  },
+                ],
+                duration: 0,
+              },
+            );
+            if (choice === 'download') downloadTxt(plain, makeTopicFilename());
+          }
+        } catch {
+          showToast('Не удалось получить данные о постах.', { type: 'error' });
+        }
+      });
+      allAnchor.insertAdjacentElement('afterend', allBtn);
+    }
   }
+
+  helpers.ready(init);
 })();

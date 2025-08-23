@@ -74,13 +74,13 @@
     }
   }
 
-  function initAll() {
+  function init() {
     injectUI();
     transformFloats(document);
     watchPreview();
   }
 
-  initAll();
-  document.addEventListener('pun_main_ready', initAll);
-  document.addEventListener('pun_preview', initAll);
+  helpers.ready(init);
+  document.addEventListener('pun_main_ready', init);
+  document.addEventListener('pun_preview', init);
 })();

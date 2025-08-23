@@ -8,7 +8,6 @@
   let downScrollButton;
   let rootDocument;
   let ticking = false;
-  let initialized = false;
 
   const smoothScrollTo = (position) =>
     window.scrollTo({ top: position, behavior: 'smooth' });
@@ -34,9 +33,6 @@
   }
 
   function init() {
-    if (initialized) return;
-    initialized = true;
-
     upScrollButton = $(CFG.classes.up);
     downScrollButton = $(CFG.classes.down);
     rootDocument = document.documentElement;
@@ -58,5 +54,5 @@
     window.addEventListener('resize', onScroll);
   }
 
-  helpers.ready(init);
+  helpers.ready(helpers.once(init));
 })();

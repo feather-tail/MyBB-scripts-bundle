@@ -43,14 +43,10 @@
     });
   }
 
-  let initialized = false;
   function init() {
-    if (initialized) return;
-    initialized = true;
-
     insertAuthorAvatars();
     replaceProfilePlaceholder();
   }
 
-  helpers.ready(init);
+  helpers.ready(helpers.once(init));
 })();

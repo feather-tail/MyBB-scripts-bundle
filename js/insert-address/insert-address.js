@@ -2,7 +2,7 @@
   'use strict';
   const { $ } = window.helpers;
   const CFG = helpers.getConfig('insertAddress', {});
-  const messageField = $(CFG.selector);
+  let messageField;
 
   const insertAddress = (userName) => {
     const snippet = CFG.snippet.replace('{{USER}}', userName);
@@ -15,6 +15,12 @@
       messageField.focus();
     }
   };
+
+  function init() {
+    messageField = $(CFG.selector);
+  }
+
+  helpers.ready(init);
 
   window.scripts = window.scripts || {};
   window.scripts.insertAddress = insertAddress;

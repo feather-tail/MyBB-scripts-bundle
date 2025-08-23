@@ -4,11 +4,7 @@
   const { $, createEl, showToast } = window.helpers;
   const CFG = helpers.getConfig('multiaccount', {});
 
-  let initialized = false;
   function init() {
-    if (initialized) return;
-    initialized = true;
-
     if (typeof GroupID !== 'undefined' && CFG.allowedGroups.includes(GroupID)) {
       const navMenu = $(CFG.selectors.navMenu);
       if (navMenu) {
@@ -302,5 +298,5 @@
     }
   }
 
-  helpers.ready(init);
+  helpers.ready(helpers.once(init));
 })();

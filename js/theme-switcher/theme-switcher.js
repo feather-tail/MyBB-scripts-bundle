@@ -4,7 +4,6 @@
   const { $, $$ } = window.helpers;
   const CFG = helpers.getConfig('themeSwitcher', {});
   let switcherContainer;
-  let initialized = false;
 
   function applyTheme(theme) {
     document.documentElement.classList.remove(
@@ -37,9 +36,6 @@
   }
 
   function init() {
-    if (initialized) return;
-    initialized = true;
-
     switcherContainer = $('#theme_switcher');
     if (!switcherContainer) return;
 
@@ -53,5 +49,5 @@
     });
   }
 
-  helpers.ready(init);
+  helpers.ready(helpers.once(init));
 })();

@@ -1,13 +1,13 @@
 (() => {
   'use strict';
 
-  const { createEl } = window.helpers;
+  const { createEl, getGroupId } = window.helpers;
   const CFG = helpers.getConfig('bbcodeHideProfile', {});
   const TAG = '[hideprofile]';
   const HIDE_CLASS = 'hide-profile';
   const BUTTON_TEXT = 'Скрыть минипрофиль';
 
-  if (!CFG.allowedGroups.includes(window.GroupID)) return;
+  if (!CFG.allowedGroups.includes(getGroupId())) return;
 
   function insertHideProfileTag() {
     if (typeof insert === 'function') {
@@ -53,16 +53,12 @@
     root.querySelectorAll(CFG.selectors.post).forEach(applyHideProfileToPost);
   }
 
-  let initialized = false;
   function init() {
-    if (initialized) return;
-    initialized = true;
-
     addHideProfileButton();
     applyHideProfileToAllPosts();
   }
 
-  helpers.ready(init);
+  helpers.ready(helpers.once(init));
 
   window.scripts = window.scripts || {};
   window.scripts.bbcodeHideProfile = {

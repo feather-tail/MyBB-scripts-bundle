@@ -1,14 +1,25 @@
 (() => {
   'use strict';
 
-  const { $, $$, parseHTML, withTimeout, crc32, showToast } = window.helpers;
+  const {
+    $,
+    $$,
+    parseHTML,
+    withTimeout,
+    crc32,
+    showToast,
+    getUserInfo,
+    getGroupId,
+  } = window.helpers;
   const CFG = helpers.getConfig('balanceTool', {});
   const topicId = () => new URLSearchParams(location.search).get('id') || '';
   const allowedTopic = (id) => CFG.access.allowedTopicIds.includes(String(id));
   const allowedGroup = (gid) =>
     CFG.access.allowedGroupIds.includes(Number(gid));
-  const pickAdminName = () =>
-    CFG.adminAliases?.[window.UserID] || window.UserLogin || 'Администратор';
+  const pickAdminName = () => {
+    const { id, name } = getUserInfo();
+    return CFG.adminAliases?.[id] || name || 'Администратор';
+  };
   const roundVal = (v, d) => {
     if (!Number.isFinite(v)) return 0;
     if (d === 0) return Math.trunc(v);
@@ -247,11 +258,11 @@
   };
   const mo = new MutationObserver(() => mountAll());
 
-  const start = () => {
-    if (!allowedTopic(topicId()) || !allowedGroup(window.GroupID)) return;
+  function init() {
+    if (!allowedTopic(topicId()) || !allowedGroup(getGroupId())) return;
     mountAll();
     mo.observe(document.body, { childList: true, subtree: true });
-  };
+  }
 
   function mountUI(anchor) {
     const postRoot = anchor.closest('.post,[id^="p"]') || anchor.parentElement;
@@ -462,5 +473,5 @@
     );
   }
 
-  start();
+  helpers.ready(init);
 })();

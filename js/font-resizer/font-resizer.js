@@ -32,11 +32,7 @@
     return wrapper;
   };
 
-  let initialized = false;
   function init() {
-    if (initialized) return;
-    initialized = true;
-
     const initialSize = getStoredSize();
     applySize(initialSize);
 
@@ -76,5 +72,5 @@
     });
   }
 
-  helpers.ready(init);
+  helpers.ready(helpers.once(init));
 })();

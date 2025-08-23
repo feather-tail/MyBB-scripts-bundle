@@ -5,12 +5,7 @@
   const CFG = helpers.getConfig('guestAddress', {});
   const insertAddress = window.insertAddress || window.to;
 
-  let initialized = false;
-
   function init() {
-    if (initialized) return;
-    initialized = true;
-
     const posts = document.querySelectorAll(
       `.post[data-group-id="${CFG.group}"]`,
     );
@@ -38,5 +33,5 @@
     });
   }
 
-  helpers.ready(init);
+  helpers.ready(helpers.once(init));
 })();

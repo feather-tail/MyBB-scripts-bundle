@@ -4,11 +4,7 @@
   const { createEl } = window.helpers;
   const CFG = helpers.getConfig('bbcodeJustify', {});
 
-  let initialized = false;
   function init() {
-    if (initialized) return;
-    initialized = true;
-
     const refTd = document.querySelector(CFG.insertAfterSelector);
     if (!refTd || refTd.tagName !== 'TD') return;
 
@@ -28,5 +24,5 @@
     refTd.parentNode.insertBefore(td, refTd.nextSibling);
   }
 
-  helpers.ready(init);
+  helpers.ready(helpers.once(init));
 })();

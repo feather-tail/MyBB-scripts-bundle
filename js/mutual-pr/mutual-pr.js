@@ -4,17 +4,13 @@
   const { $, createEl, showToast } = window.helpers;
   const CFG = helpers.getConfig('mutualPR', {});
 
-  function getGroupID() {
-    return typeof window.GroupID !== 'undefined' ? +window.GroupID : null;
-  }
-
   function getTopicSubject() {
     return window.FORUM?.get?.('topic.subject') || '';
   }
 
   function isAllowed() {
     return (
-      CFG.ALLOWED_GROUPS.includes(getGroupID()) &&
+      CFG.ALLOWED_GROUPS.includes(helpers.getGroupId()) &&
       getTopicSubject().includes(CFG.TARGET_TOPIC)
     );
   }
@@ -62,10 +58,7 @@
     });
   }
 
-  let initialized = false;
   function init() {
-    if (initialized) return;
-    initialized = true;
     if (!isAllowed()) return;
     addMutualPRButtons();
 
@@ -74,9 +67,10 @@
     }
   }
 
+  const run = helpers.once(init);
   ['pun_main_ready', 'pun_post'].forEach((event) =>
-    document.addEventListener(event, init),
+    document.addEventListener(event, run),
   );
 
-  helpers.ready(init);
+  helpers.ready(run);
 })();

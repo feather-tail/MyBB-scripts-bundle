@@ -1,10 +1,10 @@
 (() => {
   'use strict';
-  const { $, createEl } = window.helpers;
+  const { $, createEl, getGroupId } = window.helpers;
   const CFG = helpers.getConfig('prQuickLogin', {});
 
   function addPrButton() {
-    if (typeof window.GroupID !== 'number' || window.GroupID !== 3) return;
+    if (getGroupId() !== 3) return;
     if ($(CFG.selectors.btn)) return;
     const loginLi = $(CFG.selectors.navLogin);
     if (!loginLi) return;
@@ -43,11 +43,7 @@
     $(CFG.selectors.submitInput, form).click();
   }
 
-  let initialized = false;
   function init() {
-    if (initialized) return;
-    initialized = true;
-
     if (location.pathname.endsWith('/login.php')) {
       autoPrLogin();
     } else {
@@ -55,5 +51,5 @@
     }
   }
 
-  helpers.ready(init);
+  helpers.ready(helpers.once(init));
 })();

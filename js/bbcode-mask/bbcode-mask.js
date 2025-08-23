@@ -1,7 +1,16 @@
 (() => {
   'use strict';
-  const { $, $$, createEl, debounce, parseAccessMap, showToast, dialog } =
-    window.helpers;
+  const {
+    $,
+    $$,
+    createEl,
+    debounce,
+    parseAccessMap,
+    showToast,
+    dialog,
+    getUserInfo,
+    getGroupId,
+  } = window.helpers;
   const CFG = helpers.getConfig('bbcodeMask', {});
   const SELECTORS = CFG.selectors;
   const MAX_CACHE_ENTRIES = CFG.maxCacheEntries;
@@ -363,7 +372,7 @@
       /\[abbr=([^\]]+)\]([\\s\S]*?)\[\/abbr\]/gi,
       (_, title, t) => `<abbr title="${title}">${t}</abbr>`,
     );
-    s = s.replace(/\[you\]/gi, window.UserLogin || 'Вы');
+    s = s.replace(/\[you\]/gi, getUserInfo().name || 'Вы');
     s = s.replace(/\[hr\]/gi, '<hr>');
     s = s.replace(/\[sup\]([\s\S]*?)\[\/sup\]/gi, (_, t) => `<sup>${t}</sup>`);
     s = s.replace(/\[sub\]([\s\S]*?)\[\/sub\]/gi, (_, t) => `<sub>${t}</sub>`);
@@ -1416,11 +1425,7 @@
     setTimeout(() => $('#mask-author')?.focus(), 0);
   };
 
-  let initialized = false;
   async function init() {
-    if (initialized) return;
-    initialized = true;
-
     document.addEventListener('pun_post', () => processPosts());
     document.addEventListener('pun_edit', () => processPosts());
     addToolbarButton();
@@ -1431,7 +1436,7 @@
       document.addEventListener('pun_preedit', scrubPreview);
     }
 
-    if (window.GroupID === 1) {
+    if (getGroupId() === 1) {
       const toSave = {
         fields: CFG.fields,
         userFields: CFG.userFieldOrder,
@@ -1478,5 +1483,5 @@
     };
   }
 
-  helpers.ready(init);
+  helpers.ready(helpers.once(init));
 })();

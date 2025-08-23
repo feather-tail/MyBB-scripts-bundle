@@ -36,11 +36,7 @@
     return text.replace(/\s+/g, ' ').trim();
   };
 
-  let initialized = false;
   function init() {
-    if (initialized) return;
-    initialized = true;
-
     if (typeof GroupID !== 'undefined' && !ALLOWED_GROUP_IDS.has(+GroupID))
       return;
     if (typeof FORUM === 'object' && typeof FORUM.get === 'function') {
@@ -75,5 +71,5 @@
     });
   }
 
-  helpers.ready(init);
+  helpers.ready(helpers.once(init));
 })();

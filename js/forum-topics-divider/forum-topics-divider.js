@@ -4,11 +4,7 @@
   const { $, $$, createEl } = window.helpers;
   const CFG = helpers.getConfig('forumTopicsDivider', {});
 
-  let initialized = false;
   function init() {
-    if (initialized) return;
-    initialized = true;
-
     const forumContainer = $(CFG.selectors.forum);
     if (!forumContainer) return;
 
@@ -46,5 +42,5 @@
     $$(CFG.selectors.stickyLabel).forEach((labelEl) => labelEl.remove());
   }
 
-  helpers.ready(init);
+  helpers.ready(helpers.once(init));
 })();

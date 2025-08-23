@@ -34,11 +34,7 @@
     return $$('.reply-char-counter-value', box)[0];
   };
 
-  let initialized = false;
   function init() {
-    if (initialized) return;
-    initialized = true;
-
     const [ta] = $$(SELECTORS.textarea);
     const [defaultBefore] = $$(SELECTORS.defaultBefore);
     const after = SELECTORS.insertAfter ? $$(SELECTORS.insertAfter)[0] : null;
@@ -86,5 +82,5 @@
     update();
   }
 
-  helpers.ready(init);
+  helpers.ready(helpers.once(init));
 })();

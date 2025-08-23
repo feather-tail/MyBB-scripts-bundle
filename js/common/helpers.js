@@ -25,6 +25,14 @@
       t = setTimeout(() => fn.apply(this, args), wait);
     };
   };
+  const once = (fn) => {
+    let called = false;
+    return function (...args) {
+      if (called) return;
+      called = true;
+      return fn.apply(this, args);
+    };
+  };
   const copyToClipboard = async (text) => {
     if (navigator.clipboard && navigator.clipboard.writeText) {
       try {
@@ -104,6 +112,18 @@
     const m = a && a.match(/[?&]id=(\d+)/);
     return m ? +m[1] : 0;
   };
+  const getGroupId = () => {
+    if (typeof window.GroupID === 'number' && window.GroupID > 0)
+      return window.GroupID;
+    if (typeof window.GroupID === 'string' && /^\d+$/.test(window.GroupID))
+      return +window.GroupID;
+    return 0;
+  };
+  const getUserInfo = () => ({
+    id: getUserId(),
+    name: (window.UserLogin || '').trim(),
+    group: getGroupId(),
+  });
   const buildForumUploadsURL = (filename) => {
     const board =
       typeof window.BoardID !== 'undefined' ? Number(window.BoardID) : 0;
@@ -124,12 +144,23 @@
     ...defaults,
     ...(window.ScriptConfig?.[name] || {}),
   });
+  const showToast = (...args) => {
+    if (typeof window.showToast === 'function')
+      return window.showToast(...args);
+    return window.scripts?.toast?.(...args);
+  };
+  const register = (name, api) => {
+    window.scripts = window.scripts || {};
+    window.scripts[name] = api;
+    return window.scripts[name];
+  };
   window.helpers = {
     $,
     $$,
     createEl,
     countGraphemes,
     debounce,
+    once,
     copyToClipboard,
     setCookie,
     getCookie,
@@ -141,9 +172,11 @@
     uid,
     formatBytes,
     getUserId,
+    getGroupId,
+    getUserInfo,
     getConfig,
     buildForumUploadsURL,
-    showToast: (...args) => window.showToast?.(...args),
-    showToast: (...args) => window.scripts?.toast?.(...args),
+    register,
+    showToast,
   };
 })();

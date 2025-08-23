@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const { $, $$, createEl } = window.helpers;
+  const { $, $$, createEl, getGroupId, getUserInfo } = window.helpers;
   const CFG = helpers.getConfig('stickerPack', {});
 
   const stickerPack = {
@@ -13,17 +13,13 @@
     elements: {},
   };
 
-  let initialized = false;
   function init() {
-    if (initialized) return;
-    initialized = true;
-
     if (!$(`#${CFG.buttonAfterId}`)) return;
     addStickerPackStyles();
     addStickerPackButton();
   }
 
-  helpers.ready(init);
+  helpers.ready(helpers.once(init));
 
   function addStickerPackStyles() {
     const link = createEl('link', {
@@ -52,7 +48,7 @@
     setStickerPackLoading(true);
     Promise.all([
       loadForumStickerPacks(),
-      window.GroupID !== CFG.hideMyGroupId
+      getGroupId() !== CFG.hideMyGroupId
         ? loadUserStickers()
         : Promise.resolve(),
     ]).finally(() => {
@@ -93,7 +89,7 @@
     stickerPack.packs.forEach((pack) => {
       if (pack.stickers.length) tabs.append(createTab(pack.name));
     });
-    if (window.GroupID !== CFG.hideMyGroupId)
+    if (getGroupId() !== CFG.hideMyGroupId)
       tabs.append(createTab(CFG.myTabName));
 
     tabs.onclick = (e) => {
@@ -285,7 +281,7 @@
   }
 
   function loadUserStickers() {
-    if (window.UserID === 1) return Promise.resolve();
+    if (getUserInfo().id === 1) return Promise.resolve();
     return fetch(
       `${CFG.apiUrl}?method=${CFG.apiGetMethod}&key=${CFG.storageKey}`,
     )

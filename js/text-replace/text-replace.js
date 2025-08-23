@@ -2,11 +2,7 @@
   'use strict';
   const CFG = helpers.getConfig('textReplace', {});
 
-  let initialized = false;
   function init() {
-    if (initialized) return;
-    initialized = true;
-
     const updateParentText = (
       elementSelector,
       searchValue,
@@ -42,5 +38,5 @@
     });
   }
 
-  helpers.ready(init);
+  helpers.ready(helpers.once(init));
 })();

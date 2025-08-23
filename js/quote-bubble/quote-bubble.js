@@ -4,7 +4,7 @@
   const { $ } = window.helpers;
   const CFG = helpers.getConfig('quoteBubble', {});
 
-  (() => {
+  function init() {
     const topic = $(`#${CFG.topicId}`);
     if (!topic) return;
 
@@ -62,5 +62,7 @@
     window.addEventListener('resize', hideBubble, true);
 
     bubble.addEventListener('blur', hideBubble);
-  })();
+  }
+
+  helpers.ready(init);
 })();
