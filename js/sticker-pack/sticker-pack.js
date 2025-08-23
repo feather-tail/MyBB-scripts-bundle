@@ -23,8 +23,7 @@
     addStickerPackButton();
   }
 
-  if (document.readyState !== 'loading') init();
-  else document.addEventListener('DOMContentLoaded', init);
+  helpers.ready(init);
 
   function addStickerPackStyles() {
     const link = createEl('link', {

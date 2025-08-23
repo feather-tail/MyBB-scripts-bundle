@@ -67,6 +67,10 @@
         setTimeout(() => rej(new Error('Таймаут запроса')), ms),
       ),
     ]);
+  const ready = (fn) => {
+    if (document.readyState !== 'loading') fn();
+    else document.addEventListener('DOMContentLoaded', fn);
+  };
   const parseAccessMap = (obj = {}) => {
     const res = {};
     Object.keys(obj).forEach((k) => {
@@ -127,6 +131,7 @@
     getCookie,
     parseHTML,
     withTimeout,
+    ready,
     crc32,
     parseAccessMap,
     uid,

@@ -623,8 +623,7 @@
     setTimeout(() => trySendFromDelIntent(), 0);
   }
 
-  if (document.readyState !== 'loading') init();
-  else document.addEventListener('DOMContentLoaded', init);
+  helpers.ready(init);
 
   window.GPC = {
     CFG,

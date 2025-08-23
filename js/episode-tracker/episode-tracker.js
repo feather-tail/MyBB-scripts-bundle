@@ -69,10 +69,9 @@
     }).observe(document.body, { childList: true, subtree: true });
   };
 
-  (document.readyState === 'loading'
-    ? new Promise(waitAnchor)
-    : Promise.resolve($(anchorSel) || new Promise(waitAnchor))
-  ).then(initUI);
+  helpers.ready(() =>
+    Promise.resolve($(anchorSel) || new Promise(waitAnchor)).then(initUI),
+  );
 
   function initUI(anchor) {
     anchor.insertAdjacentHTML(
