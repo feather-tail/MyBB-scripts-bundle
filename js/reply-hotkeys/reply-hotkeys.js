@@ -23,31 +23,20 @@
       fallbackAnchor;
     anchor.parentNode.insertBefore(btn, anchor.nextSibling);
 
-    const modal = createEl('div', {
-      className: 'hotkeys-modal',
-      hidden: true,
-    });
-
-    const box = createEl('div', {
-      className: 'hk-box',
+    const modalBox = createEl('div', {
+      className: 'hotkeys-modal hk-box',
       role: 'dialog',
       'aria-modal': 'true',
       tabIndex: -1,
     });
-
     const close = createEl('button', {
       className: 'hk-close',
       title: CFG.texts.close,
       text: '×',
     });
-
     const h3 = createEl('h3', { text: CFG.texts.title });
-
     const ul = createEl('ul');
-
-    box.append(close, h3, ul);
-    modal.appendChild(box);
-    document.body.appendChild(modal);
+    modalBox.append(close, h3, ul);
 
     HOTKEYS.forEach(([, , text], combo) => {
       const li = createEl('li');
@@ -86,22 +75,23 @@
       }
     });
 
+    let api = null;
     const show = () => {
-      modal.hidden = false;
-      box.focus();
+      api = window.helpers.modal.openModal(modalBox, {
+        onClose: () => {
+          api = null;
+          btn.focus();
+        },
+      });
+      modalBox.focus();
     };
-    const hide = () => {
-      modal.hidden = true;
-    };
+    const hide = () => api?.close();
 
     btn.addEventListener('click', show);
-    modal.addEventListener('click', (e) => {
-      if (e.target === modal || e.target.classList.contains('hk-close')) hide();
-    });
+    close.addEventListener('click', hide);
 
     document.addEventListener('keydown', (e) => {
-      if (!modal.hidden && e.key === 'Escape') hide();
-      if ((e.ctrlKey || e.metaKey) && e.code === 'Slash') {
+      if (!api && (e.ctrlKey || e.metaKey) && e.code === 'Slash') {
         show();
         e.preventDefault();
       }

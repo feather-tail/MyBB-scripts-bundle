@@ -7,8 +7,6 @@
 
   let diceButton = null;
   let postContainer = null;
-  let modalOverlay = null;
-  let countInput, sidesInput, cancelBtn, okBtn;
 
   function numword(s, one, two, many) {
     const n = Math.abs(s) % 100;
@@ -25,12 +23,11 @@
     return (arr[0] % n) + 1;
   }
 
-  function createModal() {
-    modalOverlay = createEl('div');
-    modalOverlay.className = 'dice-overlay';
-    modalOverlay.setAttribute('aria-hidden', 'true');
-    modalOverlay.innerHTML = `
-        <div class="dice-modal" role="dialog" aria-modal="true" aria-labelledby="dice-title">
+  function openModal() {
+    const { openModal: show } = window.helpers.modal;
+    const modalContent = createEl('div', {
+      className: 'dice-modal',
+      html: `
           <h3 id="dice-title">Бросить кубики</h3>
           <label>
             Количество кубиков:
@@ -43,54 +40,14 @@
           <div class="actions">
             <button type="button" id="dice-cancel">Отмена</button>
             <button type="button" id="dice-ok">Бросить</button>
-          </div>
-        </div>
-      `;
-    document.body.appendChild(modalOverlay);
-
-    countInput = $('#dice-count', modalOverlay);
-    sidesInput = $('#dice-sides', modalOverlay);
-    cancelBtn = $('#dice-cancel', modalOverlay);
-    okBtn = $('#dice-ok', modalOverlay);
-
-    function closeModal() {
-      modalOverlay.classList.remove('active');
-      modalOverlay.setAttribute('aria-hidden', 'true');
-      document.body.style.overflow = '';
-      diceButton.focus();
-    }
-
-    cancelBtn.addEventListener('click', closeModal);
-
-    modalOverlay.addEventListener('click', (e) => {
-      if (e.target === modalOverlay) closeModal();
+          </div>`,
     });
-
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && modalOverlay.classList.contains('active')) {
-        e.preventDefault();
-        closeModal();
-      }
-    });
-
-    modalOverlay.addEventListener('keydown', (e) => {
-      if (e.key !== 'Tab') return;
-      const focusable = $$('input, button', modalOverlay);
-      const first = focusable[0],
-        last = focusable[focusable.length - 1];
-      if (e.shiftKey) {
-        if (document.activeElement === first) {
-          e.preventDefault();
-          last.focus();
-        }
-      } else {
-        if (document.activeElement === last) {
-          e.preventDefault();
-          first.focus();
-        }
-      }
-    });
-
+    const { close } = show(modalContent, { onClose: () => diceButton.focus() });
+    const countInput = $('#dice-count', modalContent);
+    const sidesInput = $('#dice-sides', modalContent);
+    const cancelBtn = $('#dice-cancel', modalContent);
+    const okBtn = $('#dice-ok', modalContent);
+    cancelBtn.addEventListener('click', close);
     okBtn.addEventListener('click', () => {
       const cnt = parseInt(countInput.value, 10);
       const sides = parseInt(sidesInput.value, 10);
@@ -102,16 +59,9 @@
         alert(`Количество граней: от 2 до ${CFG.maxSides}`);
         return;
       }
-      closeModal();
+      close();
       handleRoll(cnt, sides);
     });
-  }
-
-  function openModal() {
-    if (!modalOverlay) return;
-    modalOverlay.classList.add('active');
-    modalOverlay.setAttribute('aria-hidden', 'false');
-    document.body.style.overflow = 'hidden';
     countInput.focus();
   }
 
@@ -198,7 +148,6 @@
     postContainer = $('#pun-viewtopic');
     if (!diceButton) return;
 
-    createModal();
     diceButton.addEventListener('click', openModal);
 
     initDice();

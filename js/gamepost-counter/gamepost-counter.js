@@ -272,37 +272,19 @@
     });
   }
 
-  function ensureModal() {
-    let m = document.getElementById('gpc-modal');
-    if (m) return m;
-    m = document.createElement('div');
-    m.id = 'gpc-modal';
-    m.className = 'gpc-modal';
-    m.innerHTML = `
-      <div class="gpc-modal__backdrop" data-close></div>
-      <div class="gpc-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="gpc-modal-title">
-        <button class="gpc-modal__close" type="button" aria-label="Закрыть" data-close>?</button>
-        <h3 id="gpc-modal-title" class="gpc-modal__title">Статистика постов</h3>
-        <div class="gpc-modal__body"><div class="gpc-tables-wrap"></div></div>
-      </div>`;
-    document.body.appendChild(m);
-    m.addEventListener('click', (e) => {
-      if (e.target.hasAttribute('data-close')) closeModal();
-    });
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') closeModal();
-    });
-    return m;
-  }
   function openModal() {
-    const m = ensureModal();
-    m.classList.add('is-open');
-    const wrap = m.querySelector('.gpc-tables-wrap');
+    const content = document.createElement('div');
+    content.className = 'gpc-modal__dialog';
+    content.setAttribute('role', 'dialog');
+    content.setAttribute('aria-modal', 'true');
+    content.innerHTML = `
+      <button class="gpc-modal__close" type="button" aria-label="Закрыть">?</button>
+      <h3 id="gpc-modal-title" class="gpc-modal__title">Статистика постов</h3>
+      <div class="gpc-modal__body"><div class="gpc-tables-wrap"></div></div>`;
+    const wrap = content.querySelector('.gpc-tables-wrap');
+    const { close } = window.helpers.modal.openModal(content);
+    content.querySelector('.gpc-modal__close').addEventListener('click', close);
     renderTable(wrap);
-  }
-  function closeModal() {
-    const m = document.getElementById('gpc-modal');
-    if (m) m.classList.remove('is-open');
   }
 
   async function injectLauncher() {

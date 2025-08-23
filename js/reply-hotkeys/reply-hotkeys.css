@@ -18,12 +18,6 @@
 }
 
 .hotkeys-modal {
-  display: none;
-  position: fixed;
-  z-index: 1002;
-  left: 50%;
-  top: 15%;
-  transform: translateX(-50%);
   background: #fff;
   border: 1px solid #888;
   box-shadow: 0 2px 16px rgba(0, 0, 0, 0.2);
@@ -34,12 +28,6 @@
   overflow-y: auto;
   border-radius: 8px;
   animation: hkfadein 0.18s;
-}
-.hotkeys-modal[hidden] {
-  display: none !important;
-}
-.hotkeys-modal:not([hidden]) {
-  display: block;
 }
 
 @keyframes hkfadein {
