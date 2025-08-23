@@ -3,17 +3,17 @@
 
   const { $, $$, createEl, countGraphemes } = window.helpers;
 
-  const CFG = helpers.getConfig('postsCharCounter', {});
-  const ALLOWED_FORUM_IDS = CFG.allowedForumIds || [2, 3];
+  const config = helpers.getConfig('postsCharCounter', {});
+  const ALLOWED_FORUM_IDS = config.allowedForumIds || [2, 3];
   const SELECTORS = {
     posts: '.post:not(.topicpost)',
     insertAfter: '',
     defaultAfter: '.post-content',
     maskSelectors: ['.post-mask', '.mask', '.pl-mask', '[data-mask]'],
-    ...(CFG.selectors || {}),
+    ...(config.selectors || {}),
   };
-  const FLAGS = { stripMaskBBCode: true, ...(CFG.flags || {}) };
-  const ALLOWED_GROUP_IDS = new Set(CFG.allowedGroupIds || [1, 2, 4]);
+  const FLAGS = { stripMaskBBCode: true, ...(config.flags || {}) };
+  const ALLOWED_GROUP_IDS = new Set(config.allowedGroupIds || [1, 2, 4]);
 
   const extractVisibleText = (postEl) => {
     const src = $(SELECTORS.defaultAfter, postEl);

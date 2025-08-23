@@ -2,10 +2,10 @@
   'use strict';
 
   const { $$ } = window.helpers;
-  const CFG = helpers.getConfig('replaceQuotes', {});
+  const config = helpers.getConfig('replaceQuotes', {});
 
   function init() {
-    $$(CFG.selector).forEach((paragraphNode) => {
+    $$(config.selector).forEach((paragraphNode) => {
       const textWalker = document.createTreeWalker(
         paragraphNode,
         NodeFilter.SHOW_TEXT,
@@ -16,7 +16,7 @@
       let textNode;
       while ((textNode = textWalker.nextNode())) {
         const originalText = textNode.nodeValue;
-        const newText = originalText.replace(CFG.regex, '«$1»');
+        const newText = originalText.replace(config.regex, '«$1»');
         if (newText !== originalText) {
           textNode.nodeValue = newText;
         }

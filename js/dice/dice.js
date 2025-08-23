@@ -2,7 +2,7 @@
   'use strict';
 
   const { $, $$, createEl, showToast } = window.helpers;
-  const CFG = helpers.getConfig('dice', {});
+  const config = helpers.getConfig('dice', {});
   const bbRe = /\[dice=((?:\d+-)+)(\d+):(\d+)\]/g;
 
   let diceButton = null;
@@ -31,11 +31,11 @@
           <h3 id="dice-title">Бросить кубики</h3>
           <label>
             Количество кубиков:
-            <input type="number" id="dice-count" min="1" max="${CFG.maxDice}" value="1">
+            <input type="number" id="dice-count" min="1" max="${config.maxDice}" value="1">
           </label>
           <label>
             Количество граней:
-            <input type="number" id="dice-sides" min="2" max="${CFG.maxSides}" value="6">
+            <input type="number" id="dice-sides" min="2" max="${config.maxSides}" value="6">
           </label>
           <div class="actions">
             <button type="button" id="dice-cancel">Отмена</button>
@@ -51,14 +51,14 @@
     okBtn.addEventListener('click', () => {
       const cnt = parseInt(countInput.value, 10);
       const sides = parseInt(sidesInput.value, 10);
-      if (!cnt || cnt < 1 || cnt > CFG.maxDice) {
-        showToast(`Количество кубиков: от 1 до ${CFG.maxDice}`, {
+      if (!cnt || cnt < 1 || cnt > config.maxDice) {
+        showToast(`Количество кубиков: от 1 до ${config.maxDice}`, {
           type: 'error',
         });
         return;
       }
-      if (!sides || sides < 2 || sides > CFG.maxSides) {
-        showToast(`Количество граней: от 2 до ${CFG.maxSides}`, {
+      if (!sides || sides < 2 || sides > config.maxSides) {
+        showToast(`Количество граней: от 2 до ${config.maxSides}`, {
           type: 'error',
         });
         return;
@@ -71,7 +71,7 @@
 
   function handleRoll(count, sides) {
     const rolls = Array.from({ length: count }, () => rollOne(sides));
-    const cipher = rolls.map((r) => r * CFG.obfOffset).join('-') + '-';
+    const cipher = rolls.map((r) => r * config.obfOffset).join('-') + '-';
     const code = `[dice=${cipher}${count}:${sides}]`;
 
     if (typeof smile === 'function') {
@@ -92,7 +92,7 @@
       const rolls = cipher
         .split('-')
         .filter(Boolean)
-        .map((n) => parseInt(n, 10) / CFG.obfOffset);
+        .map((n) => parseInt(n, 10) / config.obfOffset);
       const total = rolls.reduce((a, b) => a + b, 0);
 
       const count = parseInt(c, 10);

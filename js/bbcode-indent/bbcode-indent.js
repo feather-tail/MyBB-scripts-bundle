@@ -2,7 +2,7 @@
   'use strict';
 
   const { $, $$, createEl } = window.helpers;
-  const CFG = helpers.getConfig('bbcodeIndent', {});
+  const config = helpers.getConfig('bbcodeIndent', {});
   const scripts = (window.scripts = window.scripts || {});
   const BUTTON_AFTER = '#button-strike';
   const BUTTON_ID = 'button-indent';
@@ -26,7 +26,7 @@
       if (!ta) return;
 
       const pos = ta.selectionStart;
-      ta.setRangeText(CFG.bbcode, pos, pos, 'end');
+      ta.setRangeText(config.bbcode, pos, pos, 'end');
       ta.focus();
 
       document.dispatchEvent(new Event('pun_preview'));
@@ -36,8 +36,8 @@
   }
 
   function processIndent(container) {
-    const rxTag = new RegExp(escapeRegExp(CFG.bbcode), 'gi');
-    const spanHTML = `<span style="display:inline-block;margin-left:${CFG.marginLeft};"></span>`;
+    const rxTag = new RegExp(escapeRegExp(config.bbcode), 'gi');
+    const spanHTML = `<span style="display:inline-block;margin-left:${config.marginLeft};"></span>`;
 
     if (!rxTag.test(container.innerHTML)) return;
 
@@ -57,7 +57,7 @@
   function init() {
     injectButton();
 
-    $$(CFG.selectors).forEach(processIndent);
+    $$(config.selectors).forEach(processIndent);
 
     const prevBox = $('#post-preview .post-content');
     if (prevBox && !scripts.bbcodeIndentObserver) {

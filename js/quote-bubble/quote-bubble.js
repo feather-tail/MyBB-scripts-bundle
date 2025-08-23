@@ -2,20 +2,20 @@
   'use strict';
 
   const { $ } = window.helpers;
-  const CFG = helpers.getConfig('quoteBubble', {});
+  const config = helpers.getConfig('quoteBubble', {});
 
   function init() {
-    const topic = $(`#${CFG.topicId}`);
+    const topic = $(`#${config.topicId}`);
     if (!topic) return;
 
-    const bubble = $(`#${CFG.bubbleId}`);
-    $('img', bubble).src = CFG.iconUrl;
+    const bubble = $(`#${config.bubbleId}`);
+    $('img', bubble).src = config.iconUrl;
 
     let currentPost = null;
 
     function showBubble(rect, post) {
-      bubble.style.left = window.scrollX + rect.right + CFG.offsetX + 'px';
-      bubble.style.top = window.scrollY + rect.bottom + CFG.offsetY + 'px';
+      bubble.style.left = window.scrollX + rect.right + config.offsetX + 'px';
+      bubble.style.top = window.scrollY + rect.bottom + config.offsetY + 'px';
       bubble.classList.add('show');
       currentPost = post;
     }
@@ -41,7 +41,7 @@
 
       let node = sel.anchorNode;
       if (node && node.nodeType === 3) node = node.parentNode;
-      const post = node?.closest(CFG.postSel);
+      const post = node?.closest(config.postSel);
       if (post) showBubble(rect, post);
       else hideBubble();
     }
@@ -49,10 +49,10 @@
     document.addEventListener('touchend', handleSelection);
 
     document.addEventListener('mousedown', (e) => {
-      if (!e.target.closest('#' + CFG.bubbleId)) hideBubble();
+      if (!e.target.closest('#' + config.bubbleId)) hideBubble();
     });
     document.addEventListener('touchstart', (e) => {
-      if (!e.target.closest('#' + CFG.bubbleId)) hideBubble();
+      if (!e.target.closest('#' + config.bubbleId)) hideBubble();
     });
 
     document.addEventListener('selectionchange', () => {

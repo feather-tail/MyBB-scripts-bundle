@@ -2,12 +2,12 @@
   'use strict';
 
   const { createEl, getGroupId } = window.helpers;
-  const CFG = helpers.getConfig('bbcodeHideProfile', {});
+  const config = helpers.getConfig('bbcodeHideProfile', {});
   const TAG = '[hideprofile]';
   const HIDE_CLASS = 'hide-profile';
   const BUTTON_TEXT = 'Скрыть минипрофиль';
 
-  if (!CFG.allowedGroups.includes(getGroupId())) return;
+  if (!config.allowedGroups.includes(getGroupId())) return;
 
   function insertHideProfileTag() {
     if (typeof insert === 'function') {
@@ -16,14 +16,14 @@
   }
 
   function addHideProfileButton() {
-    if (CFG.selectors.buttonInsert) {
-      const container = document.querySelector(CFG.selectors.buttonInsert);
+    if (config.selectors.buttonInsert) {
+      const container = document.querySelector(config.selectors.buttonInsert);
       if (!container || container.querySelector('#button-hideprofile')) return;
       const td = createEl('td', {
         id: 'button-hideprofile',
         title: BUTTON_TEXT,
       });
-      const img = createEl('img', { src: CFG.buttonIcon, alt: '' });
+      const img = createEl('img', { src: config.buttonIcon, alt: '' });
       td.appendChild(img);
       td.addEventListener('click', insertHideProfileTag);
       container.appendChild(td);
@@ -41,7 +41,7 @@
 
   function applyHideProfileToPost(post) {
     if (post.classList.contains(HIDE_CLASS)) return;
-    const body = post.querySelector(CFG.selectors.postBody);
+    const body = post.querySelector(config.selectors.postBody);
     if (!body) return;
     if (body.innerHTML.includes(TAG)) {
       post.classList.add(HIDE_CLASS);
@@ -50,7 +50,9 @@
   }
 
   function applyHideProfileToAllPosts(root = document) {
-    root.querySelectorAll(CFG.selectors.post).forEach(applyHideProfileToPost);
+    root
+      .querySelectorAll(config.selectors.post)
+      .forEach(applyHideProfileToPost);
   }
 
   function init() {

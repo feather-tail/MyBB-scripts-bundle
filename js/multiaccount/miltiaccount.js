@@ -2,21 +2,24 @@
   'use strict';
 
   const { $, createEl, showToast } = window.helpers;
-  const CFG = helpers.getConfig('multiaccount', {});
+  const config = helpers.getConfig('multiaccount', {});
 
   function init() {
-    if (typeof GroupID !== 'undefined' && CFG.allowedGroups.includes(GroupID)) {
-      const navMenu = $(CFG.selectors.navMenu);
+    if (
+      typeof GroupID !== 'undefined' &&
+      config.allowedGroups.includes(GroupID)
+    ) {
+      const navMenu = $(config.selectors.navMenu);
       if (navMenu) {
-        const li = createEl('li', { id: CFG.ids.navProfiles });
+        const li = createEl('li', { id: config.ids.navProfiles });
         const a = createEl('a', {
           href: '#',
-          html: `<span>${CFG.texts.menuTitle}</span>`,
+          html: `<span>${config.texts.menuTitle}</span>`,
         });
         li.appendChild(a);
 
         const profileMenu = createEl('ul', {
-          className: CFG.classes.profileMenu,
+          className: config.classes.profileMenu,
           style: 'display:none;',
         });
         li.appendChild(profileMenu);
@@ -27,17 +30,17 @@
             profileMenu.style.display === 'none' ? 'block' : 'none';
         });
 
-        const logoutItem = $(CFG.selectors.logout);
+        const logoutItem = $(config.selectors.logout);
         if (logoutItem && logoutItem.parentNode === navMenu)
           navMenu.insertBefore(li, logoutItem);
         else navMenu.appendChild(li);
 
         let accounts =
-          JSON.parse(localStorage.getItem(CFG.storageKeys.accounts)) || [];
-        let activeUsername = localStorage.getItem(CFG.storageKeys.active);
+          JSON.parse(localStorage.getItem(config.storageKeys.accounts)) || [];
+        let activeUsername = localStorage.getItem(config.storageKeys.active);
 
         async function getEncryptionKey() {
-          let keyData = localStorage.getItem(CFG.storageKeys.key);
+          let keyData = localStorage.getItem(config.storageKeys.key);
           if (!keyData) {
             const key = await crypto.subtle.generateKey(
               { name: 'AES-GCM', length: 256 },
@@ -46,7 +49,7 @@
             );
             const exported = await crypto.subtle.exportKey('raw', key);
             localStorage.setItem(
-              CFG.storageKeys.key,
+              config.storageKeys.key,
               btoa(String.fromCharCode(...new Uint8Array(exported))),
             );
             return key;
@@ -103,21 +106,21 @@
             });
 
             if (account.username === activeUsername) {
-              accountA.classList.add(CFG.classes.active);
+              accountA.classList.add(config.classes.active);
             }
 
             accountA.addEventListener('click', async (e) => {
               e.preventDefault();
               const password = await decryptPassword(account.password);
-              localStorage.setItem(CFG.storageKeys.active, account.username);
+              localStorage.setItem(config.storageKeys.active, account.username);
               loginToAccount(account.username, password);
             });
 
             accountLi.appendChild(accountA);
 
             const deleteBtn = createEl('button', {
-              text: CFG.texts.deleteButton,
-              className: CFG.classes.deleteBtn,
+              text: config.texts.deleteButton,
+              className: config.classes.deleteBtn,
               style: 'margin-left:10px;',
             });
             deleteBtn.addEventListener('click', (e) => {
@@ -125,7 +128,7 @@
               e.preventDefault();
               accounts.splice(index, 1);
               localStorage.setItem(
-                CFG.storageKeys.accounts,
+                config.storageKeys.accounts,
                 JSON.stringify(accounts),
               );
               updateProfileMenu();
@@ -137,7 +140,7 @@
           const addAccountLi = createEl('li');
           const addAccountA = createEl('a', {
             href: '#',
-            text: CFG.texts.addAccount,
+            text: config.texts.addAccount,
           });
           addAccountA.addEventListener('click', (e) => {
             e.preventDefault();
@@ -148,7 +151,9 @@
         }
 
         function showAddAccountDialog() {
-          const overlay = createEl('div', { className: CFG.classes.overlay });
+          const overlay = createEl('div', {
+            className: config.classes.overlay,
+          });
           Object.assign(overlay.style, {
             position: 'fixed',
             top: '0',
@@ -162,7 +167,7 @@
             zIndex: '1000',
           });
 
-          const dialog = createEl('div', { className: CFG.classes.dialog });
+          const dialog = createEl('div', { className: config.classes.dialog });
           Object.assign(dialog.style, {
             backgroundColor: '#fff',
             padding: '20px',
@@ -174,24 +179,24 @@
 
           const divLoginLabel = createEl('div');
           const usernameLabel = createEl('label', {
-            text: CFG.texts.usernameLabel,
-            htmlFor: CFG.ids.usernameInput,
+            text: config.texts.usernameLabel,
+            htmlFor: config.ids.usernameInput,
           });
           const usernameInput = createEl('input', {
             type: 'text',
-            id: CFG.ids.usernameInput,
+            id: config.ids.usernameInput,
             required: true,
           });
           divLoginLabel.append(usernameLabel, usernameInput);
 
           const divPasswordLabel = createEl('div');
           const passwordLabel = createEl('label', {
-            text: CFG.texts.passwordLabel,
-            htmlFor: CFG.ids.passwordInput,
+            text: config.texts.passwordLabel,
+            htmlFor: config.ids.passwordInput,
           });
           const passwordInput = createEl('input', {
             type: 'password',
-            id: CFG.ids.passwordInput,
+            id: config.ids.passwordInput,
             required: true,
           });
           divPasswordLabel.append(passwordLabel, passwordInput);
@@ -202,12 +207,12 @@
 
           const addButton = createEl('button', {
             type: 'submit',
-            text: CFG.texts.addButton,
+            text: config.texts.addButton,
           });
 
           const cancelButton = createEl('button', {
             type: 'button',
-            text: CFG.texts.cancelButton,
+            text: config.texts.cancelButton,
             style: 'margin-left:10px;',
           });
           cancelButton.addEventListener('click', () =>
@@ -223,7 +228,7 @@
             const password = passwordInput.value;
 
             if (accounts.find((acc) => acc.username === username)) {
-              showToast(CFG.texts.duplicateAccount, { type: 'error' });
+              showToast(config.texts.duplicateAccount, { type: 'error' });
               return;
             }
 
@@ -235,7 +240,7 @@
 
             accounts.push(newAccount);
             localStorage.setItem(
-              CFG.storageKeys.accounts,
+              config.storageKeys.accounts,
               JSON.stringify(accounts),
             );
             updateProfileMenu();
@@ -256,30 +261,30 @@
         function loginToAccount(username, password) {
           const form = createEl('form', {
             method: 'post',
-            action: CFG.loginUrl,
+            action: config.loginUrl,
           });
 
           const inputFormSent = createEl('input', {
             type: 'hidden',
-            name: CFG.formFields.formSent,
+            name: config.formFields.formSent,
             value: '1',
           });
 
           const inputRedirectURL = createEl('input', {
             type: 'hidden',
-            name: CFG.formFields.redirectUrl,
+            name: config.formFields.redirectUrl,
             value: '',
           });
 
           const inputUsername = createEl('input', {
             type: 'hidden',
-            name: CFG.formFields.username,
+            name: config.formFields.username,
             value: username,
           });
 
           const inputPassword = createEl('input', {
             type: 'hidden',
-            name: CFG.formFields.password,
+            name: config.formFields.password,
             value: password,
           });
 

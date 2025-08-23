@@ -2,20 +2,20 @@
   'use strict';
 
   const { $$, createEl } = window.helpers;
-  const CFG = helpers.getConfig('quotePostLink', {});
+  const config = helpers.getConfig('quotePostLink', {});
 
   function init() {
-    $$(CFG.selectors.cite).forEach((cite) => {
+    $$(config.selectors.cite).forEach((cite) => {
       const text = cite.textContent;
       const match = text.match(/^(#p\d+),(.*)$/s);
       if (!match) return;
       const postId = match[1].trim();
       const label = match[2].trim();
       let href = '';
-      if (document.querySelector(CFG.selectors.post(postId))) {
-        href = CFG.linkTemplates.sameTopic(postId);
+      if (document.querySelector(config.selectors.post(postId))) {
+        href = config.linkTemplates.sameTopic(postId);
       } else {
-        href = CFG.linkTemplates.otherTopic(postId.slice(2), postId);
+        href = config.linkTemplates.otherTopic(postId.slice(2), postId);
       }
       const link = createEl('a', {
         className: 'qc-post-link',
@@ -26,8 +26,8 @@
       cite.appendChild(link);
     });
 
-    $$(CFG.selectors.inlineQuote).forEach((a) => {
-      const post = a.closest(CFG.selectors.postRoot);
+    $$(config.selectors.inlineQuote).forEach((a) => {
+      const post = a.closest(config.selectors.postRoot);
       if (!post) return;
       const postId = post.id;
       a.href = a.href.replace("('", `('#${postId},`);

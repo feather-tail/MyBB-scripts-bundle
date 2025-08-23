@@ -2,19 +2,19 @@
   'use strict';
 
   const { createEl } = window.helpers;
-  const CFG = helpers.getConfig('bbcodeJustify', {});
+  const config = helpers.getConfig('bbcodeJustify', {});
 
   function init() {
-    const refTd = document.querySelector(CFG.insertAfterSelector);
+    const refTd = document.querySelector(config.insertAfterSelector);
     if (!refTd || refTd.tagName !== 'TD') return;
 
-    const td = createEl('td', { id: CFG.buttonId, title: CFG.title });
-    const img = createEl('img', { src: CFG.iconSrc, alt: CFG.title });
+    const td = createEl('td', { id: config.buttonId, title: config.title });
+    const img = createEl('img', { src: config.iconSrc, alt: config.title });
     td.appendChild(img);
 
     td.addEventListener('click', () => {
       if (typeof bbcode === 'function') {
-        bbcode(CFG.bbcodeOpen, CFG.bbcodeClose);
+        bbcode(config.bbcodeOpen, config.bbcodeClose);
       } else {
         td.classList.add('inactive');
         td.title = 'Функция bbcode не найдена';

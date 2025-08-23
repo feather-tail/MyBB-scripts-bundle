@@ -2,7 +2,7 @@
   'use strict';
 
   const { $, createEl, showToast } = window.helpers;
-  const CFG = helpers.getConfig('mutualPR', {});
+  const config = helpers.getConfig('mutualPR', {});
 
   function getTopicSubject() {
     return window.FORUM?.get?.('topic.subject') || '';
@@ -10,8 +10,8 @@
 
   function isAllowed() {
     return (
-      CFG.ALLOWED_GROUPS.includes(helpers.getGroupId()) &&
-      getTopicSubject().includes(CFG.TARGET_TOPIC)
+      config.ALLOWED_GROUPS.includes(helpers.getGroupId()) &&
+      getTopicSubject().includes(config.TARGET_TOPIC)
     );
   }
 
@@ -34,13 +34,15 @@
       const linkBB = `\n\n[url=${permalink.href}]Взаимная реклама[/url]`;
 
       const template =
-        CFG.PR_TEMPLATES[Math.floor(Math.random() * CFG.PR_TEMPLATES.length)];
+        config.PR_TEMPLATES[
+          Math.floor(Math.random() * config.PR_TEMPLATES.length)
+        ];
 
       const linksUl = $('.post-links ul', post);
       if (!linksUl) return;
 
       const li = createEl('li', { className: 'pl-mutualPR' });
-      const btn = createEl('a', { href: '#', text: CFG.BUTTON_LABEL });
+      const btn = createEl('a', { href: '#', text: config.BUTTON_LABEL });
       btn.onclick = (e) => {
         e.preventDefault();
         const textarea = createEl('textarea', { value: template + linkBB });
@@ -48,7 +50,7 @@
         textarea.select();
         try {
           document.execCommand('copy');
-          showNotification(CFG.COPY_SUCCESS_TEXT);
+          showNotification(config.COPY_SUCCESS_TEXT);
         } finally {
           document.body.removeChild(textarea);
         }

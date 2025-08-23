@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  const CFG = helpers.getConfig('textReplace', {});
+  const config = helpers.getConfig('textReplace', {});
 
   function init() {
     const updateParentText = (
@@ -33,7 +33,7 @@
       });
     };
 
-    CFG.rules.forEach(({ selector, search, replace }) => {
+    config.rules.forEach(({ selector, search, replace }) => {
       updateParentText(selector, search, replace);
     });
   }

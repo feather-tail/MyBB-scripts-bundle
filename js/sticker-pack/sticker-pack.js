@@ -2,7 +2,7 @@
   'use strict';
 
   const { $, $$, createEl, getGroupId, getUserInfo } = window.helpers;
-  const CFG = helpers.getConfig('stickerPack', {});
+  const config = helpers.getConfig('stickerPack', {});
 
   const stickerPack = {
     isLoading: false,
@@ -14,7 +14,7 @@
   };
 
   function init() {
-    if (!$(`#${CFG.buttonAfterId}`)) return;
+    if (!$(`#${config.buttonAfterId}`)) return;
     addStickerPackStyles();
     addStickerPackButton();
   }
@@ -24,7 +24,7 @@
   function addStickerPackStyles() {
     const link = createEl('link', {
       rel: 'stylesheet',
-      href: CFG.stylesheetUrl,
+      href: config.stylesheetUrl,
     });
     document.head.appendChild(link);
   }
@@ -35,7 +35,7 @@
       title: 'Стикеры',
       onclick: onStickerPackButtonClick,
     });
-    const afterElem = $(`#${CFG.buttonAfterId}`);
+    const afterElem = $(`#${config.buttonAfterId}`);
     afterElem?.after(buttonTd);
     stickerPack.elements.button = buttonTd;
   }
@@ -48,7 +48,7 @@
     setStickerPackLoading(true);
     Promise.all([
       loadForumStickerPacks(),
-      getGroupId() !== CFG.hideMyGroupId
+      getGroupId() !== config.hideMyGroupId
         ? loadUserStickers()
         : Promise.resolve(),
     ]).finally(() => {
@@ -89,8 +89,8 @@
     stickerPack.packs.forEach((pack) => {
       if (pack.stickers.length) tabs.append(createTab(pack.name));
     });
-    if (getGroupId() !== CFG.hideMyGroupId)
-      tabs.append(createTab(CFG.myTabName));
+    if (getGroupId() !== config.hideMyGroupId)
+      tabs.append(createTab(config.myTabName));
 
     tabs.onclick = (e) => {
       const tab = e.target.closest('.sticker-pack-modal-tab');
@@ -167,9 +167,9 @@
     $$('.sticker-pack-modal-tab', stickerPack.elements.tabs).forEach((t) =>
       t.classList.toggle('active', t.dataset.pack === stickerPack.activeTab),
     );
-    const isCustom = stickerPack.activeTab === CFG.myTabName;
+    const isCustom = stickerPack.activeTab === config.myTabName;
     const pack = isCustom
-      ? { name: CFG.myTabName, stickers: stickerPack.userStickers }
+      ? { name: config.myTabName, stickers: stickerPack.userStickers }
       : stickerPack.packs.find((p) => p.name === stickerPack.activeTab) || {
           stickers: [],
         };
@@ -207,7 +207,7 @@
     const idx = stickerPack.userStickers.indexOf(url);
     if (idx >= 0) {
       stickerPack.userStickers.splice(idx, 1);
-      setStickerPackTab(CFG.myTabName);
+      setStickerPackTab(config.myTabName);
       saveUserStickers();
     }
   }
@@ -220,25 +220,25 @@
     ) {
       stickerPack.userStickers.push(url);
       saveUserStickers();
-      setStickerPackTab(CFG.myTabName);
+      setStickerPackTab(config.myTabName);
       input.value = '';
     }
   }
 
   function saveUserStickers() {
     let json = JSON.stringify(stickerPack.userStickers);
-    if (json.length >= CFG.maxJsonSize) {
+    if (json.length >= config.maxJsonSize) {
       window.jGrowl?.('Слишком много стикеров, последний не был сохранён 😔');
       stickerPack.userStickers.pop();
       return saveUserStickers();
     }
-    fetch(CFG.apiUrl, {
+    fetch(config.apiUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
-        method: CFG.apiSetMethod,
+        method: config.apiSetMethod,
         token: window.ForumAPITicket,
-        key: CFG.storageKey,
+        key: config.storageKey,
         value: json,
       }),
     });
@@ -270,7 +270,7 @@
   }
 
   function loadForumStickerPacks() {
-    return fetch(CFG.dataUrl)
+    return fetch(config.dataUrl)
       .then((r) => r.text())
       .then(parseForumStickerData)
       .catch(() =>
@@ -283,16 +283,16 @@
   function loadUserStickers() {
     if (getUserInfo().id === 1) return Promise.resolve();
     return fetch(
-      `${CFG.apiUrl}?method=${CFG.apiGetMethod}&key=${CFG.storageKey}`,
+      `${config.apiUrl}?method=${config.apiGetMethod}&key=${config.storageKey}`,
     )
       .then((r) => r.json())
       .then((result) => {
-        const str = result?.response?.storage?.data?.[CFG.storageKey] || '';
+        const str = result?.response?.storage?.data?.[config.storageKey] || '';
         if (str) {
           try {
             stickerPack.userStickers = JSON.parse(str);
           } catch (err) {
-            if (err instanceof SyntaxError && str.length > CFG.maxJsonSize) {
+            if (err instanceof SyntaxError && str.length > config.maxJsonSize) {
               saveUserStickers();
               window.jGrowl?.(
                 'Стикеры сохранились критично неправильно, пришлось очистить хранилище. Извините 😥',

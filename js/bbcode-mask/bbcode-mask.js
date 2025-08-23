@@ -11,13 +11,13 @@
     getUserInfo,
     getGroupId,
   } = window.helpers;
-  const CFG = helpers.getConfig('bbcodeMask', {});
-  const SELECTORS = CFG.selectors;
-  const MAX_CACHE_ENTRIES = CFG.maxCacheEntries;
+  const config = helpers.getConfig('bbcodeMask', {});
+  const SELECTORS = config.selectors;
+  const MAX_CACHE_ENTRIES = config.maxCacheEntries;
 
-  CFG.allTags = Object.values(CFG.fields)
+  config.allTags = Object.values(config.fields)
     .flatMap((f) => f.tags)
-    .concat(CFG.blockTag);
+    .concat(config.blockTag);
 
   const Cache = {
     parsedMask: new Map(),
@@ -101,13 +101,13 @@
       try {
         const params = new URLSearchParams({
           method: 'storage.get',
-          key: CFG.storageKey,
+          key: config.storageKey,
         });
         const resp = await fetch(`/api.php?${params}`, {
           credentials: 'same-origin',
         });
         const json = await resp.json();
-        const raw = json.response?.storage?.data?.[CFG.storageKey] || '';
+        const raw = json.response?.storage?.data?.[config.storageKey] || '';
         const decoded = raw ? decodeURIComponent(raw) : '';
         const cleaned = decoded ? sanitizeStorageData(decoded) : '';
         this.masks = cleaned ? cleaned.split('|splitKey|') : [];
@@ -120,7 +120,7 @@
       const body = new URLSearchParams({
         method: 'storage.set',
         token: window.ForumAPITicket,
-        key: CFG.storageKey,
+        key: config.storageKey,
         value: encodeURIComponent(joined),
       });
       await fetch('/api.php', {
@@ -131,7 +131,7 @@
       });
     },
     add(record) {
-      if (this.masks.length >= CFG.storageLimit) {
+      if (this.masks.length >= config.storageLimit) {
         this.masks.pop();
         showToast('Самая старая маска была удалена из-за переполнения.', {
           type: 'warning',
@@ -235,7 +235,9 @@
   };
 
   const getFieldKeyByClass = (className) =>
-    Object.keys(CFG.fields).find((k) => CFG.fields[k].class === className);
+    Object.keys(config.fields).find(
+      (k) => config.fields[k].class === className,
+    );
 
   const normalizeUrl = (raw) => {
     let url = String(raw || '').trim();
@@ -243,7 +245,7 @@
     if (!/^[a-z][a-z0-9+.-]*:/i.test(url)) url = 'http://' + url;
     try {
       const obj = new URL(url);
-      return CFG.safeProtocols.includes(obj.protocol) ? obj.href : '#';
+      return config.safeProtocols.includes(obj.protocol) ? obj.href : '#';
     } catch {
       return '#';
     }
@@ -263,13 +265,15 @@
   };
 
   const accessConfig = {
-    forumAccess: parseAccessMap(CFG.forumAccess),
-    forumAccessExtended: parseAccessMap(CFG.forumAccessExtended),
-    guestAccess: Array.isArray(CFG.guestAccess) ? CFG.guestAccess.slice() : [],
+    forumAccess: parseAccessMap(config.forumAccess),
+    forumAccessExtended: parseAccessMap(config.forumAccessExtended),
+    guestAccess: Array.isArray(config.guestAccess)
+      ? config.guestAccess.slice()
+      : [],
   };
 
   const clearFormFields = () => {
-    Object.keys(CFG.fields).forEach((key) => {
+    Object.keys(config.fields).forEach((key) => {
       const el = $(`#mask-${key}`);
       if (el) el.value = '';
     });
@@ -277,29 +281,29 @@
 
   const saveDraft = () => {
     const obj = {};
-    Object.keys(CFG.fields).forEach((key) => {
+    Object.keys(config.fields).forEach((key) => {
       const el = $(`#mask-${key}`);
       if (el?.value.trim()) obj[key] = el.value.trim();
     });
-    localStorage.setItem(CFG.localDraftKey, JSON.stringify(obj));
+    localStorage.setItem(config.localDraftKey, JSON.stringify(obj));
   };
 
   const loadDraft = () => {
-    const str = localStorage.getItem(CFG.localDraftKey);
+    const str = localStorage.getItem(config.localDraftKey);
     if (!str) return;
     try {
       const obj = JSON.parse(str);
-      Object.keys(CFG.fields).forEach((k) => {
+      Object.keys(config.fields).forEach((k) => {
         const el = $(`#mask-${k}`);
         if (el && obj[k]) el.value = obj[k];
       });
     } catch {}
   };
 
-  const clearDraft = () => localStorage.removeItem(CFG.localDraftKey);
+  const clearDraft = () => localStorage.removeItem(config.localDraftKey);
 
   const validateField = (fieldKey, value) => {
-    const fld = CFG.fields[fieldKey];
+    const fld = config.fields[fieldKey];
     if (!fld) return '';
     const v = String(value ?? '');
     if (v === '') return '';
@@ -312,7 +316,7 @@
         const url = new URL(v);
         if (!/\.(jpg|jpeg|png|gif|webp)$/i.test(url.pathname))
           return 'Аватар должен быть ссылкой на картинку (jpg, jpeg, png, gif, webp)';
-        if (!CFG.safeProtocols.includes(url.protocol))
+        if (!config.safeProtocols.includes(url.protocol))
           return 'Аватар: недопустимый протокол';
       } catch {
         return 'Аватар: некорректный URL';
@@ -333,8 +337,8 @@
     s = s.replace(
       /\[(b|i|u|s)\]([\s\S]*?)\[\/\1\]/gi,
       (_, tag, content) =>
-        `<${CFG.bbTagMap[tag.toLowerCase()]}>${content}</${
-          CFG.bbTagMap[tag.toLowerCase()]
+        `<${config.bbTagMap[tag.toLowerCase()]}>${content}</${
+          config.bbTagMap[tag.toLowerCase()]
         }>`,
     );
     s = s.replace(
@@ -403,11 +407,11 @@
     html = decoder.value;
     const wrapper = createEl('div');
     wrapper.innerHTML = html;
-    const ALLOWED_TAGS = CFG.sanitize.allowedTags;
-    const ALLOWED_ATTRS = CFG.sanitize.allowedAttrs;
-    const SAFE_PROTOCOLS = CFG.sanitize.safeProtocols;
-    const ALLOWED_STYLES = CFG.sanitize.allowedInlineStyles;
-    const BLOCK_SVG = !!CFG.sanitize.blockSvgInImg;
+    const ALLOWED_TAGS = config.sanitize.allowedTags;
+    const ALLOWED_ATTRS = config.sanitize.allowedAttrs;
+    const SAFE_PROTOCOLS = config.sanitize.safeProtocols;
+    const ALLOWED_STYLES = config.sanitize.allowedInlineStyles;
+    const BLOCK_SVG = !!config.sanitize.blockSvgInImg;
 
     const clean = (node) => {
       if (node.nodeType === Node.TEXT_NODE) return;
@@ -500,7 +504,7 @@
       codeBlocks.push(m);
       return `${placeholder}${codeBlocks.length - 1}${placeholder}`;
     });
-    const tags = CFG.allTags.join('|');
+    const tags = config.allTags.join('|');
     html = html.replace(
       new RegExp(`\\[(${tags})\\][\\s\\S]*?\\[\\/\\1\\]`, 'gi'),
       '',
@@ -586,7 +590,7 @@
 
   const extractMaskTags_noCache = (html) => {
     const res = {};
-    for (const [fieldKey, fieldConfig] of Object.entries(CFG.fields)) {
+    for (const [fieldKey, fieldConfig] of Object.entries(config.fields)) {
       for (const tag of fieldConfig.tags) {
         const re = new RegExp(`\\[${tag}\\]([\\s\\S]*?)\\[\\/${tag}\\]`, 'i');
         const m = html.match(re);
@@ -609,11 +613,11 @@
   const getOrCreateProfileField = (profileBlock, className) => {
     let li = profileBlock.querySelector('.' + className);
     if (li) return li;
-    const idx = CFG.userFieldOrder.indexOf(className);
+    const idx = config.userFieldOrder.indexOf(className);
     let insertBefore;
     if (idx !== -1) {
-      for (let i = idx + 1; i < CFG.userFieldOrder.length; i++) {
-        const el = profileBlock.querySelector('.' + CFG.userFieldOrder[i]);
+      for (let i = idx + 1; i < config.userFieldOrder.length; i++) {
+        const el = profileBlock.querySelector('.' + config.userFieldOrder[i]);
         if (el) {
           insertBefore = el;
           break;
@@ -703,7 +707,10 @@
     const doAvatar = !!data.avatar;
 
     if (doAvatar && (onlyAvatar || allowAll)) {
-      const li = getOrCreateProfileField(profileBlock, CFG.fields.avatar.class);
+      const li = getOrCreateProfileField(
+        profileBlock,
+        config.fields.avatar.class,
+      );
       const img = li.querySelector('img') || li.appendChild(createEl('img'));
       img.src = normalizeUrl(
         typeof data.avatar === 'object' ? data.avatar.content : data.avatar,
@@ -712,10 +719,10 @@
     }
 
     if (allowAll) {
-      CFG.userFieldOrder.forEach((className) => {
+      config.userFieldOrder.forEach((className) => {
         const key = getFieldKeyByClass(className);
         if (!key || !data[key]) return;
-        const fld = CFG.fields[key];
+        const fld = config.fields[key];
         const value =
           typeof data[key] === 'object' ? data[key].content : data[key];
         if (key === 'avatar') return;
@@ -877,7 +884,7 @@
       btn.id = 'button-mask';
       btn.title = 'Маска профиля';
       btn.innerHTML = '<img src="/i/blank.gif">';
-      btn.style.backgroundImage = `url("${CFG.buttonIcon}")`;
+      btn.style.backgroundImage = `url("${config.buttonIcon}")`;
       btn.style.backgroundRepeat = 'no-repeat';
       btn.style.backgroundPosition = '50% 4px';
       btn.style.display = 'table-cell';
@@ -896,7 +903,7 @@
       btn.style.marginLeft = '8px';
       btn.title = 'Маска профиля';
       btn.style.cursor = 'pointer';
-      btn.innerHTML = `<img src="${CFG.buttonIcon}" alt="Маска">`;
+      btn.innerHTML = `<img src="${config.buttonIcon}" alt="Маска">`;
       btn.addEventListener('click', (e) => {
         if (e.ctrlKey || e.metaKey) return insertQuickIcon();
         openDialog();
@@ -957,7 +964,7 @@
 
   const validateForm = () => {
     const errors = [];
-    CFG.userFieldOrder.forEach((className) => {
+    config.userFieldOrder.forEach((className) => {
       const key = getFieldKeyByClass(className);
       if (!key) return;
       const el = $(`#mask-${key}`);
@@ -966,7 +973,7 @@
       if (err) errors.push({ key, err });
     });
 
-    CFG.userFieldOrder.forEach((className) => {
+    config.userFieldOrder.forEach((className) => {
       const key = getFieldKeyByClass(className);
       if (!key) return;
       const field = $(`#mask-${key}`);
@@ -984,7 +991,7 @@
     if (errorContainer)
       errorContainer.textContent = errors.map((e) => e.err).join('; ');
 
-    const hasAnyValue = CFG.userFieldOrder.some((className) => {
+    const hasAnyValue = config.userFieldOrder.some((className) => {
       const key = getFieldKeyByClass(className);
       const el = $(`#mask-${key}`);
       return el && el.value.trim() !== '';
@@ -1001,35 +1008,35 @@
 
   const updatePreview = () => {
     currentMask = {};
-    CFG.userFieldOrder.forEach((className) => {
+    config.userFieldOrder.forEach((className) => {
       const key = getFieldKeyByClass(className);
       if (!key) return;
       const el = $(`#mask-${key}`);
       if (el?.value.trim()) currentMask[key] = el.value.trim();
     });
     const code =
-      `[${CFG.blockTag}]` +
+      `[${config.blockTag}]` +
       Object.entries(currentMask)
         .map(
           ([k, v]) =>
-            `[${CFG.fields[k].tags[0]}]${v}[/${CFG.fields[k].tags[0]}]`,
+            `[${config.fields[k].tags[0]}]${v}[/${config.fields[k].tags[0]}]`,
         )
         .join('') +
-      `[/${CFG.blockTag}]`;
+      `[/${config.blockTag}]`;
 
     if (previewContainer) previewContainer.innerHTML = '';
 
-    CFG.userFieldOrder.forEach((className) => {
+    config.userFieldOrder.forEach((className) => {
       const key = getFieldKeyByClass(className);
       if (!key) return;
-      const fld = CFG.fields[key];
+      const fld = config.fields[key];
       if (!fld) return;
       const value = currentMask[key];
       let el;
       if (fld.type === 'avatar') {
         el = createEl('img');
         el.className = 'mask-preview-avatar';
-        el.src = value || CFG.defaultAvatar;
+        el.src = value || config.defaultAvatar;
       } else if (fld.type === 'bbcode') {
         el = createEl('div');
         el.className = 'mask-preview-bbcode';
@@ -1064,7 +1071,7 @@
   };
 
   const insertTemplate = (key) => {
-    const fld = CFG.fields[key];
+    const fld = config.fields[key];
     const el = $(`#mask-${key}`);
     if (fld?.defaultCode && el) {
       el.value = fld.defaultCode;
@@ -1073,7 +1080,7 @@
   };
 
   const fillForm = (data) => {
-    CFG.userFieldOrder.forEach((className) => {
+    config.userFieldOrder.forEach((className) => {
       const key = getFieldKeyByClass(className);
       if (!key) return;
       const el = $(`#mask-${key}`);
@@ -1155,14 +1162,14 @@
     downBtn.setAttribute('aria-label', 'Переместить вниз');
     wrap.append(downBtn);
     const img = createEl('img');
-    img.src = m.avatar || CFG.defaultAvatar;
+    img.src = m.avatar || config.defaultAvatar;
     img.className = 'mask-storage-avatar';
     wrap.append(img);
     const tooltipHtml = Object.entries(m)
       .map(
         ([k, v]) =>
           `<div class="mask-tooltip-field"><b>${escHtml(
-            CFG.fields[k]?.tags[0] || k,
+            config.fields[k]?.tags[0] || k,
           )}</b>: ${escHtml(v)}</div>`,
       )
       .join('');
@@ -1306,10 +1313,10 @@
     });
 
     formEl.innerHTML = '';
-    CFG.userFieldOrder.forEach((className) => {
+    config.userFieldOrder.forEach((className) => {
       const key = getFieldKeyByClass(className);
       if (!key) return;
-      const fld = CFG.fields[key];
+      const fld = config.fields[key];
       const value = currentMask[key] || '';
       const field = createFormField(fld, key, value);
       field
@@ -1438,12 +1445,12 @@
 
     if (getGroupId() === 1) {
       const toSave = {
-        fields: CFG.fields,
-        userFields: CFG.userFieldOrder,
-        blockTag: CFG.blockTag,
-        defaultAvatar: CFG.defaultAvatar,
-        buttonImage: CFG.buttonIcon,
-        sanitize: CFG.sanitize,
+        fields: config.fields,
+        userFields: config.userFieldOrder,
+        blockTag: config.blockTag,
+        defaultAvatar: config.defaultAvatar,
+        buttonImage: config.buttonIcon,
+        sanitize: config.sanitize,
       };
       const getParams = new URLSearchParams({
         method: 'storage.get',
@@ -1477,7 +1484,7 @@
     processPosts();
     window.scripts = window.scripts || {};
     window.scripts.bbcodeMask = {
-      CONFIG: CFG,
+      CONFIG: config,
       removeMaskTagsFromPreview,
       Cache,
     };

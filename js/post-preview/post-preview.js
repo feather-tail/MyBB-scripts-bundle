@@ -2,11 +2,11 @@
   'use strict';
 
   const { $, $$, setCookie, getCookie, debounce } = window.helpers;
-  const CFG = helpers.getConfig('postPreview', {});
+  const config = helpers.getConfig('postPreview', {});
 
   function init() {
     const fid = Number(window.FORUM?.get('topic.forum_id'));
-    if (!CFG.allowedForums.includes(fid)) return;
+    if (!config.allowedForums.includes(fid)) return;
 
     const form = $('#post-form form#post');
     if (!form) return;
@@ -24,7 +24,7 @@
     wrap.innerHTML = `<input type="checkbox" id="autoPreviewToggle"> Автопревью`;
     const checkbox = $('input', wrap);
 
-    if (getCookie(CFG.toggleCookie) === 'OFF') {
+    if (getCookie(config.toggleCookie) === 'OFF') {
       checkbox.checked = false;
       const pc = getPostContent();
       if (pc) pc.innerHTML = '';
@@ -38,7 +38,7 @@
       const pc = getPostContent();
 
       if (checkbox.checked) {
-        setCookie(CFG.toggleCookie, '', -1);
+        setCookie(config.toggleCookie, '', -1);
         if (ta.value.trim()) {
           previewBtn.click();
         } else {
@@ -48,12 +48,12 @@
       } else {
         if (box) box.style.display = 'none';
         if (pc) pc.innerHTML = '';
-        setCookie(CFG.toggleCookie, 'OFF');
+        setCookie(config.toggleCookie, 'OFF');
       }
     });
 
     const insertInto = (el) => el?.append(wrap);
-    const desiredSel = CFG.toggleInsertAfter || '#form-buttons';
+    const desiredSel = config.toggleInsertAfter || '#form-buttons';
     const desiredNow = $(desiredSel) || $('#form-buttons', form);
 
     if (desiredNow) {
@@ -70,7 +70,7 @@
       obs.observe(document.body, { childList: true, subtree: true });
       const fallbackTimer = setTimeout(() => {
         if (!wrap.isConnected) insertInto($('#form-buttons', form));
-      }, CFG.checkInterval);
+      }, config.checkInterval);
     }
 
     const firePreview = () => {
@@ -88,7 +88,7 @@
       previewBtn.click();
     };
 
-    ta.addEventListener('input', debounce(firePreview, CFG.debounceDelay));
+    ta.addEventListener('input', debounce(firePreview, config.debounceDelay));
   }
 
   helpers.ready(init);

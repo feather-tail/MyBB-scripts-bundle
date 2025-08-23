@@ -2,17 +2,17 @@
   'use strict';
 
   const { $, $$, createEl } = window.helpers;
-  const CFG = helpers.getConfig('fontResizer', {});
+  const config = helpers.getConfig('fontResizer', {});
 
   const getStoredSize = () => {
-    const v = parseInt(localStorage.getItem(CFG.storageKey), 10);
-    return !isNaN(v) && v >= CFG.minSize && v <= CFG.maxSize
+    const v = parseInt(localStorage.getItem(config.storageKey), 10);
+    return !isNaN(v) && v >= config.minSize && v <= config.maxSize
       ? v
-      : CFG.defaultSize;
+      : config.defaultSize;
   };
-  const storeSize = (size) => localStorage.setItem(CFG.storageKey, size);
+  const storeSize = (size) => localStorage.setItem(config.storageKey, size);
   const applySize = (size) => {
-    $$(CFG.fontSelector).forEach((el) => {
+    $$(config.fontSelector).forEach((el) => {
       el.style.fontSize = size + 'px';
     });
   };
@@ -25,7 +25,7 @@
       <button type="button" class="reset"    aria-label="Сбросить размер">A</button>
       <button type="button" class="increase" aria-label="Увеличить шрифт">A+</button>
       <input type="range" class="slider"
-             min="${CFG.minSize}" max="${CFG.maxSize}"
+             min="${config.minSize}" max="${config.maxSize}"
              value="${currentSize}"
              aria-label="Размер шрифта">
     `;
@@ -36,8 +36,10 @@
     const initialSize = getStoredSize();
     applySize(initialSize);
 
-    let anchor = CFG.insertAfterSelector ? $(CFG.insertAfterSelector) : null;
-    if (!anchor) anchor = $(CFG.defaultAnchorSelector);
+    let anchor = config.insertAfterSelector
+      ? $(config.insertAfterSelector)
+      : null;
+    if (!anchor) anchor = $(config.defaultAnchorSelector);
     if (!anchor) return;
 
     const control = createControl(initialSize);
@@ -49,21 +51,21 @@
     const btnReset = $('.reset', control);
 
     btnDecrease.addEventListener('click', () => {
-      let s = Math.max(CFG.minSize, +slider.value - 1);
+      let s = Math.max(config.minSize, +slider.value - 1);
       slider.value = s;
       applySize(s);
       storeSize(s);
     });
     btnIncrease.addEventListener('click', () => {
-      let s = Math.min(CFG.maxSize, +slider.value + 1);
+      let s = Math.min(config.maxSize, +slider.value + 1);
       slider.value = s;
       applySize(s);
       storeSize(s);
     });
     btnReset.addEventListener('click', () => {
-      slider.value = CFG.defaultSize;
-      applySize(CFG.defaultSize);
-      storeSize(CFG.defaultSize);
+      slider.value = config.defaultSize;
+      applySize(config.defaultSize);
+      storeSize(config.defaultSize);
     });
     slider.addEventListener('input', () => {
       const s = +slider.value;

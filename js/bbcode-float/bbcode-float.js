@@ -2,23 +2,23 @@
   'use strict';
 
   const { $, $$, createEl } = window.helpers;
-  const CFG = helpers.getConfig('bbcodeFloat', {});
+  const config = helpers.getConfig('bbcodeFloat', {});
   const BB_INSERT_FN = window.bbcode || (() => {});
 
   function injectUI() {
-    const ref = $(CFG.buttonAfterSelector);
-    if (!ref || $(`#${CFG.floatButtonId}`)) return;
+    const ref = $(config.buttonAfterSelector);
+    if (!ref || $(`#${config.floatButtonId}`)) return;
 
     const td = createEl('td');
-    td.id = CFG.floatButtonId;
+    td.id = config.floatButtonId;
     td.title = 'Обтекание';
     td.innerHTML = '<img src="/i/blank.gif" style="cursor:pointer">';
     ref.after(td);
 
-    let bar = $(`#${CFG.toolbarId}`);
+    let bar = $(`#${config.toolbarId}`);
     if (!bar) {
       bar = createEl('div');
-      bar.id = CFG.toolbarId;
+      bar.id = config.toolbarId;
       bar.className = 'float-toolbar';
       bar.style.display = 'none';
       bar.innerHTML = `␊
@@ -50,24 +50,25 @@
   }
 
   function transformFloats(root) {
-    const rx = CFG.floatRx;
-    $$(`${CFG.postContentSelector}, ${CFG.previewSelector}`, root).forEach(
-      (el) => {
-        rx.lastIndex = 0;
-        if (rx.test(el.innerHTML)) {
-          el.innerHTML = el.innerHTML.replace(
-            rx,
-            (_, dir, html) =>
-              `<span style="${CFG.floatStyles[dir]}">${html}</span>`,
-          );
-        }
-      },
-    );
+    const rx = config.floatRx;
+    $$(
+      `${config.postContentSelector}, ${config.previewSelector}`,
+      root,
+    ).forEach((el) => {
+      rx.lastIndex = 0;
+      if (rx.test(el.innerHTML)) {
+        el.innerHTML = el.innerHTML.replace(
+          rx,
+          (_, dir, html) =>
+            `<span style="${config.floatStyles[dir]}">${html}</span>`,
+        );
+      }
+    });
   }
 
   let previewObserver;
   function watchPreview() {
-    const box = $(CFG.previewSelector);
+    const box = $(config.previewSelector);
     if (box && !previewObserver) {
       previewObserver = new MutationObserver(() => transformFloats(document));
       previewObserver.observe(box, { childList: true, subtree: true });

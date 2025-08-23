@@ -1,21 +1,21 @@
 (() => {
   'use strict';
   const { $, createEl } = window.helpers;
-  const CFG = helpers.getConfig('replyHotkeys', {});
-  const HOTKEYS = new Map(CFG.HOTKEYS);
+  const config = helpers.getConfig('replyHotkeys', {});
+  const HOTKEYS = new Map(config.HOTKEYS);
 
   function init() {
-    const textarea = $(CFG.selectors.textarea);
-    const fallbackAnchor = $(CFG.selectors.fallback);
+    const textarea = $(config.selectors.textarea);
+    const fallbackAnchor = $(config.selectors.fallback);
     if (!textarea || !fallbackAnchor) return;
 
     const btn = createEl('button', {
       type: 'button',
       className: 'hotkeys-trigger',
-      text: CFG.texts.trigger,
+      text: config.texts.trigger,
     });
     const anchor =
-      (CFG.selectors.placeAfter && $(CFG.selectors.placeAfter)) ||
+      (config.selectors.placeAfter && $(config.selectors.placeAfter)) ||
       fallbackAnchor;
     anchor.parentNode.insertBefore(btn, anchor.nextSibling);
 
@@ -27,10 +27,10 @@
     });
     const close = createEl('button', {
       className: 'hk-close',
-      title: CFG.texts.close,
+      title: config.texts.close,
       text: '×',
     });
-    const h3 = createEl('h3', { text: CFG.texts.title });
+    const h3 = createEl('h3', { text: config.texts.title });
     const ul = createEl('ul');
     modalBox.append(close, h3, ul);
 
@@ -43,7 +43,7 @@
 
     const insertBB = (o, c) => {
       if (!o && !c) {
-        $(CFG.selectors.submit)?.click();
+        $(config.selectors.submit)?.click();
         return;
       }
       const { value, selectionStart: s, selectionEnd: e } = textarea;

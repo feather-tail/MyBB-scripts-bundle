@@ -2,13 +2,13 @@
   'use strict';
 
   const { $, $$, copyToClipboard } = window.helpers;
-  const CFG = helpers.getConfig('copyCode', {});
+  const config = helpers.getConfig('copyCode', {});
 
   function init() {
     $$('.code-box').forEach((box, i) => {
       const legend = $('.legend', box);
       if (legend) {
-        legend.innerHTML = `<a class="copy-code-btn" data-code-idx="${i}" href="#">${CFG.buttonText}</a>`;
+        legend.innerHTML = `<a class="copy-code-btn" data-code-idx="${i}" href="#">${config.buttonText}</a>`;
       }
     });
 
@@ -30,16 +30,16 @@
 
       await copyToClipboard(codeText);
 
-      btn.textContent = CFG.doneText;
+      btn.textContent = config.doneText;
       box.classList.add('copied');
 
       setTimeout(() => {
-        btn.textContent = CFG.buttonText;
+        btn.textContent = config.buttonText;
         box.classList.remove('copied');
-      }, CFG.resetTimeout);
+      }, config.resetTimeout);
     });
   }
 
   helpers.ready(helpers.once(init));
-  helpers.register('copyCode', { CFG, init });
+  helpers.register('copyCode', { config, init });
 })();

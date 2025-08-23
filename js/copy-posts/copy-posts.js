@@ -2,18 +2,18 @@
   'use strict';
   const { $, $$, createEl, showToast } = window.helpers;
 
-  const CFG = helpers.getConfig('copyPosts', {});
+  const config = helpers.getConfig('copyPosts', {});
   const SETTINGS = {
-    allowedForumIds: Array.isArray(CFG.allowedForumIds)
-      ? CFG.allowedForumIds.map(String)
+    allowedForumIds: Array.isArray(config.allowedForumIds)
+      ? config.allowedForumIds.map(String)
       : [],
     singleInsertAfterSelector:
-      typeof CFG.singleInsertAfterSelector === 'string'
-        ? CFG.singleInsertAfterSelector
+      typeof config.singleInsertAfterSelector === 'string'
+        ? config.singleInsertAfterSelector
         : 'h3 strong',
     allInsertAfterSelector:
-      typeof CFG.allInsertAfterSelector === 'string'
-        ? CFG.allInsertAfterSelector
+      typeof config.allInsertAfterSelector === 'string'
+        ? config.allInsertAfterSelector
         : '#pun-main h1 span',
     singleBtnLabel: '\uD83D\uDCCB',
     allBtnLabel: '\uD83D\uDCC4',

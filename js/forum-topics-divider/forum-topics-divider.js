@@ -2,20 +2,20 @@
   'use strict';
 
   const { $, $$, createEl } = window.helpers;
-  const CFG = helpers.getConfig('forumTopicsDivider', {});
+  const config = helpers.getConfig('forumTopicsDivider', {});
 
   function init() {
-    const forumContainer = $(CFG.selectors.forum);
+    const forumContainer = $(config.selectors.forum);
     if (!forumContainer) return;
 
-    const stickyRows = $$(CFG.selectors.stickyRows, forumContainer);
+    const stickyRows = $$(config.selectors.stickyRows, forumContainer);
     if (stickyRows.length > 0) {
       const firstStickyRow = stickyRows[0];
       const impRow = createEl('tr', { className: 'tr-divider imp' });
       impRow.appendChild(
         createEl('td', {
           className: 'td-divider',
-          text: CFG.headers.important,
+          text: config.headers.important,
           colSpan: 4,
         }),
       );
@@ -28,7 +28,7 @@
         topicsRow.appendChild(
           createEl('td', {
             className: 'td-divider',
-            text: CFG.headers.regular,
+            text: config.headers.regular,
             colSpan: 4,
           }),
         );
@@ -39,7 +39,7 @@
       }
     }
 
-    $$(CFG.selectors.stickyLabel).forEach((labelEl) => labelEl.remove());
+    $$(config.selectors.stickyLabel).forEach((labelEl) => labelEl.remove());
   }
 
   helpers.ready(helpers.once(init));

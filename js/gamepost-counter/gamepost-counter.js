@@ -2,7 +2,7 @@
   'use strict';
 
   const { $, $$ } = window.helpers;
-  const CFG = helpers.getConfig('gamepostCounter', {});
+  const config = helpers.getConfig('gamepostCounter', {});
   const last = (sel, root = document) => {
     const L = root.querySelectorAll(sel);
     return L.length ? L[L.length - 1] : null;
@@ -55,9 +55,9 @@
   };
 
   function isCountable({ fid, tid, isFirstPost }) {
-    if (!CFG.includeFirstPost && isFirstPost) return false;
-    const r = CFG.forumsRules.perForum.get(String(fid));
-    const mode = r?.mode || CFG.forumsRules.defaultMode || 'all';
+    if (!config.includeFirstPost && isFirstPost) return false;
+    const r = config.forumsRules.perForum.get(String(fid));
+    const mode = r?.mode || config.forumsRules.defaultMode || 'all';
     if (mode === 'all') return true;
     const topics = r?.topics || new Set();
     if (mode === 'include') return topics.has(Number(tid));
@@ -66,7 +66,7 @@
   }
 
   function sendUpdateFetch(body) {
-    return fetch(`${CFG.backend.endpoint}?method=update`, {
+    return fetch(`${config.backend.endpoint}?method=update`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
@@ -79,9 +79,9 @@
 
   async function getUserStats(userId) {
     const u =
-      `${CFG.backend.endpoint}?method=get_user` +
-      `&subscription=${encodeURIComponent(CFG.backend.subscription)}` +
-      `&tableKey=${encodeURIComponent(CFG.backend.tableKey)}` +
+      `${config.backend.endpoint}?method=get_user` +
+      `&subscription=${encodeURIComponent(config.backend.subscription)}` +
+      `&tableKey=${encodeURIComponent(config.backend.tableKey)}` +
       `&userId=${userId}`;
     const res = await fetch(u, { credentials: 'include' });
     const data = await res.json().catch(() => null);
@@ -90,11 +90,11 @@
 
   async function getTable() {
     const url =
-      `${CFG.backend.endpoint}?method=get_table` +
-      `&subscription=${encodeURIComponent(CFG.backend.subscription)}` +
-      `&tableKey=${encodeURIComponent(CFG.backend.tableKey)}` +
-      `&limit=${CFG.backend.limit}` +
-      `&scope=${CFG.backend.scope}`;
+      `${config.backend.endpoint}?method=get_table` +
+      `&subscription=${encodeURIComponent(config.backend.subscription)}` +
+      `&tableKey=${encodeURIComponent(config.backend.tableKey)}` +
+      `&limit=${config.backend.limit}` +
+      `&scope=${config.backend.scope}`;
     const res = await fetch(url, { credentials: 'include' });
     return res.json().catch(() => null);
   }
@@ -163,7 +163,9 @@
   }
 
   function injectBadgeIntoPost(postEl, value) {
-    const li = postEl.querySelector(`.post-author li.pa-fld${CFG.ui.fieldId}`);
+    const li = postEl.querySelector(
+      `.post-author li.pa-fld${config.ui.fieldId}`,
+    );
     if (li) normalizeCounterLi(li, value);
   }
   function valueFromUserObj(user, source) {
@@ -181,7 +183,7 @@
     });
     const profBox = $('#viewprofile-next');
     if (profBox && profBox.className.includes(`id-${userId}`)) {
-      const li = document.getElementById(`pa-fld${CFG.ui.fieldId}`);
+      const li = document.getElementById(`pa-fld${config.ui.fieldId}`);
       if (li) normalizeCounterLi(li, String(value));
     }
   }
@@ -192,9 +194,9 @@
   }
 
   async function decorateAuthorsOnTopic() {
-    if (!CFG.ui.showBadgesInTopic) return;
+    if (!config.ui.showBadgesInTopic) return;
     const { group, id: myId } = getUser();
-    if (!CFG.viewerGroups.includes(group)) return;
+    if (!config.viewerGroups.includes(group)) return;
 
     const posts = $$('.post[data-user-id]');
     const allIds = Array.from(
@@ -203,10 +205,10 @@
     if (!allIds.includes(myId)) allIds.push(myId);
 
     let ids = allIds;
-    if (ids.length > CFG.ui.maxUsersToDecorate) {
+    if (ids.length > config.ui.maxUsersToDecorate) {
       const rest = ids
         .filter((i) => i !== myId)
-        .slice(0, CFG.ui.maxUsersToDecorate - 1);
+        .slice(0, config.ui.maxUsersToDecorate - 1);
       ids = [myId, ...rest];
     }
 
@@ -218,7 +220,7 @@
       }),
     );
 
-    const source = CFG.ui.badgeSource || 'week';
+    const source = config.ui.badgeSource || 'week';
     for (const post of posts) {
       const id = Number(post.getAttribute('data-user-id'));
       const user = cache.get(id);
@@ -242,9 +244,10 @@
     const data = await getUserStats(uid);
     if (!data) return;
 
-    const source = CFG.ui.profileBadgeSource || CFG.ui.badgeSource || 'week';
+    const source =
+      config.ui.profileBadgeSource || config.ui.badgeSource || 'week';
     const value = valueFromUserObj(data, source);
-    const li = document.getElementById(`pa-fld${CFG.ui.fieldId}`);
+    const li = document.getElementById(`pa-fld${config.ui.fieldId}`);
     if (li) normalizeCounterLi(li, value);
   }
 
@@ -285,19 +288,20 @@
 
   async function injectLauncher() {
     const { group } = getUser();
-    if (!CFG.viewerGroups.includes(group)) return;
+    if (!config.viewerGroups.includes(group)) return;
 
     const fidNum = Number(getForumId());
     const allowed =
-      !CFG.ui.forumsOnly ||
-      (Array.isArray(CFG.ui.forumsOnly) && CFG.ui.forumsOnly.includes(fidNum));
+      !config.ui.forumsOnly ||
+      (Array.isArray(config.ui.forumsOnly) &&
+        config.ui.forumsOnly.includes(fidNum));
     if (!allowed) return;
 
     document
       .querySelectorAll('#form-buttons li.gpc-open-li')
       .forEach((n) => n.remove());
 
-    const anchorSel = CFG.ui.launcherAfter || '#button-addition';
+    const anchorSel = config.ui.launcherAfter || '#button-addition';
     const anchor = await waitForElement(anchorSel);
     if (!anchor) return;
     if (document.getElementById('gpc-open-btn')) return;
@@ -307,13 +311,13 @@
 
     const td = document.createElement('td');
     td.className = 'gpc-open-td';
-    td.title = CFG.ui.launcherText || 'Статистика постов';
+    td.title = config.ui.launcherText || 'Статистика постов';
 
     const btn = document.createElement('button');
     btn.id = 'gpc-open-btn';
     btn.type = 'button';
     btn.className = 'gpc-open-btn';
-    btn.textContent = CFG.ui.launcherIcon || '?';
+    btn.textContent = config.ui.launcherIcon || '?';
     ['pointerdown', 'mousedown', 'mouseup', 'pointerup'].forEach((t) => {
       btn.addEventListener(
         t,
@@ -380,8 +384,8 @@
 
   function buildPayload(fid, tid, isFirstPost, { userId, username, action }) {
     return {
-      subscription: CFG.backend.subscription,
-      tableKey: CFG.backend.tableKey,
+      subscription: config.backend.subscription,
+      tableKey: config.backend.tableKey,
       userId,
       username,
       action,
@@ -411,7 +415,7 @@
     });
     sendUpdateFetch(payload).then((res) => {
       if (res?.ok && res.user) {
-        const val = valueFromUserObj(res.user, CFG.ui.badgeSource || 'week');
+        const val = valueFromUserObj(res.user, config.ui.badgeSource || 'week');
         optimisticUpdate(u.id, val);
       }
     });
@@ -432,7 +436,7 @@
     sendUpdateFetch(payload).then(async () => {
       const user = await getUserStats(payload.userId).catch(() => null);
       if (user) {
-        const val = valueFromUserObj(user, CFG.ui.badgeSource || 'week');
+        const val = valueFromUserObj(user, config.ui.badgeSource || 'week');
         optimisticUpdate(payload.userId, val);
       }
       clearDelIntent();
@@ -484,7 +488,7 @@
           if (res?.ok && res.user) {
             const val = valueFromUserObj(
               res.user,
-              CFG.ui.badgeSource || 'week',
+              config.ui.badgeSource || 'week',
             );
             optimisticUpdate(u.id, val);
           }
@@ -618,8 +622,8 @@
   helpers.ready(helpers.once(init));
 
   helpers.register('gamepostCounter', {
-    CFG,
-    SETTINGS: CFG,
+    config,
+    SETTINGS: config,
     getUserStats,
     updateGlobal({
       userId,
@@ -630,8 +634,8 @@
       isFirstPost = false,
     }) {
       const payload = {
-        subscription: CFG.backend.subscription,
-        tableKey: CFG.backend.tableKey,
+        subscription: config.backend.subscription,
+        tableKey: config.backend.tableKey,
         userId,
         username,
         action,

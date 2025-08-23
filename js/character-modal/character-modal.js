@@ -1,7 +1,7 @@
 (() => {
   'use strict';
   const { createEl } = window.helpers;
-  const CFG = helpers.getConfig('characterModal', {});
+  const config = helpers.getConfig('characterModal', {});
   function init() {
     document.body.addEventListener('click', async (e) => {
       const link = e.target.closest('.modal-link');
@@ -15,9 +15,9 @@
       });
       const { close } = window.helpers.modal.openModal(box);
       try {
-        const res = await fetch(`${CFG.ajaxFolder}${pageId}`);
+        const res = await fetch(`${config.ajaxFolder}${pageId}`);
         const buf = await res.arrayBuffer();
-        const decoder = new TextDecoder(CFG.charset);
+        const decoder = new TextDecoder(config.charset);
         const html = decoder.decode(buf);
         const temp = createEl('div', { html });
         const character = temp.querySelector('.character');

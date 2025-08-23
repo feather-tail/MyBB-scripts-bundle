@@ -2,11 +2,11 @@
   'use strict';
 
   const { $$ } = window.helpers;
-  const CFG = helpers.getConfig('defaultAvatars', {});
-  const avatarByRole = new Map(Object.entries(CFG.avatarByRole));
+  const config = helpers.getConfig('defaultAvatars', {});
+  const avatarByRole = new Map(Object.entries(config.avatarByRole));
 
   function getAvatarUrl(authorName) {
-    return avatarByRole.get(authorName) || CFG.DEFAULT_AVATAR;
+    return avatarByRole.get(authorName) || config.DEFAULT_AVATAR;
   }
 
   function insertAuthorAvatars() {
@@ -38,7 +38,7 @@
       if (strongEl.textContent.includes('Нет аватара')) {
         const container = strongEl.parentElement;
         if (!container) return;
-        container.innerHTML = `<div><img src="${CFG.DEFAULT_AVATAR}" alt="Аватар по умолчанию"></div>`;
+        container.innerHTML = `<div><img src="${config.DEFAULT_AVATAR}" alt="Аватар по умолчанию"></div>`;
       }
     });
   }

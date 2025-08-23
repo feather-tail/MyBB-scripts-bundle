@@ -2,16 +2,16 @@
   'use strict';
 
   const { $, createEl } = window.helpers;
-  const CFG = helpers.getConfig('guestAddress', {});
+  const config = helpers.getConfig('guestAddress', {});
   const insertAddress = window.insertAddress || window.to;
 
   function init() {
     const posts = document.querySelectorAll(
-      `.post[data-group-id="${CFG.group}"]`,
+      `.post[data-group-id="${config.group}"]`,
     );
 
     posts.forEach((post) => {
-      const authorCell = $(CFG.selector, post);
+      const authorCell = $(config.selector, post);
       if (!authorCell) return;
 
       const textNodes = Array.from(authorCell.childNodes).filter(

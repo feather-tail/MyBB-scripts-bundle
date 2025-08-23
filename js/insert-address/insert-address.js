@@ -1,11 +1,11 @@
 (() => {
   'use strict';
   const { $ } = window.helpers;
-  const CFG = helpers.getConfig('insertAddress', {});
+  const config = helpers.getConfig('insertAddress', {});
   let messageField;
 
   const insertAddress = (userName) => {
-    const snippet = CFG.snippet.replace('{{USER}}', userName);
+    const snippet = config.snippet.replace('{{USER}}', userName);
 
     if (typeof insert === 'function') {
       insert(snippet);
@@ -17,7 +17,7 @@
   };
 
   function init() {
-    messageField = $(CFG.selector);
+    messageField = $(config.selector);
   }
 
   helpers.ready(init);

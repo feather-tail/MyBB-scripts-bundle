@@ -2,19 +2,19 @@
   'use strict';
 
   const { $, $$ } = window.helpers;
-  const CFG = helpers.getConfig('themeSwitcher', {});
+  const config = helpers.getConfig('themeSwitcher', {});
   let switcherContainer;
 
   function applyTheme(theme) {
     document.documentElement.classList.remove(
-      ...CFG.themes.map((t) => t.class),
+      ...config.themes.map((t) => t.class),
     );
     document.documentElement.classList.add(theme);
-    localStorage.setItem(CFG.storageKey, theme);
+    localStorage.setItem(config.storageKey, theme);
   }
 
   function renderThemeSwitcher() {
-    switcherContainer.innerHTML = CFG.themes
+    switcherContainer.innerHTML = config.themes
       .map(
         (t) =>
           `<li title="${t.title}">
@@ -28,7 +28,8 @@
   }
 
   function restoreTheme() {
-    const saved = localStorage.getItem(CFG.storageKey) || CFG.themes[0].class;
+    const saved =
+      localStorage.getItem(config.storageKey) || config.themes[0].class;
     applyTheme(saved);
     $$("input[name='switcher']", switcherContainer).forEach(
       (r) => (r.checked = r.value === saved),

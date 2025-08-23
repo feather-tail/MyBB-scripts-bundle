@@ -2,8 +2,8 @@
   'use strict';
 
   const { $, createEl, getGroupId } = window.helpers;
-  const CFG = helpers.getConfig('newMessagesLink', {});
-  const ALLOWED_GROUPS = new Set(CFG.allowedGroupIds);
+  const config = helpers.getConfig('newMessagesLink', {});
+  const ALLOWED_GROUPS = new Set(config.allowedGroupIds);
 
   function init() {
     if (!ALLOWED_GROUPS.has(getGroupId())) return;
@@ -12,7 +12,7 @@
     if (!list) return;
 
     const li = createEl('li', { className: 'item1' });
-    const a = createEl('a', { href: CFG.url, text: CFG.text });
+    const a = createEl('a', { href: config.url, text: config.text });
     li.append(a);
     list.insertBefore(li, list.firstChild);
   }

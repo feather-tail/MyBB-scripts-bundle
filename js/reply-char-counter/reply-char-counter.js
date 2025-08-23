@@ -2,8 +2,8 @@
   'use strict';
 
   const { $$, countGraphemes } = window.helpers;
-  const CFG = helpers.getConfig('replyCharCounter', {});
-  const { selectors: SELECTORS, options: OPTIONS } = CFG;
+  const config = helpers.getConfig('replyCharCounter', {});
+  const { selectors: SELECTORS, options: OPTIONS } = config;
 
   const stripMaskBlocks = (s) => s.replace(/\[mask\b[\s\S]*?\[\/mask\]/gi, '');
 

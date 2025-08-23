@@ -11,14 +11,15 @@
     getUserInfo,
     getGroupId,
   } = window.helpers;
-  const CFG = helpers.getConfig('balanceTool', {});
+  const config = helpers.getConfig('balanceTool', {});
   const topicId = () => new URLSearchParams(location.search).get('id') || '';
-  const allowedTopic = (id) => CFG.access.allowedTopicIds.includes(String(id));
+  const allowedTopic = (id) =>
+    config.access.allowedTopicIds.includes(String(id));
   const allowedGroup = (gid) =>
-    CFG.access.allowedGroupIds.includes(Number(gid));
+    config.access.allowedGroupIds.includes(Number(gid));
   const pickAdminName = () => {
     const { id, name } = getUserInfo();
-    return CFG.adminAliases?.[id] || name || 'Администратор';
+    return config.adminAliases?.[id] || name || 'Администратор';
   };
   const roundVal = (v, d) => {
     if (!Number.isFinite(v)) return 0;
@@ -46,7 +47,7 @@
   const fetchDoc = async (url) => {
     const res = await withTimeout(
       fetch(url, { credentials: 'same-origin' }),
-      CFG.requestTimeoutMs,
+      config.requestTimeoutMs,
     );
     if (!res.ok) throw new Error(`GET ${url} ${res.status}`);
     const buf = await res.arrayBuffer();
@@ -76,7 +77,7 @@
         referrerPolicy: 'strict-origin-when-cross-origin',
         mode: 'same-origin',
       }),
-      CFG.requestTimeoutMs,
+      config.requestTimeoutMs,
     );
     if (!res.ok) throw new Error(`POST ${url} ${res.status}`);
     return res;
@@ -217,14 +218,15 @@
   const ring = [];
   const rateOk = () => {
     const now = Date.now();
-    while (ring.length && now - ring[0] > CFG.rate.windowMs) ring.shift();
-    if (ring.length >= CFG.rate.max) return false;
+    while (ring.length && now - ring[0] > config.rate.windowMs) ring.shift();
+    if (ring.length >= config.rate.max) return false;
     ring.push(now);
     return true;
   };
 
   const resolveMoneyFieldName = (profileForm) => {
-    if (CFG.profileFieldKey !== 'auto') return `form[${CFG.profileFieldKey}]`;
+    if (config.profileFieldKey !== 'auto')
+      return `form[${config.profileFieldKey}]`;
     const legends = ['деньги', 'баланс'];
     for (const fs of profileForm.querySelectorAll('fieldset')) {
       const t = (
@@ -248,7 +250,7 @@
     }</dd><dt>Количество</dt><dd>${qty}</dd><dt>Было</dt><dd>${before}</dd><dt>Стало</dt><dd>${after}</dd></dl><p>Новые значения будут видны после обновления страницы.</p></div>`;
 
   const mountAll = () => {
-    $$(CFG.ui.insertAfterSelector).forEach((a) => {
+    $$(config.ui.insertAfterSelector).forEach((a) => {
       if (a.dataset.btMounted) return;
       a.dataset.btMounted = '1';
       try {
@@ -272,7 +274,7 @@
     anchor.insertAdjacentElement('afterend', wrap);
     const btnOpen = document.createElement('input');
     btnOpen.type = 'button';
-    btnOpen.value = CFG.ui.openButtonText;
+    btnOpen.value = config.ui.openButtonText;
     btnOpen.className = 'balance-tool__open';
     btnOpen.setAttribute('aria-expanded', 'false');
     btnOpen.setAttribute('aria-controls', '');
@@ -285,7 +287,7 @@
     const sel = document.createElement('select');
     sel.className = 'balance-tool__select';
     sel.append(new Option('Не выбрано', ''));
-    const ops = CFG.operations.filter((op) =>
+    const ops = config.operations.filter((op) =>
       topicsMatch(op.topics, topicId()),
     );
     for (const op of ops) {
@@ -299,14 +301,14 @@
     const amt = document.createElement('input');
     amt.type = 'number';
     amt.min = '0';
-    amt.step = CFG.decimals > 0 ? String(1 / 10 ** CFG.decimals) : '1';
+    amt.step = config.decimals > 0 ? String(1 / 10 ** config.decimals) : '1';
     amt.className = 'balance-tool__amount';
-    amt.setAttribute('style', CFG.ui.inputStyle);
+    amt.setAttribute('style', config.ui.inputStyle);
     amt.setAttribute('inputmode', 'decimal');
     amt.setAttribute('aria-label', 'Количество');
     const btnRun = document.createElement('input');
     btnRun.type = 'button';
-    btnRun.value = CFG.ui.runButtonText;
+    btnRun.value = config.ui.runButtonText;
     btnRun.className = 'balance-tool__run';
     btnRun.disabled = true;
     btnRun.setAttribute('aria-disabled', 'true');
@@ -314,14 +316,14 @@
     rowType.className = 'balance-tool__row';
     const labelType = document.createElement('label');
     labelType.className = 'balance-tool__label';
-    labelType.textContent = CFG.ui.labels.type;
+    labelType.textContent = config.ui.labels.type;
     labelType.htmlFor = '';
     rowType.append(labelType, sel);
     const rowAmt = document.createElement('p');
     rowAmt.className = 'balance-tool__row';
     const labelAmt = document.createElement('label');
     labelAmt.className = 'balance-tool__label';
-    labelAmt.textContent = CFG.ui.labels.amount;
+    labelAmt.textContent = config.ui.labels.amount;
     labelAmt.htmlFor = '';
     rowAmt.append(labelAmt, amt);
     const statusArea = document.createElement('div');
@@ -352,7 +354,7 @@
       if (!rateOk()) {
         showToast('Слишком часто. Попробуйте позже.', {
           type: 'error',
-          duration: CFG.toastDurationMs,
+          duration: config.toastDurationMs,
         });
         return;
       }
@@ -376,7 +378,7 @@
           }</p>`;
           showToast('Ошибка операции', {
             type: 'error',
-            duration: CFG.toastDurationMs,
+            duration: config.toastDurationMs,
           });
         } finally {
           wrap.classList.remove('is-busy');
@@ -395,10 +397,10 @@
   async function applyOperation({ postRoot, statusArea, factor, qty }) {
     const userId = getUserId(postRoot);
     const postId = getPostId(postRoot);
-    const profileUrl = CFG.endpoints.profileUrl(userId);
+    const profileUrl = config.endpoints.profileUrl(userId);
     const profileForm = await fetchForm(
       profileUrl,
-      CFG.endpoints.profileFormSelector,
+      config.endpoints.profileFormSelector,
     );
     const profileAction = profileForm.getAttribute('action') || profileUrl;
     const moneyField = resolveMoneyFieldName(profileForm);
@@ -406,14 +408,14 @@
       `input[name="${CSS.escape(moneyField)}"]`,
     );
     const current = parseFloat(moneyInput?.value || '0') || 0;
-    const next = roundVal(current + factor * qty, CFG.decimals);
-    if (CFG.simulateOnly) {
+    const next = roundVal(current + factor * qty, config.decimals);
+    if (config.simulateOnly) {
       statusArea.innerHTML =
         buildReport(factor, qty, current, next) +
         `<p>&#129514; Предпросмотр: без сохранения.</p>`;
       showToast('Предпросмотр выполнен', {
         type: 'success',
-        duration: CFG.toastDurationMs,
+        duration: config.toastDurationMs,
       });
       return;
     }
@@ -422,13 +424,13 @@
     await postForm(profileAction, profileParams, profileAction);
     const afterForm = await fetchForm(
       profileAction,
-      CFG.endpoints.profileFormSelector,
+      config.endpoints.profileFormSelector,
     );
     const afterInput = afterForm.querySelector(
       `input[name="${CSS.escape(moneyField)}"]`,
     );
     const saved = parseFloat(afterInput?.value || '0') || 0;
-    const ok = Math.abs(saved - next) < 1 / 10 ** (CFG.decimals + 1);
+    const ok = Math.abs(saved - next) < 1 / 10 ** (config.decimals + 1);
     const afterHash = fieldsHash(afterForm);
     const hashChanged = beforeHash !== afterHash;
     statusArea.innerHTML =
@@ -441,16 +443,16 @@
         : '');
     showToast(ok ? 'Баланс обновлён' : 'Проверка не прошла', {
       type: ok ? 'success' : 'error',
-      duration: CFG.toastDurationMs,
+      duration: config.toastDurationMs,
     });
-    if (!CFG.decoratePost) return;
-    const editUrl = CFG.endpoints.postEditUrl(postId);
+    if (!config.decoratePost) return;
+    const editUrl = config.endpoints.postEditUrl(postId);
     const editForm = await fetchForm(
       editUrl,
-      CFG.endpoints.postEditFormSelector,
+      config.endpoints.postEditFormSelector,
     );
     const editAction = editForm.getAttribute('action') || editUrl;
-    let msgField = CFG.endpoints.postEditMessageField;
+    let msgField = config.endpoints.postEditMessageField;
     let msgEl =
       editForm.querySelector(`textarea[name="${CSS.escape(msgField)}"]`) ||
       editForm.querySelector('textarea[name="message"]') ||
@@ -460,7 +462,7 @@
       throw new Error('Поле текста сообщения не найдено');
     msgField = msgEl.name;
     const original = msgEl.value || '';
-    let decorated = CFG.wrapper.start + original + CFG.wrapper.end;
+    let decorated = config.wrapper.start + original + config.wrapper.end;
     decorated = decorated
       .replaceAll('{{CACHE_BEFORE}}', String(current))
       .replaceAll('{{CACHE_AFTER}}', String(ok ? saved : next))
