@@ -414,7 +414,7 @@
     }
     const beforeHash = fieldsHash(profileForm);
     const profileParams = buildProfileParams(profileForm, moneyField, next);
-    await postForm(profileAction, profileParams, profileAction);
+    await postForm(profileAction, profileParams);
     const afterForm = await fetchForm(
       profileAction,
       config.endpoints.profileFormSelector,

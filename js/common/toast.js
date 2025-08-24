@@ -1,5 +1,6 @@
 (() => {
   'use strict';
+  const helpers = window.helpers;
   const ensureRoot = () => {
     let root = document.querySelector('.toast-root');
     if (root) return root;
