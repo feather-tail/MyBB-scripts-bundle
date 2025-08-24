@@ -145,18 +145,6 @@
         modal.style.width = ref.offsetWidth + 'px';
       }
       setStickerPackTab(stickerPack.activeTab);
-      document.addEventListener('mousedown', onStickerPackOutsideClick);
-      stickerPack.events.push({
-        target: document,
-        type: 'mousedown',
-        handler: onStickerPackOutsideClick,
-      });
-      document.addEventListener('keydown', onStickerPackKeyDown);
-      stickerPack.events.push({
-        target: document,
-        type: 'keydown',
-        handler: onStickerPackKeyDown,
-      });
       const closeEvents = [
         'pun_post',
         'pun_preview',
@@ -164,26 +152,28 @@
         'pun_edit',
         'messenger:post',
       ];
-      closeEvents.forEach((ev) => {
-        const options = { once: true };
-        document.addEventListener(ev, closeStickerPackModal, options);
-        stickerPack.events.push({
+      stickerPack.events = [
+        {
+          target: document,
+          type: 'mousedown',
+          handler: onStickerPackOutsideClick,
+        },
+        {
+          target: document,
+          type: 'keydown',
+          handler: onStickerPackKeyDown,
+        },
+        ...closeEvents.map((ev) => ({
           target: document,
           type: ev,
           handler: closeStickerPackModal,
-          options,
-        });
-      });
-    } else {
-      document.removeEventListener('keydown', onStickerPackKeyDown);
-      stickerPack.events = stickerPack.events.filter(
-        (event) =>
-          !(
-            event.target === document &&
-            event.type === 'keydown' &&
-            event.handler === onStickerPackKeyDown
-          ),
+          options: { once: true },
+        })),
+      ];
+      stickerPack.events.forEach(({ target, type, handler, options }) =>
+        target.addEventListener(type, handler, options),
       );
+    } else {
       stickerPack.events.forEach(({ target, type, handler, options }) =>
         target.removeEventListener(type, handler, options),
       );
@@ -242,7 +232,7 @@
     stickerPack.elements.addBox.classList.toggle('hidden', !isCustom);
   }
 
-  function removeUserSticker(btn) {
+  async function removeUserSticker(btn) {
     const item = btn.closest('.sticker-pack-item');
     const url = item?.dataset.sticker;
     if (!url) return;
@@ -250,11 +240,15 @@
     if (idx >= 0) {
       stickerPack.userStickers.splice(idx, 1);
       setStickerPackTab(config.myTabName);
-      saveUserStickers();
+      try {
+        await saveUserStickers();
+      } catch {
+        window.jGrowl?.('Изменения не сохранились, что-то пошло не так 😥');
+      }
     }
   }
 
-  function addUserSticker(input) {
+  async function addUserSticker(input) {
     const url = input.value.trim();
     try {
       const { protocol, pathname } = new URL(url);
@@ -268,9 +262,13 @@
         throw new Error('Invalid URL');
       }
       stickerPack.userStickers.push(url);
-      saveUserStickers();
-      setStickerPackTab(config.myTabName);
-      input.value = '';
+      try {
+        await saveUserStickers();
+        setStickerPackTab(config.myTabName);
+        input.value = '';
+      } catch {
+        window.jGrowl?.('Изменения не сохранились, что-то пошло не так 😥');
+      }
     } catch {
       window.jGrowl?.('Некорректная ссылка на изображение');
     }
@@ -309,15 +307,15 @@
   }
 
   function parseForumStickerData(txt) {
-    const lines = txt.split(/\r?\n/).map((s) => s.replace(/\r/g, ''));
+    const lines = txt.split(/\r?\n/).map((s) => s.trim());
     let packs = [],
       pack = { name: '', stickers: [] };
     for (let str of lines) {
-      if (/\.(gif|jpe?g|png|webp)$/i.test(str)) {
-        pack.stickers.push(str);
-      } else if (str === '') {
+      if (!str) {
         if (pack.stickers.length) packs.push(pack);
         pack = { name: `Pack ${packs.length + 2}`, stickers: [] };
+      } else if (/\.(gif|jpe?g|png|webp)$/i.test(str)) {
+        pack.stickers.push(str);
       } else {
         if (pack.stickers.length) packs.push(pack);
         pack = { name: str, stickers: [] };
