@@ -6,7 +6,6 @@
   const config = helpers.getConfig('bbcodeIndent', {});
   const state = helpers.register('bbcodeIndent', {});
 
-
   function injectButton() {
     const ref = $(config.buttonAfterSelector);
     if (!ref || document.getElementById(config.buttonId)) return;
