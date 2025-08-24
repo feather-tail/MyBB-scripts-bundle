@@ -5,6 +5,7 @@
   const { $, $$, createEl } = helpers;
   const config = helpers.getConfig('bbcodeIndent', {});
   const state = helpers.register('bbcodeIndent', {});
+  const IND_CLASS = 'bbindent-line';
 
   function injectButton() {
     const ref = $(config.buttonAfterSelector);
@@ -31,7 +32,11 @@
   }
 
   function processIndent(container) {
-    if (!container.innerHTML.includes(config.bbcode)) return;
+    if (!container) return;
+    if (
+      !container.textContent.toLowerCase().includes(config.bbcode.toLowerCase())
+    )
+      return;
 
     const tag = config.bbcode.toLowerCase();
     const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
@@ -39,7 +44,7 @@
 
     while (walker.nextNode()) {
       const n = walker.currentNode;
-      if (n.nodeValue.toLowerCase().includes(tag)) {
+      if (n.nodeValue && n.nodeValue.toLowerCase().includes(tag)) {
         nodes.push(n);
       }
     }
@@ -58,19 +63,23 @@
 
         const after = cur.splitText(idx);
         after.nodeValue = after.nodeValue.slice(config.bbcode.length);
-        let target;
-        if (after.nodeValue) {
-          target = after;
-        } else {
-          target = after.nextSibling;
-          after.remove();
+
+        let target = after.nodeValue ? after : after.nextSibling;
+        if (!after.nodeValue) after.remove();
+
+        while (
+          target &&
+          target.nodeType === Node.ELEMENT_NODE &&
+          target.tagName === 'BR'
+        ) {
+          target = target.nextSibling;
         }
 
         if (needBr) {
-          cur.parentNode.insertBefore(createEl('br'), target);
+          cur.parentNode.insertBefore(createEl('br'), target || null);
         }
 
-        applyIndent(target);
+        applyIndent(target || cur.nextSibling);
 
         cur =
           target && target.nodeType === Node.TEXT_NODE
@@ -82,11 +91,22 @@
     });
 
     function applyIndent(node) {
+      const indentVal = config.textIndent || config.marginLeft || '2em';
       if (!node) return;
+
+      const host = node.nodeType === Node.ELEMENT_NODE ? node : node.parentNode;
+      if (host && host.closest?.('.code-box, .blockcode, pre, code')) return;
+
+      if (
+        node.nodeType === Node.ELEMENT_NODE &&
+        node.classList?.contains(IND_CLASS)
+      )
+        return;
 
       if (node.nodeType === Node.TEXT_NODE) {
         const span = createEl('span', {
-          style: `display:inline-block;margin-left:${config.marginLeft};`,
+          class: IND_CLASS,
+          style: `display:block;text-indent:${indentVal};`,
         });
         node.parentNode.insertBefore(span, node);
         span.appendChild(node);
@@ -95,15 +115,19 @@
 
       if (node.nodeType === Node.ELEMENT_NODE) {
         const display = window.getComputedStyle(node).display;
-        if (['block', 'flex', 'grid', 'table', 'list-item'].includes(display)) {
-          node.style.marginLeft = config.marginLeft;
-        } else {
-          const span = createEl('span', {
-            style: `display:inline-block;margin-left:${config.marginLeft};`,
-          });
-          node.parentNode.insertBefore(span, node);
-          span.appendChild(node);
+
+        if (['block', 'list-item', 'table-caption'].includes(display)) {
+          node.style.textIndent = indentVal;
+          node.classList.add(IND_CLASS);
+          return;
         }
+
+        const wrap = createEl('span', {
+          class: IND_CLASS,
+          style: `display:block;text-indent:${indentVal};`,
+        });
+        node.parentNode.insertBefore(wrap, node);
+        wrap.appendChild(node);
       }
     }
   }
@@ -111,7 +135,7 @@
   function init() {
     injectButton();
 
-    $$(config.selectors).forEach(processIndent);
+    $$(config.selectors).forEach((el) => processIndent(el));
 
     const prevBox = $('#post-preview .post-content');
     if (prevBox && !state.bbcodeIndentObserver) {
