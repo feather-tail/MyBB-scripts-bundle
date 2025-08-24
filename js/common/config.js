@@ -424,7 +424,7 @@
       checkInterval: 800,
     },
     postsCharCounter: {
-      allowedForumIds: [2, 3],
+      allowedForumIds: [1, 3],
       selectors: {
         posts: '.post:not(.topicpost)',
         insertAfter: '',
