@@ -11,6 +11,7 @@
   cursor: pointer;
   transition: background 0.15s;
 }
+
 .hotkeys-trigger:hover,
 .hotkeys-trigger:focus {
   background: #d6e6f5;
@@ -41,11 +42,12 @@
   }
 }
 
-.hotkeys-modal .hk-box {
+.hotkeys-modal.hk-box {
   padding: 1em 1.5em 1.2em;
   position: relative;
   outline: none;
 }
+
 .hotkeys-modal h3 {
   margin: 0 0 0.8em;
   font-size: 1.1em;
@@ -53,11 +55,13 @@
   font-weight: bold;
   color: #235;
 }
+
 .hotkeys-modal ul {
   margin: 0;
   padding-left: 22px;
   list-style: disc;
 }
+
 .hotkeys-modal li {
   margin-bottom: 0.35em;
   font-size: 1em;

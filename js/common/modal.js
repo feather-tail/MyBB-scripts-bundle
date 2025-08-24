@@ -24,7 +24,10 @@
       'aria-label': 'Закрыть',
       text: '×',
     });
-    overlay.appendChild(closeBtn);
+    node.appendChild(closeBtn);
+    if (getComputedStyle(node).position === 'static') {
+      node.style.position = 'relative';
+    }
     const prevFocus = document.activeElement;
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';

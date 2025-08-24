@@ -6,20 +6,33 @@
   const config = helpers.getConfig('replyHotkeys', {});
   const HOTKEYS = new Map(config.HOTKEYS);
 
-  function init() {
-    const textarea = $(config.selectors.textarea);
-    const fallbackAnchor = $(config.selectors.fallback);
-    if (!textarea || !fallbackAnchor) return;
-
+  const insertTrigger = (afterEl, beforeEl) => {
     const btn = createEl('button', {
       type: 'button',
       className: 'hotkeys-trigger',
       text: config.texts.trigger,
     });
-    const anchor =
-      (config.selectors.placeAfter && $(config.selectors.placeAfter)) ||
-      fallbackAnchor;
-    anchor.parentNode.insertBefore(btn, anchor.nextSibling);
+
+    if (afterEl && afterEl.parentNode) {
+      afterEl.parentNode.insertBefore(btn, afterEl.nextSibling);
+    } else if (beforeEl && beforeEl.parentNode) {
+      beforeEl.parentNode.insertBefore(btn, beforeEl);
+    } else {
+      return null;
+    }
+
+    return btn;
+  };
+
+  function init() {
+    const textarea = $(config.selectors.textarea);
+    const before = $(config.selectors.defaultBefore);
+    const after =
+      config.selectors.insertAfter && $(config.selectors.insertAfter);
+    if (!textarea || !before) return;
+
+    const btn = insertTrigger(after, before);
+    if (!btn) return;
 
     const modalBox = createEl('div', {
       className: 'hotkeys-modal hk-box',
