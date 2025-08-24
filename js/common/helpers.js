@@ -18,6 +18,7 @@
     Object.entries(props).forEach(([k, v]) => {
       if (k === 'text') el.textContent = v;
       else if (k === 'html') el.innerHTML = sanitizeHTML(v);
+      else if (k === 'dataset') Object.assign(el.dataset, v);
       else if (k in el) el[k] = v;
       else el.setAttribute(k, v);
     });
