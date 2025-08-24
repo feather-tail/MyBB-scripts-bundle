@@ -294,7 +294,7 @@
       forumsRules: {
         defaultMode: 'all',
         perForum: new Map([
-          ['2', { mode: 'all' }],
+          ['1', { mode: 'all' }],
           // ['10', { mode: 'include', topics: new Set([27]) }],
           // ['14', { mode: 'exclude', topics: new Set([101]) }],
         ]),
@@ -303,15 +303,15 @@
         showBadgesInTopic: true,
         badgeSource: 'week',
         profileBadgeSource: 'week',
-        fieldId: 2,
+        fieldId: 3,
         maxUsersToDecorate: 40,
         launcherAfter: '#button-addition',
         launcherText: 'Статистика постов',
-        forumsOnly: [2],
+        forumsOnly: [1],
       },
       backend: {
         endpoint: 'https://feathertail.ru/gamestats/index.php',
-        subscription: 'KSPIRITS-TEST',
+        subscription: 'FTTESTS',
         tableKey: 'ks-global',
         limit: 20,
         scope: 'site',
