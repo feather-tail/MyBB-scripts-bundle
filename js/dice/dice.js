@@ -2,7 +2,9 @@
   'use strict';
 
   const { $, $$, createEl, showToast } = window.helpers;
-  const config = helpers.getConfig('dice', {});
+  const config = helpers.getConfig('dice', {
+    buttonSelector: '#dice-roll-btn',
+  });
   const bbRe = /\[dice=((?:\d+-)+)(\d+):(\d+)\]/g;
 
   let diceButton = null;
@@ -25,28 +27,48 @@
 
   function openModal() {
     const { openModal: show } = window.helpers.modal;
-    const modalContent = createEl('div', {
-      className: 'dice-modal',
-      html: `
-          <h3 id="dice-title">Бросить кубики</h3>
-          <label>
-            Количество кубиков:
-            <input type="number" id="dice-count" min="1" max="${config.maxDice}" value="1">
-          </label>
-          <label>
-            Количество граней:
-            <input type="number" id="dice-sides" min="2" max="${config.maxSides}" value="6">
-          </label>
-          <div class="actions">
-            <button type="button" id="dice-cancel">Отмена</button>
-            <button type="button" id="dice-ok">Бросить</button>
-          </div>`,
+    const modalContent = createEl('div', { className: 'dice-modal' });
+
+    const title = createEl('h3', {
+      id: 'dice-title',
+      text: 'Бросить кубики',
     });
+
+    const countLabel = createEl('label');
+    const countInput = createEl('input', {
+      type: 'number',
+      id: 'dice-count',
+      min: '1',
+      max: String(config.maxDice),
+      value: '1',
+    });
+    countLabel.append('Количество кубиков:', countInput);
+
+    const sidesLabel = createEl('label');
+    const sidesInput = createEl('input', {
+      type: 'number',
+      id: 'dice-sides',
+      min: '2',
+      max: String(config.maxSides),
+      value: '6',
+    });
+    sidesLabel.append('Количество граней:', sidesInput);
+
+    const actions = createEl('div', { className: 'actions' });
+    const cancelBtn = createEl('button', {
+      type: 'button',
+      id: 'dice-cancel',
+      text: 'Отмена',
+    });
+    const okBtn = createEl('button', {
+      type: 'button',
+      id: 'dice-ok',
+      text: 'Бросить',
+    });
+    actions.append(cancelBtn, okBtn);
+
+    modalContent.append(title, countLabel, sidesLabel, actions);
     const { close } = show(modalContent, { onClose: () => diceButton.focus() });
-    const countInput = $('#dice-count', modalContent);
-    const sidesInput = $('#dice-sides', modalContent);
-    const cancelBtn = $('#dice-cancel', modalContent);
-    const okBtn = $('#dice-ok', modalContent);
     cancelBtn.addEventListener('click', close);
     okBtn.addEventListener('click', () => {
       const cnt = parseInt(countInput.value, 10);
@@ -144,7 +166,7 @@
   }
 
   function init() {
-    diceButton = $('#dice-roll-btn');
+    diceButton = $(config.buttonSelector);
     postContainer = $('#pun-viewtopic');
     if (!diceButton) return;
 

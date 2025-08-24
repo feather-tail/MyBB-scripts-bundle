@@ -275,13 +275,27 @@
     content.className = 'gpc-modal__dialog';
     content.setAttribute('role', 'dialog');
     content.setAttribute('aria-modal', 'true');
-    content.innerHTML = `
-      <button class="gpc-modal__close" type="button" aria-label="Закрыть">?</button>
-      <h3 id="gpc-modal-title" class="gpc-modal__title">Статистика постов</h3>
-      <div class="gpc-modal__body"><div class="gpc-tables-wrap"></div></div>`;
-    const wrap = content.querySelector('.gpc-tables-wrap');
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'gpc-modal__close';
+    closeBtn.type = 'button';
+    closeBtn.setAttribute('aria-label', 'Закрыть');
+    closeBtn.textContent = '?';
+
+    const title = document.createElement('h3');
+    title.id = 'gpc-modal-title';
+    title.className = 'gpc-modal__title';
+    title.textContent = 'Статистика постов';
+
+    const body = document.createElement('div');
+    body.className = 'gpc-modal__body';
+
+    const wrap = document.createElement('div');
+    wrap.className = 'gpc-tables-wrap';
+    body.appendChild(wrap);
+
+    content.append(closeBtn, title, body);
     const { close } = window.helpers.modal.openModal(content);
-    content.querySelector('.gpc-modal__close').addEventListener('click', close);
+    closeBtn.addEventListener('click', close);
     renderTable(wrap);
   }
 

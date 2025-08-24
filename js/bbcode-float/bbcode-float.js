@@ -9,22 +9,45 @@
     const ref = $(config.buttonAfterSelector);
     if (!ref || $(`#${config.floatButtonId}`)) return;
 
-    const td = createEl('td');
-    td.id = config.floatButtonId;
-    td.title = 'Обтекание';
-    td.innerHTML = '<img src="/i/blank.gif" style="cursor:pointer">';
+    const td = createEl('td', {
+      id: config.floatButtonId,
+      title: config.buttonTitle,
+    });
+    td.append(
+      createEl('img', { src: config.buttonIcon, style: 'cursor:pointer' }),
+    );
     ref.after(td);
 
     let bar = $(`#${config.toolbarId}`);
     if (!bar) {
-      bar = createEl('div');
-      bar.id = config.toolbarId;
-      bar.className = 'float-toolbar';
+      bar = createEl('div', {
+        id: config.toolbarId,
+        className: 'float-toolbar',
+      });
       bar.style.display = 'none';
-      bar.innerHTML = `␊
-        <strong>Обтекание</strong>␊
-        <span class="float-btn" data-dir="left"  title="Слева"><i class="fa-solid fa-indent"></i></span>␊
-        <span class="float-btn" data-dir="right" title="Справа"><i class="fa-solid fa-indent" style="transform:scaleX(-1)"></i></span>`;
+
+      const title = createEl('strong', { text: config.toolbarTitle });
+
+      const leftBtn = createEl('span', {
+        className: 'float-btn',
+        title: config.buttons.left.title,
+      });
+      leftBtn.dataset.dir = 'left';
+      leftBtn.append(
+        createEl('i', { className: config.buttons.left.iconClass }),
+      );
+
+      const rightBtn = createEl('span', {
+        className: 'float-btn',
+        title: config.buttons.right.title,
+      });
+      rightBtn.dataset.dir = 'right';
+      const rightIconProps = { className: config.buttons.right.iconClass };
+      if (config.buttons.right.iconStyle)
+        rightIconProps.style = config.buttons.right.iconStyle;
+      rightBtn.append(createEl('i', rightIconProps));
+
+      bar.append(title, leftBtn, rightBtn);
       document.body.append(bar);
     }
 

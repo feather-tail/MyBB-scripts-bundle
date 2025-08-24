@@ -4,21 +4,17 @@
   const { $, $$, createEl } = window.helpers;
   const config = helpers.getConfig('bbcodeIndent', {});
   const state = helpers.register('bbcodeIndent', {});
-  const BUTTON_AFTER = '#button-strike';
-  const BUTTON_ID = 'button-indent';
-  const BUTTON_TITLE = 'Отступы';
-  const ICON_SRC = '/i/blank.gif';
 
   const escapeRegExp = (s) => s.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
 
   function injectButton() {
-    const ref = $(BUTTON_AFTER);
-    if (!ref || document.getElementById(BUTTON_ID)) return;
+    const ref = $(config.buttonAfterSelector);
+    if (!ref || document.getElementById(config.buttonId)) return;
 
     const td = createEl('td', {
-      id: BUTTON_ID,
-      title: BUTTON_TITLE,
-      html: `<img src="${ICON_SRC}" style="cursor:pointer">`,
+      id: config.buttonId,
+      title: config.buttonTitle,
+      html: `<img src="${config.iconSrc}" style="cursor:pointer">`,
     });
 
     td.addEventListener('click', () => {

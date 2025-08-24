@@ -5,6 +5,7 @@
       maxDice: 9,
       maxSides: 100,
       obfOffset: 1193,
+      buttonSelector: '#dice-roll-btn',
     },
     fontResizer: {
       fontSelector: '.post-content, #main-reply',
@@ -177,6 +178,17 @@
       previewSelector: '#post-preview .post-content',
       toolbarId: 'float-toolbar',
       floatButtonId: 'button-float',
+      buttonTitle: 'Обтекание',
+      toolbarTitle: 'Обтекание',
+      buttonIcon: '/i/blank.gif',
+      buttons: {
+        left: { title: 'Слева', iconClass: 'fa-solid fa-indent' },
+        right: {
+          title: 'Справа',
+          iconClass: 'fa-solid fa-indent',
+          iconStyle: 'transform:scaleX(-1)',
+        },
+      },
       floatStyles: {
         left: 'float:left;margin:25px;text-align:left;display:inline-block;max-width:90%',
         right:
@@ -192,11 +204,18 @@
         buttonInsert: '',
       },
       buttonIcon: '/i/blank.gif',
+      tag: '[hideprofile]',
+      hideClass: 'hide-profile',
+      buttonText: 'Скрыть минипрофиль',
     },
     bbcodeIndent: {
       bbcode: '[indent]',
       marginLeft: '2em',
       selectors: '.post-content, #post-preview .post-content',
+      buttonAfterSelector: '#button-strike',
+      buttonId: 'button-indent',
+      buttonTitle: 'Отступы',
+      iconSrc: '/i/blank.gif',
     },
     bbcodeJustify: {
       insertAfterSelector: '#button-right',

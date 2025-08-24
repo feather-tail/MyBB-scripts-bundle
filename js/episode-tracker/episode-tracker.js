@@ -1,9 +1,70 @@
 (() => {
   'use strict';
 
-  const { $, $$, copyToClipboard, showToast, dialog, getGroupId, getUserInfo } =
-    window.helpers;
-  const config = helpers.getConfig('episodeTracker', {});
+  const {
+    $,
+    $$,
+    copyToClipboard,
+    showToast,
+    dialog,
+    getGroupId,
+    getUserInfo,
+    createEl,
+  } = window.helpers;
+  const config = helpers.getConfig('episodeTracker', { ids: {}, texts: {} });
+
+  const IDS = Object.assign(
+    {
+      navItem: 'h-episodes',
+      openBtn: 'episodesOpenBtn',
+      modal: 'episodesModal',
+      exportBtn: 'exportBtn',
+      importBtn: 'importBtn',
+      closeBtn: 'closeX',
+      ownerFilters: 'ownerFilters',
+      list: 'episodesList',
+      form: 'episodeForm',
+      urlInput: 'episodeUrl',
+      ownerInput: 'episodeOwner',
+      partBox: 'participantsBox',
+      addPartBtn: 'addParticipantBtn',
+      saveBtn: 'saveEpisodeBtn',
+      refreshBtn: 'refreshBtn',
+      showFormBtn: 'showFormBtn',
+    },
+    config.ids,
+  );
+
+  const TEXTS = Object.assign(
+    {
+      openBtn: 'Эпизоды',
+      exportBtn: 'Экспорт',
+      importBtn: 'Импорт',
+      closeTitle: 'Закрыть',
+      header: 'Трекер эпизодов',
+      noEpisodesYet: 'Пока нет эпизодов…',
+      urlLabel: 'Ссылка на эпизод:',
+      urlPlaceholder: 'https://...',
+      ownerLabel: 'Автор:',
+      ownerPlaceholder: 'Логин автора',
+      participantLabel: 'Участник',
+      participantPlaceholder: 'Имя игрока (по очередности отписи)',
+      addParticipant: 'Новый участник',
+      addEpisode: 'Добавить эпизод',
+      saveEpisode: 'Сохранить',
+      refreshTitle: 'Обновить',
+      showFormBtn: 'Новый эпизод',
+      noEpisodes: 'Эпизодов нет',
+      titleLabel: 'Название эпизода:',
+      participantsLabel: 'Участники:',
+      lastLabel: 'Последний пост:',
+      ownerTag: 'Автор:',
+      noData: 'Нет данных',
+      editTitle: 'Редактировать',
+      deleteTitle: 'Удалить',
+    },
+    config.texts,
+  );
 
   const ALLOWED_GROUP_IDS = new Set(config.allowedGroupIds);
   if (!ALLOWED_GROUP_IDS.has(getGroupId())) return;
@@ -79,72 +140,143 @@
 
   helpers.ready(helpers.once(init));
 
-  function initUI(anchor) {
-    anchor.insertAdjacentHTML(
-      'afterend',
-      `<li id="h-episodes"><a href="#" id="episodesOpenBtn">Эпизоды</a></li>`,
-    );
-
-    document.body.insertAdjacentHTML(
-      'beforeend',
-      `
-      <div class="modal" id="episodesModal">
-        <div class="episodes-modal-content">
-          <div class="top-bar">
-            <button id="exportBtn">Экспорт</button>
-            <button id="importBtn">Импорт</button>
-            <button class="close-btn" id="closeX" title="Закрыть">&times;</button>
-          </div>
-
-          <h2 class="tracker-header">Трекер эпизодов</h2>
-
-          <div id="ownerFilters" class="owner-filters"></div>
-
-          <div id="episodesList" class="episodes-list"><p>Пока нет эпизодов…</p></div>
-
-          <form id="episodeForm" class="add-episode-form" style="display:none;">
-            <label>Ссылка на эпизод:
-              <input type="url" id="episodeUrl" required placeholder="https://...">
-            </label>
-
-            <label>Автор:
-              <input type="text" id="episodeOwner" placeholder="Логин автора">
-            </label>
-
-            <div id="participantsBox">
-              <label>Участник 1:<input type="text" name="participant" required placeholder="Имя игрока (по очередности отписи)"></label>
-            </div>
-
-            <button type="button" id="addParticipantBtn">Новый участник</button>
-            <button type="submit" id="saveEpisodeBtn">Добавить эпизод</button>
-          </form>
-
-          <div class="modal-actions primary-row">
-            <button id="refreshBtn" title="Обновить">&#x21bb;</button>
-            <button id="showFormBtn">Новый эпизод</button>
-          </div>
-        </div>
-      </div>
-    `,
-    );
-
-    const el = {
-      modal: $('#episodesModal'),
-      btnOpen: $('#episodesOpenBtn'),
-      btnClose: $('#closeX'),
-      list: $('#episodesList'),
-      btnRefresh: $('#refreshBtn'),
-      btnExport: $('#exportBtn'),
-      btnImport: $('#importBtn'),
-      form: $('#episodeForm'),
-      urlInput: $('#episodeUrl'),
-      ownerInput: $('#episodeOwner'),
-      partBox: $('#participantsBox'),
-      btnAddPart: $('#addParticipantBtn'),
-      btnShowForm: $('#showFormBtn'),
-      btnSave: $('#saveEpisodeBtn'),
-      ownerFilters: $('#ownerFilters'),
+  function buildModalUI() {
+    const root = createEl('div', { className: 'episodes-modal-content' });
+    const topBar = createEl('div', { className: 'top-bar' });
+    const btnExport = createEl('button', {
+      id: IDS.exportBtn,
+      text: TEXTS.exportBtn,
+    });
+    const btnImport = createEl('button', {
+      id: IDS.importBtn,
+      text: TEXTS.importBtn,
+    });
+    const btnClose = createEl('button', {
+      className: 'close-btn',
+      id: IDS.closeBtn,
+      title: TEXTS.closeTitle,
+      text: '×',
+    });
+    topBar.append(btnExport, btnImport, btnClose);
+    const header = createEl('h2', {
+      className: 'tracker-header',
+      text: TEXTS.header,
+    });
+    const ownerFilters = createEl('div', {
+      id: IDS.ownerFilters,
+      className: 'owner-filters',
+    });
+    const list = createEl('div', { id: IDS.list, className: 'episodes-list' });
+    list.appendChild(createEl('p', { text: TEXTS.noEpisodesYet }));
+    const form = createEl('form', {
+      id: IDS.form,
+      className: 'add-episode-form',
+      style: 'display:none;',
+    });
+    const labelUrl = createEl('label');
+    const urlInput = createEl('input', {
+      type: 'url',
+      id: IDS.urlInput,
+      required: true,
+      placeholder: TEXTS.urlPlaceholder,
+    });
+    labelUrl.append(TEXTS.urlLabel, urlInput);
+    const labelOwner = createEl('label');
+    const ownerInput = createEl('input', {
+      type: 'text',
+      id: IDS.ownerInput,
+      placeholder: TEXTS.ownerPlaceholder,
+    });
+    labelOwner.append(TEXTS.ownerLabel, ownerInput);
+    const partBox = createEl('div', { id: IDS.partBox });
+    const firstPartLabel = createEl('label');
+    const firstPartInput = createEl('input', {
+      type: 'text',
+      name: 'participant',
+      required: true,
+      placeholder: TEXTS.participantPlaceholder,
+    });
+    firstPartLabel.append(`${TEXTS.participantLabel} 1:`, firstPartInput);
+    partBox.appendChild(firstPartLabel);
+    const btnAddPart = createEl('button', {
+      type: 'button',
+      id: IDS.addPartBtn,
+      text: TEXTS.addParticipant,
+    });
+    const btnSave = createEl('button', {
+      type: 'submit',
+      id: IDS.saveBtn,
+      text: TEXTS.addEpisode,
+    });
+    form.append(labelUrl, labelOwner, partBox, btnAddPart, btnSave);
+    const actions = createEl('div', {
+      className: 'modal-actions primary-row',
+    });
+    const btnRefresh = createEl('button', {
+      id: IDS.refreshBtn,
+      title: TEXTS.refreshTitle,
+      text: '↻',
+    });
+    const btnShowForm = createEl('button', {
+      id: IDS.showFormBtn,
+      text: TEXTS.showFormBtn,
+    });
+    actions.append(btnRefresh, btnShowForm);
+    root.append(topBar, header, ownerFilters, list, form, actions);
+    return {
+      root,
+      el: {
+        btnExport,
+        btnImport,
+        btnClose,
+        ownerFilters,
+        list,
+        form,
+        urlInput,
+        ownerInput,
+        partBox,
+        btnAddPart,
+        btnSave,
+        btnRefresh,
+        btnShowForm,
+      },
     };
+  }
+
+  function initUI(anchor) {
+    const li = createEl('li', { id: IDS.navItem });
+    const btnOpen = createEl('a', {
+      href: '#',
+      id: IDS.openBtn,
+      text: TEXTS.openBtn,
+    });
+    li.appendChild(btnOpen);
+    anchor.insertAdjacentElement('afterend', li);
+
+    const { root: modalRoot, el } = buildModalUI();
+    let modal;
+
+    btnOpen.addEventListener('click', async (ev) => {
+      ev.preventDefault();
+      if (!modal) {
+        modal = helpers.modal.openModal(modalRoot, {
+          onClose: () => {
+            resetForm();
+            modal = null;
+          },
+        });
+        modal.overlay.id = IDS.modal;
+      }
+      if (Date.now() - store.lastStamp > config.oneDayMs) {
+        el.list.replaceChildren(createEl('p', { text: 'Автообновление…' }));
+        await refreshEpisodes();
+        store.lastStamp = Date.now();
+      } else {
+        renderAll();
+      }
+    });
+
+    el.btnClose.addEventListener('click', () => modal?.close());
 
     let participantCount = 1;
     let editIndex = -1;
@@ -160,7 +292,7 @@
       $('input', el.partBox).value = '';
       el.form.style.display = 'none';
       el.btnShowForm.style.display = '';
-      el.btnSave.textContent = 'Добавить';
+      el.btnSave.textContent = TEXTS.addEpisode;
     }
 
     function renderOwnerFilters() {
@@ -171,20 +303,22 @@
       if (CURRENT_USER && !owners.includes(CURRENT_USER))
         owners.unshift(CURRENT_USER);
 
-      el.ownerFilters.innerHTML = owners
-        .map(
-          (
-            o,
-          ) => `<label><input type="checkbox" class="owner-filter" value="${o}"
-            ${activeOwners.has(o) ? 'checked' : ''}> ${o}</label>`,
-        )
-        .join('');
-
-      $$('input.owner-filter', el.ownerFilters).forEach((inp) =>
-        inp.addEventListener('change', () => {
-          if (inp.checked) activeOwners.add(inp.value);
-          else activeOwners.delete(inp.value);
-          renderEpisodes();
+      el.ownerFilters.replaceChildren(
+        ...owners.map((o) => {
+          const label = createEl('label');
+          const chk = createEl('input', {
+            type: 'checkbox',
+            className: 'owner-filter',
+            value: o,
+          });
+          chk.checked = activeOwners.has(o);
+          label.append(chk, ` ${o}`);
+          chk.addEventListener('change', () => {
+            if (chk.checked) activeOwners.add(chk.value);
+            else activeOwners.delete(chk.value);
+            renderEpisodes();
+          });
+          return label;
         }),
       );
     }
@@ -195,13 +329,13 @@
       );
 
       if (!visible.length) {
-        el.list.innerHTML = '<p>Эпизодов нет…</p>';
+        el.list.replaceChildren(createEl('p', { text: TEXTS.noEpisodes }));
         return;
       }
 
       const me = norm(CURRENT_USER);
-      el.list.innerHTML = visible
-        .map((ep, i) => {
+      el.list.replaceChildren(
+        ...visible.map((ep, i) => {
           const arrNorm = ep.participants.map(norm);
           const lastIdx = arrNorm.findIndex((n) =>
             isSame(n, norm(ep.last_username || '')),
@@ -213,59 +347,73 @@
             meIdx !== -1 &&
             (lastIdx + 1) % arrNorm.length === meIdx;
 
-          return `
-          <div class="episode${alert ? ' episode-alert' : ''}" data-i="${i}">
-            <div class="episode-actions">
-              <button class="episode-action episode-edit"   title="Редактировать">✎</button>
-              <button class="episode-action episode-remove" title="Удалить">×</button>
-            </div>
-            <div><b>Название эпизода:</b> <a href="${
-              ep.url
-            }" target="_blank" rel="noopener">${ep.subject || ep.url}</a></div>
-            <div><b>Участники:</b> ${ep.participants
-              .map((n) => `<span class="participant">${n}</span>`)
-              .join(', ')}</div>
-            <div><b>Последний пост:</b> ${
-              ep.last_username ||
-              '<span class="last-username-empty">Нет данных</span>'
-            }</div>
-            <div class="owner-tag"><em>Автор: ${
-              ep.owner || LEGACY_OWNER
-            }</em></div>
-          </div>`;
-        })
-        .join('');
+          const wrap = createEl('div', {
+            className: `episode${alert ? ' episode-alert' : ''}`,
+            dataset: { i },
+          });
+          const actions = createEl('div', { className: 'episode-actions' });
+          const editBtn = createEl('button', {
+            className: 'episode-action episode-edit',
+            title: TEXTS.editTitle,
+            text: '✎',
+          });
+          const delBtn = createEl('button', {
+            className: 'episode-action episode-remove',
+            title: TEXTS.deleteTitle,
+            text: '×',
+          });
+          actions.append(editBtn, delBtn);
+
+          const titleDiv = createEl('div');
+          titleDiv.append(
+            createEl('b', { text: TEXTS.titleLabel + ' ' }),
+            createEl('a', {
+              href: ep.url,
+              target: '_blank',
+              rel: 'noopener',
+              text: ep.subject || ep.url,
+            }),
+          );
+
+          const partsDiv = createEl('div');
+          partsDiv.append(
+            createEl('b', { text: TEXTS.participantsLabel + ' ' }),
+          );
+          ep.participants.forEach((n, idx) => {
+            if (idx) partsDiv.append(', ');
+            partsDiv.append(
+              createEl('span', { className: 'participant', text: n }),
+            );
+          });
+
+          const lastDiv = createEl('div');
+          lastDiv.append(createEl('b', { text: TEXTS.lastLabel + ' ' }));
+          if (ep.last_username) lastDiv.append(ep.last_username);
+          else
+            lastDiv.append(
+              createEl('span', {
+                className: 'last-username-empty',
+                text: TEXTS.noData,
+              }),
+            );
+
+          const ownerDiv = createEl('div', { className: 'owner-tag' });
+          ownerDiv.append(
+            createEl('em', {
+              text: `${TEXTS.ownerTag} ${ep.owner || LEGACY_OWNER}`,
+            }),
+          );
+
+          wrap.append(actions, titleDiv, partsDiv, lastDiv, ownerDiv);
+          return wrap;
+        }),
+      );
     }
 
     function renderAll() {
       renderOwnerFilters();
       renderEpisodes();
     }
-
-    el.btnOpen.addEventListener('click', async (ev) => {
-      ev.preventDefault();
-      el.modal.style.display = 'block';
-
-      if (Date.now() - store.lastStamp > config.oneDayMs) {
-        el.list.textContent = 'Автообновление…';
-        await refreshEpisodes();
-        store.lastStamp = Date.now();
-      } else {
-        renderAll();
-      }
-    });
-
-    el.btnClose.addEventListener('click', () => {
-      el.modal.style.display = 'none';
-      resetForm();
-    });
-
-    window.addEventListener('click', (e) => {
-      if (e.target === el.modal) {
-        el.modal.style.display = 'none';
-        resetForm();
-      }
-    });
 
     el.btnShowForm.addEventListener('click', () => {
       el.form.style.display = 'flex';
@@ -280,10 +428,10 @@
       if (!last.value.trim()) return last.focus();
 
       participantCount++;
-      el.partBox.insertAdjacentHTML(
-        'beforeend',
-        `<label>Участник ${participantCount}:<input type="text" name="participant"></label>`,
-      );
+      const label = createEl('label');
+      const input = createEl('input', { type: 'text', name: 'participant' });
+      label.append(`${TEXTS.participantLabel} ${participantCount}:`, input);
+      el.partBox.appendChild(label);
       if (participantCount >= config.maxParticipants)
         el.btnAddPart.disabled = true;
     });
@@ -335,7 +483,7 @@
     });
 
     el.btnRefresh.addEventListener('click', async () => {
-      el.list.textContent = 'Обновление…';
+      el.list.replaceChildren(createEl('p', { text: 'Обновление…' }));
       await refreshEpisodes();
       store.lastStamp = Date.now();
     });
@@ -419,27 +567,29 @@
 
       el.urlInput.value = ep.url;
       el.ownerInput.value = ep.owner || LEGACY_OWNER;
-      el.partBox.innerHTML = '';
+      el.partBox.replaceChildren();
       ep.participants.forEach((p, i) => {
-        el.partBox.insertAdjacentHTML(
-          'beforeend',
-          `<label>Участник ${
-            i + 1
-          }:<input type="text" name="participant" value="${p}" ${
-            i === 0 ? 'required' : ''
-          }></label>`,
-        );
+        const label = createEl('label');
+        const input = createEl('input', {
+          type: 'text',
+          name: 'participant',
+          value: p,
+        });
+        if (i === 0) input.required = true;
+        label.append(`${TEXTS.participantLabel} ${i + 1}:`, input);
+        el.partBox.appendChild(label);
       });
 
       participantCount = ep.participants.length;
       el.btnAddPart.disabled = participantCount >= config.maxParticipants;
       el.form.style.display = 'flex';
       el.btnShowForm.style.display = 'none';
-      el.btnSave.textContent = 'Сохранить';
+      el.btnSave.textContent = TEXTS.saveEpisode;
       setTimeout(() => el.urlInput.focus(), 20);
     }
 
     renderAll();
   }
+
   helpers.register('episodeTracker', { init });
 })();

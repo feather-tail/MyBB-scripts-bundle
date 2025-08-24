@@ -3,15 +3,12 @@
 
   const { createEl, getGroupId } = window.helpers;
   const config = helpers.getConfig('bbcodeHideProfile', {});
-  const TAG = '[hideprofile]';
-  const HIDE_CLASS = 'hide-profile';
-  const BUTTON_TEXT = 'Скрыть минипрофиль';
 
   if (!config.allowedGroups.includes(getGroupId())) return;
 
   function insertHideProfileTag() {
     if (typeof insert === 'function') {
-      insert(TAG);
+      insert(config.tag);
     }
   }
 
@@ -21,7 +18,7 @@
       if (!container || container.querySelector('#button-hideprofile')) return;
       const td = createEl('td', {
         id: 'button-hideprofile',
-        title: BUTTON_TEXT,
+        title: config.buttonText,
       });
       const img = createEl('img', { src: config.buttonIcon, alt: '' });
       td.appendChild(img);
@@ -32,7 +29,7 @@
       if (!additionArea || additionArea.querySelector('.hideprofile-div'))
         return;
       const div = createEl('div', { className: 'hideprofile-div' });
-      const span = createEl('span', { text: BUTTON_TEXT });
+      const span = createEl('span', { text: config.buttonText });
       div.appendChild(span);
       div.addEventListener('click', insertHideProfileTag);
       additionArea.appendChild(div);
@@ -40,12 +37,12 @@
   }
 
   function applyHideProfileToPost(post) {
-    if (post.classList.contains(HIDE_CLASS)) return;
+    if (post.classList.contains(config.hideClass)) return;
     const body = post.querySelector(config.selectors.postBody);
     if (!body) return;
-    if (body.innerHTML.includes(TAG)) {
-      post.classList.add(HIDE_CLASS);
-      body.innerHTML = body.innerHTML.split(TAG).join('');
+    if (body.innerHTML.includes(config.tag)) {
+      post.classList.add(config.hideClass);
+      body.innerHTML = body.innerHTML.split(config.tag).join('');
     }
   }
 
