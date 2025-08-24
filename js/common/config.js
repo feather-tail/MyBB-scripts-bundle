@@ -5,6 +5,7 @@
       maxDice: 9,
       maxSides: 100,
       obfOffset: 1193,
+      buttonAfterSelector: '#button-addition',
       buttonSelector: '#dice-roll-btn',
     },
     fontResizer: {

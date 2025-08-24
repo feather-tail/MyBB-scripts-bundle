@@ -5,6 +5,7 @@
   const { $, $$, createEl, showToast } = helpers;
   const config = helpers.getConfig('dice', {
     buttonSelector: '#dice-roll-btn',
+    buttonAfterSelector: '#button-addition',
   });
   const bbRe = /\[dice=((?:\d+-)+)(\d+):(\d+)\]/g;
 
@@ -24,6 +25,24 @@
     const arr = new Uint32Array(1);
     crypto.getRandomValues(arr);
     return (arr[0] % n) + 1;
+  }
+
+  function injectButton() {
+    if ($(config.buttonSelector)) return;
+
+    const anchor = $(config.buttonAfterSelector);
+    if (!anchor) return;
+
+    const containerTag = anchor.tagName === 'TD' ? 'td' : 'div';
+    const container = createEl(containerTag);
+    const btn = createEl('button', {
+      id: config.buttonSelector.replace(/^#/, ''),
+      type: 'button',
+      text: 'Бросить кубики',
+    });
+    container.append(btn);
+    anchor.after(container);
+    diceButton = btn;
   }
 
   function openModal() {
@@ -167,6 +186,7 @@
   }
 
   function init() {
+    injectButton();
     diceButton = $(config.buttonSelector);
     postContainer = $('#pun-viewtopic');
     if (!diceButton) return;
