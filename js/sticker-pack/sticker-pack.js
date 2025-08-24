@@ -151,6 +151,12 @@
         type: 'mousedown',
         handler: onStickerPackOutsideClick,
       });
+      document.addEventListener('keydown', onStickerPackKeyDown);
+      stickerPack.events.push({
+        target: document,
+        type: 'keydown',
+        handler: onStickerPackKeyDown,
+      });
       const closeEvents = [
         'pun_post',
         'pun_preview',
@@ -169,6 +175,15 @@
         });
       });
     } else {
+      document.removeEventListener('keydown', onStickerPackKeyDown);
+      stickerPack.events = stickerPack.events.filter(
+        (event) =>
+          !(
+            event.target === document &&
+            event.type === 'keydown' &&
+            event.handler === onStickerPackKeyDown
+          ),
+      );
       stickerPack.events.forEach(({ target, type, handler, options }) =>
         target.removeEventListener(type, handler, options),
       );
@@ -241,34 +256,51 @@
 
   function addUserSticker(input) {
     const url = input.value.trim();
-    if (
-      /^https?:\/\/.*\.(png|jpe?g|gif|webp)$/i.test(url) &&
-      !stickerPack.userStickers.includes(url)
-    ) {
+    try {
+      const { protocol, pathname } = new URL(url);
+      const isSafeProtocol = ['http:', 'https:'].includes(protocol);
+      const isImage = /\.(png|jpe?g|gif|webp)$/i.test(pathname);
+      if (
+        !isSafeProtocol ||
+        !isImage ||
+        stickerPack.userStickers.includes(url)
+      ) {
+        throw new Error('Invalid URL');
+      }
       stickerPack.userStickers.push(url);
       saveUserStickers();
       setStickerPackTab(config.myTabName);
       input.value = '';
+    } catch {
+      window.jGrowl?.('Некорректная ссылка на изображение');
     }
   }
 
-  function saveUserStickers() {
+  async function saveUserStickers() {
     let json = JSON.stringify(stickerPack.userStickers);
-    if (json.length >= config.maxJsonSize) {
+    while (
+      json.length >= config.maxJsonSize &&
+      stickerPack.userStickers.length
+    ) {
       window.jGrowl?.('Слишком много стикеров, последний не был сохранён 😔');
       stickerPack.userStickers.pop();
-      return saveUserStickers();
+      json = JSON.stringify(stickerPack.userStickers);
     }
-    helpers.request(config.apiUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      data: new URLSearchParams({
-        method: config.apiSetMethod,
-        token: window.ForumAPITicket,
-        key: config.storageKey,
-        value: json,
-      }),
-    });
+    try {
+      await helpers.request(config.apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        data: new URLSearchParams({
+          method: config.apiSetMethod,
+          token: window.ForumAPITicket,
+          key: config.storageKey,
+          value: json,
+        }),
+      });
+    } catch (err) {
+      window.jGrowl?.('Стикеры не сохранились, что-то пошло не так 😥');
+      throw err;
+    }
   }
 
   function setStickerPackLoading(isLoading) {
