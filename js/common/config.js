@@ -436,7 +436,7 @@
     prQuickLogin: {
       login: 'Реклама',
       pass: '1111',
-      redirectUrl: 'LINK_FOR_REDIRECT',
+      redirectUrl: 'https://feathertailtests.rusff.me/viewtopic.php?id=2',
       selectors: {
         btn: '#pr-quick-login',
         navLogin: '#navlogin',
