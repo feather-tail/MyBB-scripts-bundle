@@ -17,5 +17,6 @@
     list.insertBefore(li, list.firstChild);
   }
 
-  helpers.ready(helpers.once(init));
+  helpers.runOnceOnReady(init);
+  helpers.register('newMessagesLink', { init });
 })();

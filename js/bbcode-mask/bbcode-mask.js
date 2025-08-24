@@ -103,9 +103,7 @@
           method: 'storage.get',
           key: config.storageKey,
         });
-        const resp = await fetch(`/api.php?${params}`, {
-          credentials: 'same-origin',
-        });
+        const resp = await helpers.request(`/api.php?${params}`);
         const json = await resp.json();
         const raw = json.response?.storage?.data?.[config.storageKey] || '';
         const decoded = raw ? decodeURIComponent(raw) : '';
@@ -123,11 +121,10 @@
         key: config.storageKey,
         value: encodeURIComponent(joined),
       });
-      await fetch('/api.php', {
+      await helpers.request('/api.php', {
         method: 'POST',
-        credentials: 'same-origin',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body,
+        data: body,
       });
     },
     add(record) {
@@ -685,7 +682,7 @@
       method: 'users.get',
       user_id: ids.join(','),
     });
-    const r = await fetch(`/api.php?${params}`, { credentials: 'same-origin' });
+    const r = await helpers.request(`/api.php?${params}`);
     const json = await r.json();
     const list = json.response?.users || {};
     Object.values(list).forEach((u) => {
@@ -1458,9 +1455,7 @@
         app_id: 16777215,
       });
       try {
-        const r = await fetch(`/api.php?${getParams}`, {
-          credentials: 'same-origin',
-        });
+        const r = await helpers.request(`/api.php?${getParams}`);
         const j = await r.json();
         const saved = j?.response?.storage?.data?.profileMaskSettings;
         if (saved !== JSON.stringify(toSave)) {
@@ -1471,11 +1466,10 @@
             app_id: 16777215,
             value: JSON.stringify(toSave),
           });
-          await fetch('/api.php', {
+          await helpers.request('/api.php', {
             method: 'POST',
-            credentials: 'same-origin',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body,
+            data: body,
           });
         }
       } catch {}
@@ -1489,5 +1483,5 @@
     });
   }
 
-  helpers.ready(helpers.once(init));
+  helpers.runOnceOnReady(init);
 })();

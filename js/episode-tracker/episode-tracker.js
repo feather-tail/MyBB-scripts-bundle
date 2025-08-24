@@ -32,9 +32,10 @@
   };
 
   const fetchTopicMeta = (domain, id) =>
-    fetch(
-      `${domain}/api.php?method=topic.get&topic_id=${id}&fields=subject,title,num_replies,last_username&format=json`,
-    )
+    helpers
+      .request(
+        `${domain}/api.php?method=topic.get&topic_id=${id}&fields=subject,title,num_replies,last_username&format=json`,
+      )
       .then((r) => r.json())
       .then((j) => {
         const x = j?.response?.[0] || {};
@@ -70,9 +71,13 @@
     }).observe(document.body, { childList: true, subtree: true });
   };
 
-  helpers.ready(() =>
-    Promise.resolve($(anchorSel) || new Promise(waitAnchor)).then(initUI),
-  );
+  function init() {
+    return Promise.resolve($(anchorSel) || new Promise(waitAnchor)).then(
+      initUI,
+    );
+  }
+
+  helpers.ready(helpers.once(init));
 
   function initUI(anchor) {
     anchor.insertAdjacentHTML(
@@ -436,4 +441,5 @@
 
     renderAll();
   }
+  helpers.register('episodeTracker', { init });
 })();

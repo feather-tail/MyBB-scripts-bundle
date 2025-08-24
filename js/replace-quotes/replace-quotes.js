@@ -24,5 +24,6 @@
     });
   }
 
-  helpers.ready(helpers.once(init));
+  helpers.runOnceOnReady(init);
+  helpers.register('replaceQuotes', { init });
 })();

@@ -91,5 +91,6 @@
     ta.addEventListener('input', debounce(firePreview, config.debounceDelay));
   }
 
-  helpers.ready(helpers.once(init));
+  helpers.runOnceOnReady(init);
+  helpers.register('postPreview', { init });
 })();

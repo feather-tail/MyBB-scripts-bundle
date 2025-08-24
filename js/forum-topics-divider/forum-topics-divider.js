@@ -42,5 +42,6 @@
     $$(config.selectors.stickyLabel).forEach((labelEl) => labelEl.remove());
   }
 
-  helpers.ready(helpers.once(init));
+  helpers.runOnceOnReady(init);
+  helpers.register('forumTopicsDivider', { init });
 })();

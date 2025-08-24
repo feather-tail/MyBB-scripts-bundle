@@ -103,7 +103,7 @@
       const url = `/api.php?method=post.get&topic_id=${encodeURIComponent(
         topicId,
       )}&limit=${limit}&skip=${skip}&fields=id,username,message,posted`;
-      const res = await fetch(url);
+      const res = await helpers.request(url);
       if (!res.ok) break;
       const data = await res.json().catch(() => ({}));
       const batch = Array.isArray(data?.response) ? data.response : [];
@@ -250,5 +250,6 @@
     }
   }
 
-  helpers.ready(helpers.once(init));
+  helpers.runOnceOnReady(init);
+  helpers.register('copyPosts', { init });
 })();

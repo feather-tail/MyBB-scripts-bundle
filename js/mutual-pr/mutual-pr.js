@@ -75,4 +75,5 @@
   );
 
   helpers.ready(run);
+  helpers.register('mutualPR', { init });
 })();

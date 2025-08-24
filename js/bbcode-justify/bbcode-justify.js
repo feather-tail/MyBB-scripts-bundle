@@ -24,5 +24,6 @@
     refTd.parentNode.insertBefore(td, refTd.nextSibling);
   }
 
-  helpers.ready(helpers.once(init));
+  helpers.runOnceOnReady(init);
+  helpers.register('bbcodeJustify', { init });
 })();

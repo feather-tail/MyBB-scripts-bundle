@@ -19,7 +19,7 @@
     addStickerPackButton();
   }
 
-  helpers.ready(helpers.once(init));
+  helpers.runOnceOnReady(init);
 
   function addStickerPackStyles() {
     const link = createEl('link', {
@@ -232,10 +232,10 @@
       stickerPack.userStickers.pop();
       return saveUserStickers();
     }
-    fetch(config.apiUrl, {
+    helpers.request(config.apiUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
+      data: new URLSearchParams({
         method: config.apiSetMethod,
         token: window.ForumAPITicket,
         key: config.storageKey,
@@ -270,7 +270,8 @@
   }
 
   function loadForumStickerPacks() {
-    return fetch(config.dataUrl)
+    return helpers
+      .request(config.dataUrl)
       .then((r) => r.text())
       .then(parseForumStickerData)
       .catch(() =>
@@ -282,9 +283,10 @@
 
   function loadUserStickers() {
     if (getUserInfo().id === 1) return Promise.resolve();
-    return fetch(
-      `${config.apiUrl}?method=${config.apiGetMethod}&key=${config.storageKey}`,
-    )
+    return helpers
+      .request(
+        `${config.apiUrl}?method=${config.apiGetMethod}&key=${config.storageKey}`,
+      )
       .then((r) => r.json())
       .then((result) => {
         const str = result?.response?.storage?.data?.[config.storageKey] || '';
@@ -307,4 +309,5 @@
         ),
       );
   }
+  helpers.register('stickerPack', { init });
 })();

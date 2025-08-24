@@ -67,30 +67,21 @@
       onProgress,
       signal,
     }) {
-      return new Promise((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.open(method, url, true);
-        for (const [k, v] of Object.entries(headers))
-          xhr.setRequestHeader(k, v);
-        if (signal) signal.addEventListener('abort', () => xhr.abort());
-        xhr.upload.onprogress = (e) => {
-          if (e.lengthComputable && onProgress)
-            onProgress(Math.ceil((e.loaded / e.total) * 100));
-        };
-        xhr.onerror = () => reject(new Error('Network error'));
-        xhr.onabort = () => reject(new Error('Отменено'));
-        xhr.onload = () => {
-          const text = xhr.responseText || '';
-          const contentType = xhr.getResponseHeader('Content-Type') || '';
-          if (xhr.status >= 200 && xhr.status < 300) {
-            resolve({ status: xhr.status, contentType, text });
-          } else {
-            const snippet = text.slice(0, 180).replace(/\s+/g, ' ');
-            reject(new Error(`Upload error (HTTP ${xhr.status}). ${snippet}`));
-          }
-        };
-        xhr.send(formData);
-      });
+      return helpers
+        .request(url, {
+          method,
+          data: formData,
+          headers,
+          onProgress,
+          signal,
+        })
+        .then(async (res) => {
+          const text = await res.text();
+          const contentType = res.headers.get('Content-Type') || '';
+          if (res.ok) return { status: res.status, contentType, text };
+          const snippet = text.slice(0, 180).replace(/\s+/g, ' ');
+          throw new Error(`Upload error (HTTP ${res.status}). ${snippet}`);
+        });
     },
     async host_forum(file, onProgress, signal) {
       const cfg = rfu.CONFIG.forumUpload || {};
@@ -541,6 +532,6 @@
     });
   }
 
-  helpers.ready(helpers.once(init));
+  helpers.runOnceOnReady(init);
   helpers.register('imageUploader', rfu);
 })();

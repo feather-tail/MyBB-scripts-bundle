@@ -26,5 +26,6 @@
     });
   }
 
-  helpers.ready(helpers.once(init));
+  helpers.runOnceOnReady(init);
+  helpers.register('replaceDash', { init });
 })();

@@ -33,5 +33,5 @@
     });
   }
 
-  helpers.ready(helpers.once(init));
+  helpers.register('guestAddress', { init });
 })();

@@ -64,5 +64,6 @@
     bubble.addEventListener('blur', hideBubble);
   }
 
-  helpers.ready(helpers.once(init));
+  helpers.runOnceOnReady(init);
+  helpers.register('quoteBubble', { init });
 })();

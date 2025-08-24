@@ -45,10 +45,9 @@
   };
 
   const fetchDoc = async (url) => {
-    const res = await withTimeout(
-      fetch(url, { credentials: 'same-origin' }),
-      config.requestTimeoutMs,
-    );
+    const res = await helpers.request(url, {
+      timeout: config.requestTimeoutMs,
+    });
     if (!res.ok) throw new Error(`GET ${url} ${res.status}`);
     const buf = await res.arrayBuffer();
     let txt;
@@ -66,19 +65,13 @@
     if (!form) throw new Error('Форма не найдена');
     return form;
   };
-  const postForm = async (url, params, ref) => {
-    const res = await withTimeout(
-      fetch(url, {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: params.toString(),
-        referrer: ref || url,
-        referrerPolicy: 'strict-origin-when-cross-origin',
-        mode: 'same-origin',
-      }),
-      config.requestTimeoutMs,
-    );
+  const postForm = async (url, params) => {
+    const res = await helpers.request(url, {
+      method: 'POST',
+      data: params.toString(),
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      timeout: config.requestTimeoutMs,
+    });
     if (!res.ok) throw new Error(`POST ${url} ${res.status}`);
     return res;
   };
@@ -475,5 +468,6 @@
     );
   }
 
-  helpers.ready(helpers.once(init));
+  helpers.runOnceOnReady(init);
+  helpers.register('balanceTool', { init });
 })();

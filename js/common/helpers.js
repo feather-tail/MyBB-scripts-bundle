@@ -75,10 +75,95 @@
         setTimeout(() => rej(new Error('Таймаут запроса')), ms),
       ),
     ]);
+  const request = (url, opts = {}) => {
+    const {
+      method = 'GET',
+      data = null,
+      timeout = 0,
+      headers = {},
+      responseType,
+      onProgress,
+      signal,
+    } = opts;
+    if (typeof fetch === 'function' && !onProgress) {
+      const ctrl = new AbortController();
+      if (signal)
+        try {
+          signal.addEventListener('abort', () => ctrl.abort());
+        } catch {}
+      const p = fetch(url, {
+        method,
+        headers,
+        body: data,
+        credentials: 'same-origin',
+        signal: ctrl.signal,
+      });
+      if (!timeout) return p;
+      return new Promise((resolve, reject) => {
+        const t = setTimeout(() => {
+          ctrl.abort();
+          reject(new Error('Таймаут запроса'));
+        }, timeout);
+        p.then(resolve, reject).finally(() => clearTimeout(t));
+      });
+    }
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open(method, url, true);
+      xhr.withCredentials = true;
+      xhr.responseType = responseType || 'arraybuffer';
+      Object.entries(headers || {}).forEach(([k, v]) =>
+        xhr.setRequestHeader(k, v),
+      );
+      if (timeout) xhr.timeout = timeout;
+      if (signal)
+        try {
+          signal.addEventListener('abort', () => xhr.abort());
+        } catch {}
+      if (onProgress && xhr.upload) {
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable)
+            onProgress(Math.ceil((e.loaded / e.total) * 100), e);
+        };
+      }
+      xhr.onerror = () => reject(new Error('Network error'));
+      xhr.ontimeout = () => reject(new Error('Таймаут запроса'));
+      xhr.onabort = () => reject(new Error('Отменено'));
+      xhr.onload = () => {
+        const headersMap = {};
+        xhr
+          .getAllResponseHeaders()
+          .trim()
+          .split(/\r?\n/)
+          .forEach((line) => {
+            const i = line.indexOf(':');
+            if (i > -1)
+              headersMap[line.slice(0, i).trim().toLowerCase()] = line
+                .slice(i + 1)
+                .trim();
+          });
+        const buf = xhr.response || new ArrayBuffer(0);
+        const resp = {
+          ok: xhr.status >= 200 && xhr.status < 300,
+          status: xhr.status,
+          statusText: xhr.statusText,
+          headers: {
+            get: (k) => headersMap[String(k).toLowerCase()] || null,
+          },
+          arrayBuffer: () => Promise.resolve(buf),
+          text: () => Promise.resolve(new TextDecoder().decode(buf)),
+        };
+        resp.json = () => resp.text().then((t) => JSON.parse(t));
+        resolve(resp);
+      };
+      xhr.send(data);
+    });
+  };
   const ready = (fn) => {
     if (document.readyState !== 'loading') fn();
     else document.addEventListener('DOMContentLoaded', fn);
   };
+  const runOnceOnReady = (fn) => ready(once(fn));
   const parseAccessMap = (obj = {}) => {
     const res = {};
     Object.keys(obj).forEach((k) => {
@@ -166,7 +251,9 @@
     getCookie,
     parseHTML,
     withTimeout,
+    request,
     ready,
+    runOnceOnReady,
     crc32,
     parseAccessMap,
     uid,

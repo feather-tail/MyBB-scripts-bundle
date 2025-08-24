@@ -15,7 +15,7 @@
       });
       const { close } = window.helpers.modal.openModal(box);
       try {
-        const res = await fetch(`${config.ajaxFolder}${pageId}`);
+        const res = await helpers.request(`${config.ajaxFolder}${pageId}`);
         const buf = await res.arrayBuffer();
         const decoder = new TextDecoder(config.charset);
         const html = decoder.decode(buf);
@@ -32,5 +32,6 @@
     });
   }
 
-  helpers.ready(helpers.once(init));
+  helpers.runOnceOnReady(init);
+  helpers.register('characterModal', { init });
 })();

@@ -66,13 +66,12 @@
   }
 
   function sendUpdateFetch(body) {
-    return fetch(`${config.backend.endpoint}?method=update`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      keepalive: true,
-      body: JSON.stringify(body),
-    })
+    return helpers
+      .request(`${config.backend.endpoint}?method=update`, {
+        method: 'POST',
+        data: JSON.stringify(body),
+        headers: { 'Content-Type': 'application/json' },
+      })
       .then((r) => r.json().catch(() => ({})))
       .catch(() => null);
   }
@@ -83,7 +82,7 @@
       `&subscription=${encodeURIComponent(config.backend.subscription)}` +
       `&tableKey=${encodeURIComponent(config.backend.tableKey)}` +
       `&userId=${userId}`;
-    const res = await fetch(u, { credentials: 'include' });
+    const res = await helpers.request(u);
     const data = await res.json().catch(() => null);
     return data?.ok ? data.user : null;
   }
@@ -95,7 +94,7 @@
       `&tableKey=${encodeURIComponent(config.backend.tableKey)}` +
       `&limit=${config.backend.limit}` +
       `&scope=${config.backend.scope}`;
-    const res = await fetch(url, { credentials: 'include' });
+    const res = await helpers.request(url);
     return res.json().catch(() => null);
   }
 
@@ -619,7 +618,7 @@
     setTimeout(() => trySendFromDelIntent(), 0);
   }
 
-  helpers.ready(helpers.once(init));
+  helpers.runOnceOnReady(init);
 
   helpers.register('gamepostCounter', {
     config,

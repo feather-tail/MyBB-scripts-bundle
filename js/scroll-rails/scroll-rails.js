@@ -54,5 +54,6 @@
     window.addEventListener('resize', onScroll);
   }
 
-  helpers.ready(helpers.once(init));
+  helpers.runOnceOnReady(init);
+  helpers.register('scrollRails', { init });
 })();
