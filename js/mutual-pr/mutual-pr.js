@@ -17,9 +17,7 @@
   }
 
   function showNotification(text) {
-    if (window.jGrowl) {
-      window.jGrowl(text);
-    } else if (showToast) {
+    if (showToast) {
       showToast(text, { type: 'info' });
     } else {
       console.log(text);

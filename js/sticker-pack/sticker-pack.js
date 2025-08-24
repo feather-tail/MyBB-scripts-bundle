@@ -4,7 +4,7 @@
   const IMAGE_EXT_RE = /\.(png|jpe?g|gif|webp)$/i;
 
   const helpers = window.helpers;
-  const { $, $$, createEl, getGroupId, getUserInfo } = helpers;
+  const { $, $$, createEl, getGroupId, getUserInfo, showToast } = helpers;
   const config = helpers.getConfig('stickerPack', {});
 
   const stickerPack = {
@@ -264,7 +264,9 @@
       try {
         await saveUserStickers();
       } catch {
-        window.jGrowl?.('Изменения не сохранились, что-то пошло не так 😥');
+        showToast('Изменения не сохранились, что-то пошло не так', {
+          type: 'error',
+        });
       }
     }
   }
@@ -289,17 +291,21 @@
         setStickerPackTab(config.myTabName);
         input.value = '';
       } catch {
-        window.jGrowl?.('Изменения не сохранились, что-то пошло не так 😥');
+        showToast('Изменения не сохранились, что-то пошло не так', {
+          type: 'error',
+        });
       }
     } catch {
-      window.jGrowl?.('Некорректная ссылка на изображение');
+      showToast('Некорректная ссылка на изображение', { type: 'warning' });
     }
   }
 
   async function saveUserStickers(stickers = stickerPack.userStickers) {
     let json = JSON.stringify(stickers);
     while (json.length >= config.maxJsonSize && stickers.length) {
-      window.jGrowl?.('Слишком много стикеров, последний не был сохранён 😔');
+      showToast('Слишком много стикеров, последний не был сохранён', {
+        type: 'warning',
+      });
       stickers.pop();
       json = JSON.stringify(stickers);
     }
@@ -315,7 +321,9 @@
         }),
       });
     } catch (err) {
-      window.jGrowl?.('Стикеры не сохранились, что-то пошло не так 😥');
+      showToast('Стикеры не сохранились, что-то пошло не так', {
+        type: 'error',
+      });
       throw err;
     }
   }
@@ -361,8 +369,9 @@
       const txt = await r.text();
       parseForumStickerData(txt);
     } catch (err) {
-      window.jGrowl?.(
-        'Стикеры не грузятся, что-то пошло не так 😔 Может, поможет перезагрузка страницы?',
+      showToast(
+        'Стикеры не грузятся, что-то пошло не так. Может, поможет перезагрузка страницы?',
+        { type: 'error' },
       );
       throw err;
     }
@@ -382,15 +391,17 @@
         } catch (err) {
           if (err instanceof SyntaxError && str.length > config.maxJsonSize) {
             await saveUserStickers();
-            window.jGrowl?.(
-              'Стикеры сохранились критично неправильно, пришлось очистить хранилище. Извините 😥',
+            showToast(
+              'Стикеры сохранились критично неправильно, пришлось очистить хранилище. Извините',
+              { type: 'error' },
             );
           }
         }
       }
     } catch (err) {
-      window.jGrowl?.(
-        'Твои стикеры не прогрузились, придется пользоваться форумными 😒',
+      showToast(
+        'Твои стикеры не прогрузились, придется пользоваться форумными',
+        { type: 'warning' },
       );
       throw err;
     }

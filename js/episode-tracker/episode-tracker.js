@@ -61,6 +61,8 @@
       noData: 'Нет данных',
       editTitle: 'Редактировать',
       deleteTitle: 'Удалить',
+      exportSuccess: 'Данные скопированы в буфер обмена.',
+      exportError: 'Не удалось скопировать данные.',
     },
     config.texts,
   );
@@ -493,9 +495,12 @@
       renderAll();
     }
 
-    el.btnExport.addEventListener('click', () =>
-      copyToClipboard(JSON.stringify(store.episodes, null, 2)),
-    );
+    el.btnExport.addEventListener('click', async () => {
+      const ok = await copyToClipboard(JSON.stringify(store.episodes, null, 2));
+      showToast(ok ? TEXTS.exportSuccess : TEXTS.exportError, {
+        type: ok ? 'success' : 'error',
+      });
+    });
 
     el.btnImport.addEventListener('click', async () => {
       const raw = await dialog('Вставьте экспортированные данные:', {
