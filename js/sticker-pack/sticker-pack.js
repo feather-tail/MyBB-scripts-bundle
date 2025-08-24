@@ -19,19 +19,10 @@
 
   function init() {
     if (!$(`#${config.buttonAfterId}`)) return;
-    addStickerPackStyles();
     addStickerPackButton();
   }
 
   helpers.runOnceOnReady(init);
-
-  function addStickerPackStyles() {
-    const link = createEl('link', {
-      rel: 'stylesheet',
-      href: config.stylesheetUrl,
-    });
-    document.head.appendChild(link);
-  }
 
   function addStickerPackButton() {
     const buttonTd = createEl('td', {
@@ -163,6 +154,11 @@
         {
           target: document,
           type: 'mousedown',
+          handler: onStickerPackOutsideClick,
+        },
+        {
+          target: document,
+          type: 'touchstart',
           handler: onStickerPackOutsideClick,
         },
         {
