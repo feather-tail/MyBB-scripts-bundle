@@ -491,7 +491,7 @@
     replyHotkeys: {
       selectors: {
         textarea: '#main-reply',
-        placeAfter: '',
+        insertAfter: '.formsubmit',
         fallback: '.formsubmit',
         submit: '.submit',
       },
