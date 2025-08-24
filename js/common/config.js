@@ -434,7 +434,7 @@
       flags: { stripMaskBBCode: true },
     },
     prQuickLogin: {
-      login: 'Реклама',
+      login: 'PR',
       pass: '1111',
       redirectUrl: 'https://feathertailtests.rusff.me/viewtopic.php?id=2',
       selectors: {
