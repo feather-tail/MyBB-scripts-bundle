@@ -419,7 +419,7 @@
     postPreview: {
       debounceDelay: 600,
       toggleCookie: '_PreviewToggle',
-      allowedForums: [2, 5, 10],
+      allowedForums: [1, 5, 10],
       toggleInsertAfter: '#form-buttons',
       checkInterval: 800,
     },
