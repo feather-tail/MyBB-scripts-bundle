@@ -222,7 +222,7 @@
       </div>
       <div class="rfu-list" id="rfu-list"></div>
       <div class="rfu-footer">
-        <button class="rfu-btn" id="rfu-insert-all" type="button">ставить все</button>
+        <button class="rfu-btn" id="rfu-insert-all" type="button">Вставить все</button>
         <button class="rfu-btn" id="rfu-clear" type="button">Очистить</button>
       </div>
     `,
