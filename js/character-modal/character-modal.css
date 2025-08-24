@@ -43,15 +43,6 @@
   pointer-events: auto;
   transform: translate(-50%, -50%) scale(1);
 }
-.modal__close {
-  position: absolute;
-  right: 16px;
-  top: 10px;
-  font-size: 2rem;
-  color: #888;
-  cursor: pointer;
-  text-decoration: none;
-}
 .modal__wrap {
   margin-top: 12px;
 }

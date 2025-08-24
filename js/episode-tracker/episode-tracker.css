@@ -50,21 +50,6 @@
   background: #6a6a6a;
 }
 
-#episodesModal .close-btn {
-  margin-left: auto;
-  font-size: 26px;
-  line-height: 1;
-  color: #888;
-  background: none;
-  border: none;
-  cursor: pointer;
-  transition: color 0.2s;
-}
-
-#episodesModal .close-btn:hover {
-  color: #d22;
-}
-
 #episodesModal .episodes-list {
   max-height: 350px;
   overflow-y: auto;

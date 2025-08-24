@@ -229,7 +229,6 @@
       id: 'character-modal',
       classes: {
         wrap: 'modal__wrap',
-        close: 'modal__close',
         bg: 'modal__bg',
         open: 'open',
         hidden: 'hidden',

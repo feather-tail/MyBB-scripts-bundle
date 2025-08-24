@@ -276,11 +276,6 @@
     content.className = 'gpc-modal__dialog';
     content.setAttribute('role', 'dialog');
     content.setAttribute('aria-modal', 'true');
-    const closeBtn = document.createElement('button');
-    closeBtn.className = 'gpc-modal__close';
-    closeBtn.type = 'button';
-    closeBtn.setAttribute('aria-label', 'Закрыть');
-    closeBtn.textContent = '?';
 
     const title = document.createElement('h3');
     title.id = 'gpc-modal-title';
@@ -294,9 +289,8 @@
     wrap.className = 'gpc-tables-wrap';
     body.appendChild(wrap);
 
-    content.append(closeBtn, title, body);
+    content.append(title, body);
     const { close } = window.helpers.modal.openModal(content);
-    closeBtn.addEventListener('click', close);
     renderTable(wrap);
   }
 

@@ -21,7 +21,6 @@
       modal: 'episodesModal',
       exportBtn: 'exportBtn',
       importBtn: 'importBtn',
-      closeBtn: 'closeX',
       ownerFilters: 'ownerFilters',
       list: 'episodesList',
       form: 'episodeForm',
@@ -41,7 +40,6 @@
       openBtn: 'Эпизоды',
       exportBtn: 'Экспорт',
       importBtn: 'Импорт',
-      closeTitle: 'Закрыть',
       header: 'Трекер эпизодов',
       noEpisodesYet: 'Пока нет эпизодов…',
       urlLabel: 'Ссылка на эпизод:',
@@ -152,13 +150,7 @@
       id: IDS.importBtn,
       text: TEXTS.importBtn,
     });
-    const btnClose = createEl('button', {
-      className: 'close-btn',
-      id: IDS.closeBtn,
-      title: TEXTS.closeTitle,
-      text: '×',
-    });
-    topBar.append(btnExport, btnImport, btnClose);
+    topBar.append(btnExport, btnImport);
     const header = createEl('h2', {
       className: 'tracker-header',
       text: TEXTS.header,
@@ -229,7 +221,6 @@
       el: {
         btnExport,
         btnImport,
-        btnClose,
         ownerFilters,
         list,
         form,
@@ -276,8 +267,6 @@
         renderAll();
       }
     });
-
-    el.btnClose.addEventListener('click', () => modal?.close());
 
     let participantCount = 1;
     let editIndex = -1;

@@ -40,9 +40,6 @@
           }),
         );
       }
-      box.addEventListener('click', (ev) => {
-        if (ev.target.classList.contains('modal__close')) close();
-      });
     });
   }
 

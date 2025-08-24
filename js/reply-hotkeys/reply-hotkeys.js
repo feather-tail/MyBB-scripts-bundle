@@ -27,14 +27,9 @@
       'aria-modal': 'true',
       tabIndex: -1,
     });
-    const close = createEl('button', {
-      className: 'hk-close',
-      title: config.texts.close,
-      text: '×',
-    });
     const h3 = createEl('h3', { text: config.texts.title });
     const ul = createEl('ul');
-    modalBox.append(close, h3, ul);
+    modalBox.append(h3, ul);
 
     HOTKEYS.forEach(([, , text], combo) => {
       const li = createEl('li');
@@ -83,10 +78,8 @@
       });
       modalBox.focus();
     };
-    const hide = () => api?.close();
 
     btn.addEventListener('click', show);
-    close.addEventListener('click', hide);
 
     document.addEventListener('keydown', (e) => {
       if (!api && (e.ctrlKey || e.metaKey) && e.code === 'Slash') {

@@ -19,6 +19,12 @@
         : content;
     overlay.appendChild(node);
     document.body.appendChild(overlay);
+    const closeBtn = createEl('button', {
+      className: 'modal-close',
+      'aria-label': 'Закрыть',
+      text: '×',
+    });
+    overlay.appendChild(closeBtn);
     const prevFocus = document.activeElement;
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
@@ -64,6 +70,7 @@
       if (typeof onClose === 'function') onClose();
     }
 
+    closeBtn.addEventListener('click', close);
     overlay.addEventListener('click', onClick, true);
     document.addEventListener('keydown', onKey, true);
 
