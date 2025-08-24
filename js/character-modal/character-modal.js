@@ -6,6 +6,19 @@
     loadingText: 'Загрузка...',
     errorText: 'Ошибка загрузки данных.',
   });
+
+  function initTabs(box) {
+    const tabs = [...box.querySelectorAll('.modal__tab')];
+    const contents = box.querySelectorAll('.modal__content');
+    box.addEventListener('click', (e) => {
+      const tab = e.target.closest('.modal__tab');
+      if (!tab) return;
+      const i = tabs.indexOf(tab);
+      tabs.forEach((t) => t.classList.toggle('active', t === tab));
+      contents.forEach((c, idx) => c.classList.toggle('active', idx === i));
+    });
+  }
+
   function init() {
     document.body.addEventListener('click', async (e) => {
       const link = e.target.closest('.modal-link');
