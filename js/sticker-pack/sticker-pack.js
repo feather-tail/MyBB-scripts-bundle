@@ -1,6 +1,8 @@
 (() => {
   'use strict';
 
+  const IMAGE_EXT_RE = /\.(png|jpe?g|gif|webp)$/i;
+
   const helpers = window.helpers;
   const { $, $$, createEl, getGroupId, getUserInfo } = helpers;
   const config = helpers.getConfig('stickerPack', {});
@@ -89,7 +91,7 @@
     });
 
     addBox.append(input, addBtn);
-    modal.append(content, addBox, tabs);
+    modal.append(tabs, content, addBox);
     modalContainer.append(modal);
 
     stickerPack.packs.forEach((pack) => {
@@ -134,7 +136,7 @@
         modalContainer.style.left = window.scrollX + rect.left + 'px';
         modal.style.width = ref.offsetWidth + 'px';
       }
-      setStickerPackTab(stickerPack.activeTab);
+      setStickerPackTab();
       const closeEvents = [
         'pun_post',
         'pun_preview',
@@ -213,7 +215,11 @@
   }
 
   function setStickerPackTab(tab) {
-    stickerPack.activeTab = tab || stickerPack.packs[0]?.name || '';
+    if (!tab && !stickerPack.packs.length && stickerPack.userStickers.length) {
+      stickerPack.activeTab = config.myTabName;
+    } else {
+      stickerPack.activeTab = tab || stickerPack.packs[0]?.name || '';
+    }
     $$('.sticker-pack-modal-tab', stickerPack.elements.tabs).forEach((t) =>
       t.classList.toggle('active', t.dataset.pack === stickerPack.activeTab),
     );
@@ -272,7 +278,7 @@
     try {
       const { protocol, pathname } = new URL(url);
       const isSafeProtocol = ['http:', 'https:'].includes(protocol);
-      const isImage = /\.(png|jpe?g|gif|webp)$/i.test(pathname);
+      const isImage = IMAGE_EXT_RE.test(pathname);
       if (
         !isSafeProtocol ||
         !isImage ||
@@ -280,9 +286,10 @@
       ) {
         throw new Error('Invalid URL');
       }
-      stickerPack.userStickers.push(url);
+      const stickers = [...stickerPack.userStickers, url];
       try {
-        await saveUserStickers();
+        await saveUserStickers(stickers);
+        stickerPack.userStickers = stickers;
         setStickerPackTab(config.myTabName);
         input.value = '';
       } catch {
@@ -293,15 +300,12 @@
     }
   }
 
-  async function saveUserStickers() {
-    let json = JSON.stringify(stickerPack.userStickers);
-    while (
-      json.length >= config.maxJsonSize &&
-      stickerPack.userStickers.length
-    ) {
+  async function saveUserStickers(stickers = stickerPack.userStickers) {
+    let json = JSON.stringify(stickers);
+    while (json.length >= config.maxJsonSize && stickers.length) {
       window.jGrowl?.('Слишком много стикеров, последний не был сохранён 😔');
-      stickerPack.userStickers.pop();
-      json = JSON.stringify(stickerPack.userStickers);
+      stickers.pop();
+      json = JSON.stringify(stickers);
     }
     try {
       await helpers.request(config.apiUrl, {
@@ -337,7 +341,7 @@
           packs.push(pack);
         }
         pack = { name: '', stickers: [] };
-      } else if (/\.(gif|jpe?g|png|webp)$/i.test(str)) {
+      } else if (IMAGE_EXT_RE.test(str)) {
         pack.stickers.push(str);
       } else {
         if (pack.stickers.length) {

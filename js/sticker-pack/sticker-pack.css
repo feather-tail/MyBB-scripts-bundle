@@ -67,7 +67,7 @@
 
 .sticker-pack-modal-tabs {
   display: flex;
-  border-top: 1px solid #eee;
+  border-bottom: 1px solid #eee;
   background: #f9f9f9;
   padding: 0 8px;
   gap: 8px;
@@ -89,11 +89,12 @@
 
 .sticker-pack-modal-add {
   padding: 8px;
-  border-bottom: 1px solid #eee;
+  border-top: 1px solid #eee;
   display: flex;
   gap: 8px;
   background: #f7f7f7;
 }
+
 .sticker-pack-modal-add.hidden {
   display: none;
 }
