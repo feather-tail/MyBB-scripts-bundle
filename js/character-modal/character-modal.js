@@ -8,9 +8,9 @@
   });
 
   function initTabs(box) {
-    const tabs = [...box.querySelectorAll('.modal__tab')];
-    const contents = box.querySelectorAll('.modal__content');
     box.addEventListener('click', (e) => {
+      const tabs = [...box.querySelectorAll('.modal__tab')];
+      const contents = box.querySelectorAll('.modal__content');
       const tab = e.target.closest('.modal__tab');
       if (!tab) return;
       const i = tabs.indexOf(tab);
@@ -42,8 +42,13 @@
         const doc = parseHTML(html);
         const character = doc.querySelector('.character');
         box.textContent = '';
-        if (character) box.append(character);
-        else box.append(...Array.from(doc.body.childNodes));
+        if (character) {
+          box.append(character);
+          initTabs(character);
+        } else {
+          box.append(...Array.from(doc.body.childNodes));
+          initTabs(box);
+        }
       } catch (err) {
         box.textContent = '';
         box.append(
