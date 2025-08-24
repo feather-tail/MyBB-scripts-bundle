@@ -531,7 +531,7 @@
       edgeOffset: 80,
     },
     stickerPack: {
-      dataUrl: 'LINK_YOUR_STICKERS',
+      dataUrl: 'https://forumstatic.ru/files/001c/73/bf/62093.txt?v=4',
       stylesheetUrl: 'LINK_STYLES',
       buttonAfterId: 'button-smile',
       myTabName: 'Свои',
