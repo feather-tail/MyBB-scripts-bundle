@@ -47,7 +47,7 @@
     nodes.forEach((node) => {
       let cur = node;
 
-      while (cur) {
+      while (cur && cur.nodeType === Node.TEXT_NODE) {
         const idx = cur.nodeValue.toLowerCase().indexOf(tag);
         if (idx === -1) break;
 
