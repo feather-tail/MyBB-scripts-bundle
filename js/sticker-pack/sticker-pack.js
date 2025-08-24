@@ -12,6 +12,7 @@
     isModalOpen: false,
     activeTab: '',
     elements: {},
+    events: [],
   };
 
   function init() {
@@ -41,21 +42,25 @@
     stickerPack.elements.button = buttonTd;
   }
 
-  function onStickerPackButtonClick(e) {
+  async function onStickerPackButtonClick(e) {
     e.stopPropagation();
     if (stickerPack.isLoading) return;
     if (stickerPack.packs.length) return toggleStickerPackModal();
 
     setStickerPackLoading(true);
-    Promise.all([
-      loadForumStickerPacks(),
-      getGroupId() !== config.hideMyGroupId
-        ? loadUserStickers()
-        : Promise.resolve(),
-    ]).finally(() => {
+    try {
+      await Promise.all([
+        loadForumStickerPacks(),
+        getGroupId() !== config.hideMyGroupId
+          ? loadUserStickers()
+          : Promise.resolve(),
+      ]);
+    } catch (err) {
+      window.console?.error(err);
+    } finally {
       setStickerPackLoading(false);
       renderStickerPackModal();
-    });
+    }
   }
 
   function renderStickerPackModal() {
@@ -141,17 +146,33 @@
       }
       setStickerPackTab(stickerPack.activeTab);
       document.addEventListener('mousedown', onStickerPackOutsideClick);
-      [
+      stickerPack.events.push({
+        target: document,
+        type: 'mousedown',
+        handler: onStickerPackOutsideClick,
+      });
+      const closeEvents = [
         'pun_post',
         'pun_preview',
         'pun_preedit',
         'pun_edit',
         'messenger:post',
-      ].forEach((ev) =>
-        document.addEventListener(ev, closeStickerPackModal, { once: true }),
-      );
+      ];
+      closeEvents.forEach((ev) => {
+        const options = { once: true };
+        document.addEventListener(ev, closeStickerPackModal, options);
+        stickerPack.events.push({
+          target: document,
+          type: ev,
+          handler: closeStickerPackModal,
+          options,
+        });
+      });
     } else {
-      document.removeEventListener('mousedown', onStickerPackOutsideClick);
+      stickerPack.events.forEach(({ target, type, handler, options }) =>
+        target.removeEventListener(type, handler, options),
+      );
+      stickerPack.events = [];
     }
   }
   function closeStickerPackModal() {
@@ -161,6 +182,10 @@
   function onStickerPackOutsideClick(e) {
     if (!stickerPack.elements.modal.contains(e.target))
       toggleStickerPackModal(false);
+  }
+
+  function onStickerPackKeyDown(e) {
+    if (e.key === 'Escape') toggleStickerPackModal(false);
   }
 
   function setStickerPackTab(tab) {
@@ -183,6 +208,7 @@
       div.dataset.sticker = url;
       const img = createEl('img', {
         src: url,
+        alt: 'sticker',
         loading: 'lazy',
         onclick: () => window.smile?.(`[img]${url}[/img]`),
       });
@@ -270,45 +296,45 @@
     stickerPack.activeTab = packs[0]?.name || '';
   }
 
-  function loadForumStickerPacks() {
-    return helpers
-      .request(config.dataUrl)
-      .then((r) => r.text())
-      .then(parseForumStickerData)
-      .catch(() =>
-        window.jGrowl?.(
-          'Стикеры не грузятся, что-то пошло не так 😔 Может, поможет перезагрузка страницы?',
-        ),
+  async function loadForumStickerPacks() {
+    try {
+      const r = await helpers.request(config.dataUrl);
+      const txt = await r.text();
+      parseForumStickerData(txt);
+    } catch (err) {
+      window.jGrowl?.(
+        'Стикеры не грузятся, что-то пошло не так 😔 Может, поможет перезагрузка страницы?',
       );
+      throw err;
+    }
   }
 
-  function loadUserStickers() {
-    if (getUserInfo().id === 1) return Promise.resolve();
-    return helpers
-      .request(
+  async function loadUserStickers() {
+    if (getUserInfo().id === 1) return;
+    try {
+      const r = await helpers.request(
         `${config.apiUrl}?method=${config.apiGetMethod}&key=${config.storageKey}`,
-      )
-      .then((r) => r.json())
-      .then((result) => {
-        const str = result?.response?.storage?.data?.[config.storageKey] || '';
-        if (str) {
-          try {
-            stickerPack.userStickers = JSON.parse(str);
-          } catch (err) {
-            if (err instanceof SyntaxError && str.length > config.maxJsonSize) {
-              saveUserStickers();
-              window.jGrowl?.(
-                'Стикеры сохранились критично неправильно, пришлось очистить хранилище. Извините 😥',
-              );
-            }
+      );
+      const result = await r.json();
+      const str = result?.response?.storage?.data?.[config.storageKey] || '';
+      if (str) {
+        try {
+          stickerPack.userStickers = JSON.parse(str);
+        } catch (err) {
+          if (err instanceof SyntaxError && str.length > config.maxJsonSize) {
+            saveUserStickers();
+            window.jGrowl?.(
+              'Стикеры сохранились критично неправильно, пришлось очистить хранилище. Извините 😥',
+            );
           }
         }
-      })
-      .catch(() =>
-        window.jGrowl?.(
-          'Твои стикеры не прогрузились, придется пользоваться форумными 😒',
-        ),
+      }
+    } catch (err) {
+      window.jGrowl?.(
+        'Твои стикеры не прогрузились, придется пользоваться форумными 😒',
       );
+      throw err;
+    }
   }
   helpers.register('stickerPack', { init });
 })();
