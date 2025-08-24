@@ -26,7 +26,7 @@
         inputStyle: 'color:#111 !important',
       },
       access: { allowedTopicIds: ['1', '2', '3'], allowedGroupIds: [1] },
-      profileFieldKey: 'auto',
+      profileFieldKey: 'fld1',
       operations: [
         { title: 'Начисление', factor: 1, topics: 'all' },
         { title: 'Списание', factor: -1, topics: 'all' },
