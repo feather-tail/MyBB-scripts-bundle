@@ -262,10 +262,10 @@
       resetTimeout: 1200,
     },
     defaultAvatars: {
-      DEFAULT_AVATAR: 'YOUR_LINK',
+      DEFAULT_AVATAR: 'https://upforme.ru/uploads/001c/73/bf/2/862383.jpg',
       avatarByRole: {
-        Гость: 'YOUR_LINK',
-        PR: 'YOUR_LINK',
+        Гость: 'https://upforme.ru/uploads/001c/0a/76/4/246574.jpg',
+        PR: 'https://upforme.ru/uploads/001c/0a/76/4/916153.jpg',
       },
     },
     episodeTracker: {
