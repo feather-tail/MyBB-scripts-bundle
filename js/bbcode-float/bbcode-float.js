@@ -1,7 +1,8 @@
 (() => {
   'use strict';
 
-  const { $, $$, createEl } = window.helpers;
+  const helpers = window.helpers;
+  const { $, $$, createEl } = helpers;
   const config = helpers.getConfig('bbcodeFloat', {});
   const BB_INSERT_FN = window.bbcode || (() => {});
 

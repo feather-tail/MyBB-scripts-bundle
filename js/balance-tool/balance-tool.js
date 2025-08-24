@@ -1,6 +1,7 @@
 (() => {
   'use strict';
 
+  const helpers = window.helpers;
   const {
     $,
     $$,
@@ -10,7 +11,7 @@
     showToast,
     getUserInfo,
     getGroupId,
-  } = window.helpers;
+  } = helpers;
   const config = helpers.getConfig('balanceTool', {});
   const topicId = () => new URLSearchParams(location.search).get('id') || '';
   const allowedTopic = (id) =>
@@ -461,7 +462,7 @@
       .replaceAll('{{CACHE_AFTER}}', String(ok ? saved : next))
       .replaceAll('{{ADMIN_NAME}}', pickAdminName());
     const editParams = buildEditParams(editForm, msgField, decorated);
-    await postForm(editAction, editParams, editAction);
+    await postForm(editAction, editParams);
     statusArea.insertAdjacentHTML(
       'beforeend',
       '<p>Сообщение обёрнуто шаблоном.</p>',

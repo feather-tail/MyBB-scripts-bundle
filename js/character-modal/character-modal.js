@@ -1,6 +1,7 @@
 (() => {
   'use strict';
-  const { createEl, parseHTML } = window.helpers;
+  const helpers = window.helpers;
+  const { createEl, parseHTML } = helpers;
   const config = helpers.getConfig('characterModal', {
     loadingText: 'Загрузка...',
     errorText: 'Ошибка загрузки данных.',

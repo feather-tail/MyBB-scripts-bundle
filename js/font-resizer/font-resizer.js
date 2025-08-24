@@ -1,7 +1,8 @@
 (() => {
   'use strict';
 
-  const { $, $$, createEl } = window.helpers;
+  const helpers = window.helpers;
+  const { $, $$, createEl } = helpers;
   const config = helpers.getConfig('fontResizer', {});
 
   const getStoredSize = () => {
@@ -20,15 +21,33 @@
   const createControl = (currentSize) => {
     const wrapper = createEl('div');
     wrapper.className = 'font-resizer';
-    wrapper.innerHTML = `
-      <button type="button" class="decrease" aria-label="Уменьшить шрифт">A−</button>
-      <button type="button" class="reset"    aria-label="Сбросить размер">A</button>
-      <button type="button" class="increase" aria-label="Увеличить шрифт">A+</button>
-      <input type="range" class="slider"
-             min="${config.minSize}" max="${config.maxSize}"
-             value="${currentSize}"
-             aria-label="Размер шрифта">
-    `;
+    const btnDecrease = createEl('button');
+    btnDecrease.type = 'button';
+    btnDecrease.className = 'decrease';
+    btnDecrease.setAttribute('aria-label', 'Уменьшить шрифт');
+    btnDecrease.textContent = 'A−';
+
+    const btnReset = createEl('button');
+    btnReset.type = 'button';
+    btnReset.className = 'reset';
+    btnReset.setAttribute('aria-label', 'Сбросить размер');
+    btnReset.textContent = 'A';
+
+    const btnIncrease = createEl('button');
+    btnIncrease.type = 'button';
+    btnIncrease.className = 'increase';
+    btnIncrease.setAttribute('aria-label', 'Увеличить шрифт');
+    btnIncrease.textContent = 'A+';
+
+    const slider = createEl('input');
+    slider.type = 'range';
+    slider.className = 'slider';
+    slider.min = config.minSize;
+    slider.max = config.maxSize;
+    slider.value = currentSize;
+    slider.setAttribute('aria-label', 'Размер шрифта');
+
+    wrapper.append(btnDecrease, btnReset, btnIncrease, slider);
     return wrapper;
   };
 

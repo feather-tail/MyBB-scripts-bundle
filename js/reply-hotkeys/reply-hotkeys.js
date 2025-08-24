@@ -1,6 +1,8 @@
 (() => {
   'use strict';
-  const { $, createEl } = window.helpers;
+
+  const helpers = window.helpers;
+  const { $, createEl } = helpers;
   const config = helpers.getConfig('replyHotkeys', {});
   const HOTKEYS = new Map(config.HOTKEYS);
 

@@ -1,14 +1,20 @@
 (() => {
   'use strict';
 
-  const { $, $$, copyToClipboard } = window.helpers;
+  const helpers = window.helpers;
+  const { $, $$, copyToClipboard } = helpers;
   const config = helpers.getConfig('copyCode', {});
 
   function init() {
     $$('.code-box').forEach((box, i) => {
       const legend = $('.legend', box);
       if (legend) {
-        legend.innerHTML = `<a class="copy-code-btn" data-code-idx="${i}" href="#">${config.buttonText}</a>`;
+        const link = document.createElement('a');
+        link.className = 'copy-code-btn';
+        link.dataset.codeIdx = i;
+        link.href = '#';
+        link.textContent = config.buttonText;
+        legend.append(link);
       }
     });
 

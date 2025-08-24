@@ -1,6 +1,7 @@
 (() => {
   'use strict';
 
+  const helpers = window.helpers;
   const { $, $$, createEl, uid, formatBytes } = helpers;
 
   const rfu = {

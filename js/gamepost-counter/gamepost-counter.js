@@ -1,7 +1,8 @@
 (() => {
   'use strict';
 
-  const { $, $$ } = window.helpers;
+  const helpers = window.helpers;
+  const { $, $$ } = helpers;
   const config = helpers.getConfig('gamepostCounter', {});
   const last = (sel, root = document) => {
     const L = root.querySelectorAll(sel);

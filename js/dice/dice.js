@@ -1,7 +1,8 @@
 (() => {
   'use strict';
 
-  const { $, $$, createEl, showToast } = window.helpers;
+  const helpers = window.helpers;
+  const { $, $$, createEl, showToast } = helpers;
   const config = helpers.getConfig('dice', {
     buttonSelector: '#dice-roll-btn',
   });

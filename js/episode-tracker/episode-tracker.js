@@ -1,6 +1,7 @@
 (() => {
   'use strict';
 
+  const helpers = window.helpers;
   const {
     $,
     $$,
@@ -10,7 +11,7 @@
     getGroupId,
     getUserInfo,
     createEl,
-  } = window.helpers;
+  } = helpers;
   const config = helpers.getConfig('episodeTracker', { ids: {}, texts: {} });
 
   const IDS = Object.assign(

@@ -1,5 +1,6 @@
 (() => {
   'use strict';
+  const helpers = window.helpers;
   const {
     $,
     $$,
@@ -10,7 +11,7 @@
     dialog,
     getUserInfo,
     getGroupId,
-  } = window.helpers;
+  } = helpers;
   const config = helpers.getConfig('bbcodeMask', {});
   const SELECTORS = config.selectors;
   const MAX_CACHE_ENTRIES = config.maxCacheEntries;

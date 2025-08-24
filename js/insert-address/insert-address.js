@@ -1,6 +1,8 @@
 (() => {
   'use strict';
-  const { $ } = window.helpers;
+
+  const helpers = window.helpers;
+  const { $ } = helpers;
   const config = helpers.getConfig('insertAddress', {});
   let messageField;
 

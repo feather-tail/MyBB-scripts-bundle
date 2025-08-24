@@ -1,12 +1,15 @@
 (() => {
   'use strict';
 
-  const { $$ } = window.helpers;
-  const config = helpers.getConfig('defaultAvatars', {});
+  const helpers = window.helpers;
+  const { $$ } = helpers;
+  const config = helpers.getConfig('defaultAvatars', { avatarByRole: {} });
   const avatarByRole = new Map(Object.entries(config.avatarByRole));
 
   function getAvatarUrl(authorName) {
-    return avatarByRole.get(authorName) || config.DEFAULT_AVATAR;
+    return avatarByRole.has(authorName)
+      ? avatarByRole.get(authorName)
+      : config.DEFAULT_AVATAR;
   }
 
   function insertAuthorAvatars() {
@@ -23,8 +26,11 @@
 
         const avatarLi = document.createElement('li');
         avatarLi.className = 'pa-avatar item2';
-        avatarLi.innerHTML = `<img class="defavtr" src="${url}" alt="Аватар">`;
-
+        const img = document.createElement('img');
+        img.className = 'defavtr';
+        img.src = url;
+        img.alt = 'Аватар';
+        avatarLi.append(img);
         titleEl.insertAdjacentElement('afterend', avatarLi);
       });
     });
@@ -38,7 +44,13 @@
       if (strongEl.textContent.includes('Нет аватара')) {
         const container = strongEl.parentElement;
         if (!container) return;
-        container.innerHTML = `<div><img src="${config.DEFAULT_AVATAR}" alt="Аватар по умолчанию"></div>`;
+        const div = document.createElement('div');
+        const img = document.createElement('img');
+        img.src = config.DEFAULT_AVATAR;
+        img.alt = 'Аватар по умолчанию';
+        div.append(img);
+        container.textContent = '';
+        container.append(div);
       }
     });
   }

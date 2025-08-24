@@ -1,8 +1,8 @@
 (() => {
   'use strict';
 
-  const { $, $$, createEl, countGraphemes } = window.helpers;
-
+  const helpers = window.helpers;
+  const { $, $$, createEl, countGraphemes } = helpers;
   const config = helpers.getConfig('postsCharCounter', {});
   const ALLOWED_FORUM_IDS = config.allowedForumIds || [2, 3];
   const SELECTORS = {

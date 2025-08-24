@@ -1,7 +1,8 @@
 (() => {
   'use strict';
 
-  const { $, $$, createEl, getGroupId, getUserInfo } = window.helpers;
+  const helpers = window.helpers;
+  const { $, $$, createEl, getGroupId, getUserInfo } = helpers;
   const config = helpers.getConfig('stickerPack', {});
 
   const stickerPack = {

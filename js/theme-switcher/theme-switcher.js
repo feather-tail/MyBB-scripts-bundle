@@ -1,7 +1,8 @@
 (() => {
   'use strict';
 
-  const { $, $$ } = window.helpers;
+  const helpers = window.helpers;
+  const { $, $$ } = helpers;
   const config = helpers.getConfig('themeSwitcher', {});
   let switcherContainer;
 
@@ -14,17 +15,28 @@
   }
 
   function renderThemeSwitcher() {
-    switcherContainer.innerHTML = config.themes
-      .map(
-        (t) =>
-          `<li title="${t.title}">
-        <span class="radio">
-          <input type="radio" name="switcher" id="theme-${t.class}" value="${t.class}">
-          <label for="theme-${t.class}">${t.title}</label>
-        </span>
-      </li>`,
-      )
-      .join('');
+    switcherContainer.textContent = '';
+    config.themes.forEach((t) => {
+      const li = document.createElement('li');
+      li.title = t.title;
+
+      const span = document.createElement('span');
+      span.className = 'radio';
+
+      const input = document.createElement('input');
+      input.type = 'radio';
+      input.name = 'switcher';
+      input.id = `theme-${t.class}`;
+      input.value = t.class;
+
+      const label = document.createElement('label');
+      label.htmlFor = `theme-${t.class}`;
+      label.textContent = t.title;
+
+      span.append(input, label);
+      li.append(span);
+      switcherContainer.append(li);
+    });
   }
 
   function restoreTheme() {

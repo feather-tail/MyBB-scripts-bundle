@@ -1,7 +1,8 @@
 (() => {
   'use strict';
 
-  const { $, $$, setCookie, getCookie, debounce } = window.helpers;
+  const helpers = window.helpers;
+  const { $, $$, setCookie, getCookie, debounce } = helpers;
   const config = helpers.getConfig('postPreview', {});
 
   function init() {

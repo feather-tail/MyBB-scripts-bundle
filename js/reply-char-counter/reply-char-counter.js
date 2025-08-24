@@ -1,7 +1,8 @@
 (() => {
   'use strict';
 
-  const { $$, countGraphemes } = window.helpers;
+  const helpers = window.helpers;
+  const { $$, countGraphemes } = helpers;
   const config = helpers.getConfig('replyCharCounter', {});
   const { selectors: SELECTORS, options: OPTIONS } = config;
 
@@ -22,16 +23,22 @@
   const insertCounter = (afterEl, beforeEl) => {
     const box = document.createElement('div');
     box.className = 'reply-char-counter';
-    box.innerHTML = `
-      <span class="reply-char-counter-label">Символов напечатано: </span>
-      <span class="reply-char-counter-value">0</span>
-    `;
+    const label = document.createElement('span');
+    label.className = 'reply-char-counter-label';
+    label.textContent = 'Символов напечатано: ';
+
+    const value = document.createElement('span');
+    value.className = 'reply-char-counter-value';
+    value.textContent = '0';
+
+    box.append(label, value);
+
     if (afterEl && afterEl.parentNode) {
       afterEl.parentNode.insertBefore(box, afterEl.nextSibling);
     } else if (beforeEl && beforeEl.parentNode) {
       beforeEl.parentNode.insertBefore(box, beforeEl);
     }
-    return $$('.reply-char-counter-value', box)[0];
+    return value;
   };
 
   function init() {
