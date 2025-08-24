@@ -2,11 +2,22 @@
   'use strict';
   const $ = (sel, root = document) => root.querySelector(sel);
   const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+  const sanitizeHTML = (html) => {
+    const tpl = document.createElement('template');
+    tpl.innerHTML = html;
+    tpl.content.querySelectorAll('script').forEach((n) => n.remove());
+    tpl.content.querySelectorAll('*').forEach((node) => {
+      [...node.attributes].forEach((attr) => {
+        if (/^on/i.test(attr.name)) node.removeAttribute(attr.name);
+      });
+    });
+    return tpl.innerHTML;
+  };
   const createEl = (tag, props = {}) => {
     const el = document.createElement(tag);
     Object.entries(props).forEach(([k, v]) => {
       if (k === 'text') el.textContent = v;
-      else if (k === 'html') el.innerHTML = v;
+      else if (k === 'html') el.innerHTML = sanitizeHTML(v);
       else if (k in el) el[k] = v;
       else el.setAttribute(k, v);
     });

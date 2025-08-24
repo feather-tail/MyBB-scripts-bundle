@@ -33,8 +33,13 @@
       )
       .replace(/\[quote(?:=[^\]]+)?\][\s\S]*?\[\/quote\]/gi, '');
 
-    const wrap = createEl('div');
-    wrap.innerHTML = raw;
+    const doc = new DOMParser().parseFromString(raw, 'text/html');
+    const wrap = doc.body;
+    $$('script', wrap).forEach((s) => s.remove());
+    $$('*', wrap).forEach((el) => {
+      for (const { name } of [...el.attributes])
+        if (name.toLowerCase().startsWith('on')) el.removeAttribute(name);
+    });
 
     $$('.quote-box, blockquote', wrap).forEach((q) => q.remove());
     $$('a[href]', wrap).forEach((a) => {

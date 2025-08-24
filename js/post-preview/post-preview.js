@@ -22,8 +22,13 @@
 
     const wrap = document.createElement('label');
     wrap.style.marginLeft = '8px';
-    wrap.innerHTML = `<input type="checkbox" id="autoPreviewToggle"> Автопревью`;
-    const checkbox = $('input', wrap);
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.id = 'autoPreviewToggle';
+    const labelText = document.createTextNode('');
+    labelText.textContent = ' Автопревью';
+    wrap.append(checkbox);
+    wrap.append(labelText);
 
     if (getCookie(config.toggleCookie) === 'OFF') {
       checkbox.checked = false;

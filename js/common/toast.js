@@ -17,6 +17,7 @@
     message,
     { type = 'info', actions = [], duration = 3000 } = {},
   ) {
+    let promise;
     const root = ensureRoot();
     const el = document.createElement('div');
     el.className = `toast toast--${type}`;
@@ -51,7 +52,7 @@
           resolve(null);
         }, duration);
       }
-      var promise = new Promise((r) => (resolve = r));
+      promise = new Promise((r) => (resolve = r));
     } else if (duration > 0) {
       setTimeout(cleanup, duration);
     }

@@ -44,16 +44,10 @@
 
       const li = createEl('li', { className: 'pl-mutualPR' });
       const btn = createEl('a', { href: '#', text: config.BUTTON_LABEL });
-      btn.onclick = (e) => {
+      btn.onclick = async (e) => {
         e.preventDefault();
-        const textarea = createEl('textarea', { value: template + linkBB });
-        document.body.appendChild(textarea);
-        textarea.select();
-        try {
-          document.execCommand('copy');
+        if (await helpers.copyToClipboard(template + linkBB)) {
           showNotification(config.COPY_SUCCESS_TEXT);
-        } finally {
-          document.body.removeChild(textarea);
         }
       };
       li.appendChild(btn);
