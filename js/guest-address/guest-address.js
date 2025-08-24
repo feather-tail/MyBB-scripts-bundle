@@ -4,7 +4,6 @@
   const helpers = window.helpers;
   const { $, createEl } = helpers;
   const config = helpers.getConfig('guestAddress', {});
-  const insertAddress = window.insertAddress || window.to;
 
   function init() {
     const posts = document.querySelectorAll(
@@ -27,7 +26,7 @@
       const linkElement = createEl('a', { text: authorName, href: '#' });
       linkElement.addEventListener('click', (event) => {
         event.preventDefault();
-        insertAddress(authorName);
+        (window.insertAddress || window.to)(authorName);
       });
 
       authorCell.replaceChild(linkElement, nameNode);
