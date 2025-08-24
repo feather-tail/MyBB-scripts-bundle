@@ -95,6 +95,7 @@
       responseType,
       onProgress,
       signal,
+      referrer,
     } = opts;
     if (typeof fetch === 'function' && !onProgress) {
       const ctrl = new AbortController();
@@ -102,13 +103,15 @@
         try {
           signal.addEventListener('abort', () => ctrl.abort());
         } catch {}
-      const p = fetch(url, {
+      const fopts = {
         method,
         headers,
         body: data,
         credentials: 'same-origin',
         signal: ctrl.signal,
-      });
+      };
+      if (referrer) fopts.referrer = referrer;
+      const p = fetch(url, fopts);
       if (!timeout) return p;
       return new Promise((resolve, reject) => {
         const t = setTimeout(() => {

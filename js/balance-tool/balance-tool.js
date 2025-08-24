@@ -66,12 +66,13 @@
     if (!form) throw new Error('Форма не найдена');
     return form;
   };
-  const postForm = async (url, params) => {
+  const postForm = async (url, params, ref) => {
     const res = await helpers.request(url, {
       method: 'POST',
       data: params.toString(),
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       timeout: config.requestTimeoutMs,
+      referrer: ref || url,
     });
     if (!res.ok) throw new Error(`POST ${url} ${res.status}`);
     return res;
@@ -415,7 +416,7 @@
     }
     const beforeHash = fieldsHash(profileForm);
     const profileParams = buildProfileParams(profileForm, moneyField, next);
-    await postForm(profileAction, profileParams);
+    await postForm(profileAction, profileParams, profileAction);
     const afterForm = await fetchForm(
       profileAction,
       config.endpoints.profileFormSelector,
@@ -462,7 +463,7 @@
       .replaceAll('{{CACHE_AFTER}}', String(ok ? saved : next))
       .replaceAll('{{ADMIN_NAME}}', pickAdminName());
     const editParams = buildEditParams(editForm, msgField, decorated);
-    await postForm(editAction, editParams);
+    await postForm(editAction, editParams, editAction);
     statusArea.insertAdjacentHTML(
       'beforeend',
       '<p>Сообщение обёрнуто шаблоном.</p>',
