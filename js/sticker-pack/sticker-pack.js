@@ -35,8 +35,8 @@
     const buttonTd = createEl('td', {
       id: 'sticker-pack-button',
       title: 'Стикеры',
-      onclick: onStickerPackButtonClick,
     });
+    buttonTd.addEventListener('click', onStickerPackButtonClick);
     const afterElem = $(`#${config.buttonAfterId}`);
     afterElem?.after(buttonTd);
     stickerPack.elements.button = buttonTd;
@@ -98,16 +98,6 @@
     if (getGroupId() !== config.hideMyGroupId)
       tabs.append(createTab(config.myTabName));
 
-    tabs.onclick = (e) => {
-      const tab = e.target.closest('.sticker-pack-modal-tab');
-      if (tab) setStickerPackTab(tab.dataset.pack);
-    };
-    content.onclick = (e) => {
-      const btn = e.target.closest('.sticker-pack-remove-item');
-      if (btn) removeUserSticker(btn);
-    };
-    addBtn.onclick = () => addUserSticker(input);
-
     stickerPack.elements = {
       ...stickerPack.elements,
       modalContainer,
@@ -154,6 +144,21 @@
       ];
       stickerPack.events = [
         {
+          target: stickerPack.elements.tabs,
+          type: 'click',
+          handler: onStickerPackTabsClick,
+        },
+        {
+          target: stickerPack.elements.content,
+          type: 'click',
+          handler: onStickerPackContentClick,
+        },
+        {
+          target: stickerPack.elements.addBtn,
+          type: 'click',
+          handler: onStickerPackAddClick,
+        },
+        {
           target: document,
           type: 'mousedown',
           handler: onStickerPackOutsideClick,
@@ -193,6 +198,20 @@
     if (e.key === 'Escape') toggleStickerPackModal(false);
   }
 
+  function onStickerPackTabsClick(e) {
+    const tab = e.target.closest('.sticker-pack-modal-tab');
+    if (tab) setStickerPackTab(tab.dataset.pack);
+  }
+
+  function onStickerPackContentClick(e) {
+    const btn = e.target.closest('.sticker-pack-remove-item');
+    if (btn) removeUserSticker(btn);
+  }
+
+  function onStickerPackAddClick() {
+    addUserSticker(stickerPack.elements.input);
+  }
+
   function setStickerPackTab(tab) {
     stickerPack.activeTab = tab || stickerPack.packs[0]?.name || '';
     $$('.sticker-pack-modal-tab', stickerPack.elements.tabs).forEach((t) =>
@@ -215,8 +234,8 @@
         src: url,
         alt: 'sticker',
         loading: 'lazy',
-        onclick: () => window.smile?.(`[img]${url}[/img]`),
       });
+      img.addEventListener('click', () => window.smile?.(`[img]${url}[/img]`));
       div.append(img);
       if (isCustom) {
         const btn = createEl('span', {
@@ -309,19 +328,29 @@
   function parseForumStickerData(txt) {
     const lines = txt.split(/\r?\n/).map((s) => s.trim());
     let packs = [],
-      pack = { name: '', stickers: [] };
+      pack = { name: '', stickers: [] },
+      packIndex = 1;
     for (let str of lines) {
       if (!str) {
-        if (pack.stickers.length) packs.push(pack);
-        pack = { name: `Pack ${packs.length + 2}`, stickers: [] };
+        if (pack.stickers.length) {
+          if (!pack.name) pack.name = `Pack ${packIndex++}`;
+          packs.push(pack);
+        }
+        pack = { name: '', stickers: [] };
       } else if (/\.(gif|jpe?g|png|webp)$/i.test(str)) {
         pack.stickers.push(str);
       } else {
-        if (pack.stickers.length) packs.push(pack);
+        if (pack.stickers.length) {
+          if (!pack.name) pack.name = `Pack ${packIndex++}`;
+          packs.push(pack);
+        }
         pack = { name: str, stickers: [] };
       }
     }
-    if (pack.stickers.length) packs.push(pack);
+    if (pack.stickers.length) {
+      if (!pack.name) pack.name = `Pack ${packIndex++}`;
+      packs.push(pack);
+    }
     stickerPack.packs = packs;
     stickerPack.activeTab = packs[0]?.name || '';
   }
@@ -352,7 +381,7 @@
           stickerPack.userStickers = JSON.parse(str);
         } catch (err) {
           if (err instanceof SyntaxError && str.length > config.maxJsonSize) {
-            saveUserStickers();
+            await saveUserStickers();
             window.jGrowl?.(
               'Стикеры сохранились критично неправильно, пришлось очистить хранилище. Извините 😥',
             );
