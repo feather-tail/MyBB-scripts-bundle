@@ -33,5 +33,6 @@
     });
   }
 
+  helpers.runOnceOnReady(init);
   helpers.register('guestAddress', { init });
 })();

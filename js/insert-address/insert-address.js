@@ -24,4 +24,5 @@
 
   helpers.runOnceOnReady(init);
   window.insertAddress = helpers.register('insertAddress', insertAddress);
+  window.to = window.insertAddress;
 })();
