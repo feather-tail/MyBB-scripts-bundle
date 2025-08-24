@@ -28,21 +28,24 @@
   }
 
   function injectButton() {
-    if ($(config.buttonSelector)) return;
+    const existing = $(config.buttonSelector);
+    if (existing) {
+      diceButton = existing;
+      return;
+    }
 
     const anchor = $(config.buttonAfterSelector);
     if (!anchor) return;
 
-    const containerTag = anchor.tagName === 'TD' ? 'td' : 'div';
-    const container = createEl(containerTag);
-    const btn = createEl('button', {
+    const container = createEl('td', {
       id: config.buttonSelector.replace(/^#/, ''),
-      type: 'button',
-      text: 'Бросить кубики',
+      title: 'Бросить кубики',
     });
-    container.append(btn);
+    container.append(
+      createEl('img', { src: '/i/blank.gif', style: 'cursor:pointer' }),
+    );
     anchor.after(container);
-    diceButton = btn;
+    diceButton = container;
   }
 
   function openModal() {
@@ -88,7 +91,9 @@
     actions.append(cancelBtn, okBtn);
 
     modalContent.append(title, countLabel, sidesLabel, actions);
-    const { close } = show(modalContent, { onClose: () => diceButton.focus() });
+    const { close } = show(modalContent, {
+      onClose: () => diceButton?.focus?.(),
+    });
     cancelBtn.addEventListener('click', close);
     okBtn.addEventListener('click', () => {
       const cnt = parseInt(countInput.value, 10);
@@ -187,7 +192,6 @@
 
   function init() {
     injectButton();
-    diceButton = $(config.buttonSelector);
     postContainer = $('#pun-viewtopic');
     if (!diceButton) return;
 
