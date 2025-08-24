@@ -214,7 +214,7 @@
       marginLeft: '2em',
       selectors: '.post-content, #post-preview .post-content',
       buttonAfterSelector: '#button-strike',
-      buttonId: 'button-indent',
+      buttonId: 'button-indent-btn',
       buttonTitle: 'Отступы',
       iconSrc: '/i/blank.gif',
     },

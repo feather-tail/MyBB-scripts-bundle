@@ -36,7 +36,7 @@
     const rxTag = new RegExp(escapeRegExp(config.bbcode), 'gi');
     const spanHTML = `<span style="display:inline-block;margin-left:${config.marginLeft};"></span>`;
 
-    if (!rxTag.test(container.innerHTML)) return;
+    if (!container.innerHTML.includes(config.bbcode)) return;
 
     container.innerHTML = container.innerHTML.replace(
       rxTag,
