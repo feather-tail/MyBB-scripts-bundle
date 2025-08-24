@@ -394,7 +394,9 @@
       /\[right\]([\s\S]*?)\[\/right\]/gi,
       (_, t) => `<div style="text-align:right">${t}</div>`,
     );
-    s = s.replace(/\r?\n/g, '<br>');
+    s = s.replace(/<br\s*\/?>\s*(\r?\n)+/gi, '<br>');
+    s = s.replace(/(\r?\n)+(?=<br\s*\/?>)/g, '');
+    s = s.replace(/(\r?\n)+/g, '<br>');
     return s;
   };
 
@@ -480,7 +482,7 @@
       /<p>\s*(?:<br\s*\/?>\s*)+([^]*?)<\/p>/i,
       (m, body) => `<p>${body}</p>`,
     );
-    s = s.replace(/(\r?\n){3,}/g, '\n\n');
+    s = s.replace(/(<br\s*\/?>\s*){2,}/gi, '<br>');
     return s;
   }
 

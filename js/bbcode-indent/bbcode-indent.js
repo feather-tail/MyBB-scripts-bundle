@@ -76,7 +76,36 @@
         }
 
         if (needBr) {
-          cur.parentNode.insertBefore(createEl('br'), target || null);
+          const ref = target || cur.nextSibling;
+          let prev = ref ? ref.previousSibling : cur;
+
+          while (
+            prev &&
+            prev.nodeType === Node.TEXT_NODE &&
+            !/\S/.test(prev.nodeValue)
+          ) {
+            const tmp = prev;
+            prev = prev.previousSibling;
+            tmp.remove();
+          }
+
+          if (
+            !(
+              prev &&
+              prev.nodeType === Node.ELEMENT_NODE &&
+              prev.tagName === 'BR'
+            )
+          ) {
+            prev = cur.parentNode.insertBefore(createEl('br'), ref || null);
+          }
+
+          while (
+            prev.nextSibling &&
+            prev.nextSibling.nodeType === Node.ELEMENT_NODE &&
+            prev.nextSibling.tagName === 'BR'
+          ) {
+            prev.nextSibling.remove();
+          }
         }
 
         applyIndent(target || cur.nextSibling);
