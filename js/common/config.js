@@ -492,7 +492,7 @@
       selectors: {
         textarea: '#main-reply',
         insertAfter: '.formsubmit',
-        fallback: '.formsubmit',
+        defaultBefore: '.formsubmit',
         submit: '.submit',
       },
       texts: {
