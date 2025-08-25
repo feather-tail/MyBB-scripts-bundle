@@ -19,7 +19,7 @@
   display: block;
 }
 
-.sticker-pack-modal-content {
+.sticker-pack-modal .modal__content {
   max-height: 220px;
   overflow-y: auto;
   display: flex;
@@ -65,7 +65,7 @@
   justify-content: center;
 }
 
-.sticker-pack-modal-tabs {
+.sticker-pack-modal .modal__tabs {
   display: flex;
   border-bottom: 1px solid #eee;
   background: #f9f9f9;
@@ -74,7 +74,7 @@
   min-height: 32px;
 }
 
-.sticker-pack-modal-tab {
+.sticker-pack-modal .modal__tab {
   cursor: pointer;
   padding: 6px 12px;
   border-radius: 4px 4px 0 0;
@@ -82,7 +82,8 @@
   transition: background 0.15s;
   white-space: nowrap;
 }
-.sticker-pack-modal-tab.active {
+
+.sticker-pack-modal .modal__tab.active {
   background: #e8e8e8;
   font-weight: bold;
 }
@@ -93,10 +94,6 @@
   display: flex;
   gap: 8px;
   background: #f7f7f7;
-}
-
-.sticker-pack-modal-add.hidden {
-  display: none;
 }
 
 .sticker-pack-modal-input {
@@ -121,7 +118,7 @@
     width: 96vw !important;
     max-width: 98vw;
   }
-  .sticker-pack-modal-content {
+  .sticker-pack-modal .modal__content {
     max-height: 160px;
   }
 }

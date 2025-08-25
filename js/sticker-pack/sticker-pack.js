@@ -4,7 +4,7 @@
   const IMAGE_EXT_RE = /\.(png|jpe?g|gif|webp)$/i;
 
   const helpers = window.helpers;
-  const { $, $$, createEl, getGroupId, getUserInfo, showToast } = helpers;
+  const { $, createEl, getGroupId, getUserInfo, showToast } = helpers;
   const config = helpers.getConfig('stickerPack', {});
 
   const stickerPack = {
@@ -12,7 +12,6 @@
     packs: [],
     userStickers: [],
     isModalOpen: false,
-    activeTab: '',
     elements: {},
     events: [],
   };
@@ -63,59 +62,99 @@
       className: 'sticker-pack-modal-container',
     });
     const modal = createEl('div', { className: 'sticker-pack-modal' });
-    const tabs = createEl('div', { className: 'sticker-pack-modal-tabs' });
-    const content = createEl('div', {
-      className: 'sticker-pack-modal-content',
-    });
-    const addBox = createEl('div', {
-      className: 'sticker-pack-modal-add hidden',
-    });
-    const input = createEl('input', {
-      className: 'sticker-pack-modal-input',
-      type: 'text',
-      placeholder: 'URL стикера',
-    });
-    const addBtn = createEl('input', {
-      className: 'sticker-pack-modal-add-btn',
-      type: 'button',
-      value: '+',
-    });
+    const tabs = createEl('div', { className: 'modal__tabs' });
 
-    addBox.append(input, addBtn);
-    modal.append(tabs, content, addBox);
+    modal.append(tabs);
     modalContainer.append(modal);
 
+    const contents = [];
+
     stickerPack.packs.forEach((pack) => {
-      if (pack.stickers.length) tabs.append(createTab(pack.name));
+      if (!pack.stickers.length) return;
+      tabs.append(createTab(pack.name));
+      const content = createEl('div', {
+        className: 'modal__content',
+      });
+      pack.stickers.forEach((url) => {
+        content.append(createStickerItem(url));
+      });
+      contents.push(content);
+      modal.append(content);
     });
-    if (getGroupId() !== config.hideMyGroupId)
+
+    let userContent, addBox, input, addBtn;
+    if (getGroupId() !== config.hideMyGroupId) {
       tabs.append(createTab(config.myTabName));
+      userContent = createEl('div', { className: 'modal__content' });
+      stickerPack.userStickers.forEach((url) => {
+        userContent.append(createStickerItem(url, true));
+      });
+      addBox = createEl('div', { className: 'sticker-pack-modal-add' });
+      input = createEl('input', {
+        className: 'sticker-pack-modal-input',
+        type: 'text',
+        placeholder: 'URL стикера',
+      });
+      addBtn = createEl('input', {
+        className: 'sticker-pack-modal-add-btn',
+        type: 'button',
+        value: '+',
+      });
+      addBox.append(input, addBtn);
+      userContent.append(addBox);
+      contents.push(userContent);
+      modal.append(userContent);
+    }
 
     stickerPack.elements = {
       ...stickerPack.elements,
       modalContainer,
       modal,
       tabs,
-      content,
+      userContent,
       addBox,
       input,
       addBtn,
     };
 
+    if (tabs.firstElementChild && contents[0]) {
+      tabs.firstElementChild.classList.add('active');
+      contents[0].classList.add('active');
+    }
+
     document.body.append(modalContainer);
+    helpers.autoTabs.init();
     toggleStickerPackModal(true);
   }
 
   function createTab(name) {
-    const div = createEl('div', { className: 'sticker-pack-modal-tab' });
-    div.dataset.pack = name;
-    div.textContent = name;
+    return createEl('div', { className: 'modal__tab', text: name });
+  }
+
+  function createStickerItem(url, isCustom = false) {
+    const div = createEl('div', { className: 'sticker-pack-item' });
+    div.dataset.sticker = url;
+    const img = createEl('img', {
+      src: url,
+      alt: 'sticker',
+      loading: 'lazy',
+    });
+    img.addEventListener('click', () => window.smile?.(`[img]${url}[/img]`));
+    div.append(img);
+    if (isCustom) {
+      const btn = createEl('span', {
+        className: 'sticker-pack-remove-item',
+        title: 'Удалить',
+        text: 'x',
+      });
+      div.append(btn);
+    }
     return div;
   }
 
   function toggleStickerPackModal(open = !stickerPack.isModalOpen) {
     stickerPack.isModalOpen = !!open;
-    const { modal, modalContainer } = stickerPack.elements;
+    const { modal, modalContainer, userContent, addBtn } = stickerPack.elements;
     if (!modal) return;
     modal.classList.toggle('active', stickerPack.isModalOpen);
     if (stickerPack.isModalOpen) {
@@ -127,7 +166,6 @@
         modalContainer.style.left = window.scrollX + rect.left + 'px';
         modal.style.width = ref.offsetWidth + 'px';
       }
-      setStickerPackTab();
       const closeEvents = [
         'pun_post',
         'pun_preview',
@@ -136,18 +174,13 @@
         'messenger:post',
       ];
       stickerPack.events = [
-        {
-          target: stickerPack.elements.tabs,
-          type: 'click',
-          handler: onStickerPackTabsClick,
-        },
-        {
-          target: stickerPack.elements.content,
+        userContent && {
+          target: userContent,
           type: 'click',
           handler: onStickerPackContentClick,
         },
-        {
-          target: stickerPack.elements.addBtn,
+        addBtn && {
+          target: addBtn,
           type: 'click',
           handler: onStickerPackAddClick,
         },
@@ -172,7 +205,7 @@
           handler: closeStickerPackModal,
           options: { once: true },
         })),
-      ];
+      ].filter(Boolean);
       stickerPack.events.forEach(({ target, type, handler, options }) =>
         target.addEventListener(type, handler, options),
       );
@@ -196,11 +229,6 @@
     if (e.key === 'Escape') toggleStickerPackModal(false);
   }
 
-  function onStickerPackTabsClick(e) {
-    const tab = e.target.closest('.sticker-pack-modal-tab');
-    if (tab) setStickerPackTab(tab.dataset.pack);
-  }
-
   function onStickerPackContentClick(e) {
     const btn = e.target.closest('.sticker-pack-remove-item');
     if (btn) removeUserSticker(btn);
@@ -210,49 +238,6 @@
     addUserSticker(stickerPack.elements.input);
   }
 
-  function setStickerPackTab(tab) {
-    if (!tab && !stickerPack.packs.length && stickerPack.userStickers.length) {
-      stickerPack.activeTab = config.myTabName;
-    } else {
-      stickerPack.activeTab = tab || stickerPack.packs[0]?.name || '';
-    }
-    $$('.sticker-pack-modal-tab', stickerPack.elements.tabs).forEach((t) =>
-      t.classList.toggle('active', t.dataset.pack === stickerPack.activeTab),
-    );
-    const isCustom = stickerPack.activeTab === config.myTabName;
-    const pack = isCustom
-      ? { name: config.myTabName, stickers: stickerPack.userStickers }
-      : stickerPack.packs.find((p) => p.name === stickerPack.activeTab) || {
-          stickers: [],
-        };
-
-    stickerPack.elements.content.innerHTML = '';
-    const fragment = document.createDocumentFragment();
-
-    for (const url of pack.stickers) {
-      const div = createEl('div', { className: 'sticker-pack-item' });
-      div.dataset.sticker = url;
-      const img = createEl('img', {
-        src: url,
-        alt: 'sticker',
-        loading: 'lazy',
-      });
-      img.addEventListener('click', () => window.smile?.(`[img]${url}[/img]`));
-      div.append(img);
-      if (isCustom) {
-        const btn = createEl('span', {
-          className: 'sticker-pack-remove-item',
-          title: 'Удалить',
-          text: 'x',
-        });
-        div.append(btn);
-      }
-      fragment.append(div);
-    }
-    stickerPack.elements.content.append(fragment);
-    stickerPack.elements.addBox.classList.toggle('hidden', !isCustom);
-  }
-
   async function removeUserSticker(btn) {
     const item = btn.closest('.sticker-pack-item');
     const url = item?.dataset.sticker;
@@ -260,7 +245,7 @@
     const idx = stickerPack.userStickers.indexOf(url);
     if (idx >= 0) {
       stickerPack.userStickers.splice(idx, 1);
-      setStickerPackTab(config.myTabName);
+      item.remove();
       try {
         await saveUserStickers();
       } catch {
@@ -288,7 +273,11 @@
       try {
         await saveUserStickers(stickers);
         stickerPack.userStickers = stickers;
-        setStickerPackTab(config.myTabName);
+        const item = createStickerItem(url, true);
+        stickerPack.elements.userContent.insertBefore(
+          item,
+          stickerPack.elements.addBox,
+        );
         input.value = '';
       } catch {
         showToast('Изменения не сохранились, что-то пошло не так', {
@@ -360,7 +349,6 @@
       packs.push(pack);
     }
     stickerPack.packs = packs;
-    stickerPack.activeTab = packs[0]?.name || '';
   }
 
   async function loadForumStickerPacks() {
