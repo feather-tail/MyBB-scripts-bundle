@@ -179,6 +179,24 @@
     else document.addEventListener('DOMContentLoaded', fn);
   };
   const runOnceOnReady = (fn) => ready(once(fn));
+  const initTabs = (
+    container,
+    {
+      tabSelector = '.modal__tab',
+      contentSelector = '.modal__content',
+      activeClass = 'active',
+    } = {},
+  ) => {
+    container.addEventListener('click', (e) => {
+      const tab = e.target.closest(tabSelector);
+      if (!tab || !container.contains(tab)) return;
+      const tabs = Array.from(container.querySelectorAll(tabSelector));
+      const contents = Array.from(container.querySelectorAll(contentSelector));
+      const i = tabs.indexOf(tab);
+      tabs.forEach((t, idx) => t.classList.toggle(activeClass, idx === i));
+      contents.forEach((c, idx) => c.classList.toggle(activeClass, idx === i));
+    });
+  };
   const parseAccessMap = (obj = {}) => {
     const res = {};
     Object.keys(obj).forEach((k) => {
@@ -269,6 +287,7 @@
     request,
     ready,
     runOnceOnReady,
+    initTabs,
     crc32,
     parseAccessMap,
     uid,

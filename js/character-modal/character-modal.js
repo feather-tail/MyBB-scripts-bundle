@@ -1,23 +1,11 @@
 (() => {
   'use strict';
   const helpers = window.helpers;
-  const { createEl, parseHTML } = helpers;
+  const { createEl, parseHTML, initTabs } = helpers;
   const config = helpers.getConfig('characterModal', {
     loadingText: 'Загрузка...',
     errorText: 'Ошибка загрузки данных.',
   });
-
-  function initTabs(box) {
-    box.addEventListener('click', (e) => {
-      const tabs = [...box.querySelectorAll('.modal__tab')];
-      const contents = box.querySelectorAll('.modal__content');
-      const tab = e.target.closest('.modal__tab');
-      if (!tab) return;
-      const i = tabs.indexOf(tab);
-      tabs.forEach((t) => t.classList.toggle('active', t === tab));
-      contents.forEach((c, idx) => c.classList.toggle('active', idx === i));
-    });
-  }
 
   function init() {
     document.body.addEventListener('click', async (e) => {
@@ -42,12 +30,17 @@
         const doc = parseHTML(html);
         const character = doc.querySelector('.character');
         box.textContent = '';
+        const tabParams = {
+          tabSelector: `.${config.classes.tab}`,
+          contentSelector: `.${config.classes.tabContent}`,
+          activeClass: config.classes.active,
+        };
         if (character) {
           box.append(character);
-          initTabs(character);
+          initTabs(character, tabParams);
         } else {
           box.append(...Array.from(doc.body.childNodes));
-          initTabs(box);
+          initTabs(box, tabParams);
         }
       } catch (err) {
         box.textContent = '';
