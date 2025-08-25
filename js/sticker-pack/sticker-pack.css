@@ -20,13 +20,17 @@
 }
 
 .sticker-pack-modal .modal__content {
+  display: none;
   max-height: 220px;
   overflow-y: auto;
-  display: flex;
   flex-wrap: wrap;
   gap: 8px;
   padding: 10px;
   box-sizing: border-box;
+}
+
+.sticker-pack-modal .modal__content.active {
+  display: flex;
 }
 
 .sticker-pack-item {
