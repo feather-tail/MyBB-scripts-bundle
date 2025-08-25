@@ -4,7 +4,14 @@
   const IMAGE_EXT_RE = /\.(png|jpe?g|gif|webp)$/i;
 
   const helpers = window.helpers;
-  const { $, createEl, getGroupId, getUserInfo, showToast } = helpers;
+  const {
+    $, // query selector
+    createEl,
+    getGroupId,
+    getUserInfo,
+    showToast,
+    initTabs,
+  } = helpers;
   const config = helpers.getConfig('stickerPack', {});
 
   const stickerPack = {
@@ -123,7 +130,11 @@
     }
 
     document.body.append(modalContainer);
-    helpers.autoTabs.init();
+    initTabs(modal, {
+      tabSelector: '.modal__tab',
+      contentSelector: '.modal__content',
+      activeClass: 'active',
+    });
     toggleStickerPackModal(true);
   }
 
