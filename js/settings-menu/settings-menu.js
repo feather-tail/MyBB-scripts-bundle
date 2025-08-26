@@ -67,7 +67,7 @@
     const { mount } = cfg;
     if (mount === undefined) return;
     if (typeof mount === 'string') {
-      const [script, method = 'init'] = mount.split(':');
+      const [script, method = 'initSection'] = mount.split(':');
       if (window.scripts?.[script]?.[method]) {
         window.scripts[script][method](list, api);
       } else {
@@ -79,6 +79,36 @@
     } else if (typeof mount === 'function') {
       mount(list, api);
     }
+  }
+
+  function parseSections(sectionsConfig) {
+    if (!sectionsConfig) return [];
+
+    const norm = (cfg, id) => {
+      let sec;
+      if (typeof cfg === 'string') {
+        sec = { title: cfg };
+      } else {
+        sec = { ...(cfg || {}) };
+      }
+      if (id && !sec.id) sec.id = id;
+      return sec;
+    };
+
+    if (Array.isArray(sectionsConfig)) {
+      return sectionsConfig.map((cfg) => norm(cfg));
+    }
+
+    if (
+      sectionsConfig.id ||
+      sectionsConfig.title ||
+      sectionsConfig.items ||
+      sectionsConfig.mount
+    ) {
+      return [norm(sectionsConfig)];
+    }
+
+    return Object.entries(sectionsConfig).map(([id, cfg]) => norm(cfg, id));
   }
 
   function createSection(cfg) {
@@ -101,19 +131,7 @@
     sectionCallbacks = Object.create(null);
     pendingMounts = Object.create(null);
 
-    let sections = config.sections || [];
-    if (!Array.isArray(sections)) {
-      sections = Object.entries(sections).map(([key, cfg]) => {
-        let sec;
-        if (typeof cfg === 'string') {
-          sec = { title: cfg };
-        } else {
-          sec = { ...(cfg || {}) };
-        }
-        if (!sec.id) sec.id = key;
-        return sec;
-      });
-    }
+    const sections = parseSections(config.sections);
 
     sections.forEach((section) => {
       const list = createSection(section);
@@ -146,16 +164,21 @@
   }
 
   function addSection(cfg) {
-    const list = createSection(cfg);
-    menu.append(list.parentNode);
-    if (cfg.id) {
-      sectionsById[cfg.id] = list;
-      if (sectionCallbacks[cfg.id]) {
-        sectionCallbacks[cfg.id].forEach((cb) => cb(list));
-        delete sectionCallbacks[cfg.id];
+    const sections = parseSections(cfg);
+    let firstList;
+    sections.forEach((section) => {
+      const list = createSection(section);
+      menu.append(list.parentNode);
+      if (section.id) {
+        sectionsById[section.id] = list;
+        if (sectionCallbacks[section.id]) {
+          sectionCallbacks[section.id].forEach((cb) => cb(list));
+          delete sectionCallbacks[section.id];
+        }
       }
-    }
-    return list;
+      if (!firstList) firstList = list;
+    });
+    return firstList;
   }
 
   function addItems(id, items) {
