@@ -2,9 +2,8 @@
   'use strict';
 
   const helpers = window.helpers;
-  const { $, $$ } = helpers;
+  const { $$ } = helpers;
   const config = helpers.getConfig('themeSwitcher', {});
-  let switcherContainer;
 
   function applyTheme(theme) {
     document.documentElement.classList.remove(
@@ -14,8 +13,8 @@
     localStorage.setItem(config.storageKey, theme);
   }
 
-  function renderThemeSwitcher() {
-    switcherContainer.textContent = '';
+  function renderThemeSwitcher(container) {
+    container.textContent = '';
     config.themes.forEach((t) => {
       const li = document.createElement('li');
       li.title = t.title;
@@ -35,34 +34,36 @@
 
       span.append(input, label);
       li.append(span);
-      switcherContainer.append(li);
+      container.append(li);
     });
   }
 
-  function restoreTheme() {
+  function restoreTheme(container) {
     const saved =
       localStorage.getItem(config.storageKey) || config.themes[0].class;
     applyTheme(saved);
-    $$("input[name='switcher']", switcherContainer).forEach(
+    $$("input[name='switcher']", container).forEach(
       (r) => (r.checked = r.value === saved),
     );
   }
 
-  function init() {
-    switcherContainer =
-      window.settingsMenu?.getSection('themes') || $('#theme_switcher');
-    if (!switcherContainer) return;
+  function initSection(ul) {
+    renderThemeSwitcher(ul);
+    restoreTheme(ul);
 
-    renderThemeSwitcher();
-    restoreTheme();
-
-    switcherContainer.addEventListener('change', (e) => {
+    ul.addEventListener('change', (e) => {
       if (e.target.name === 'switcher') {
         applyTheme(e.target.value);
       }
     });
   }
 
-  helpers.runOnceOnReady(init);
-  helpers.register('themeSwitcher', { init });
+  helpers.runOnceOnReady(() => {
+    const saved =
+      localStorage.getItem(config.storageKey) || config.themes[0].class;
+    applyTheme(saved);
+  });
+
+  window.settingsMenu?.registerSection('themes', initSection);
+  helpers.register('themeSwitcher', { initSection });
 })();

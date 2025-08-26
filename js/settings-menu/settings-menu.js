@@ -9,6 +9,7 @@
   let overlay;
   let toggle;
   let sectionsById;
+  let sectionCallbacks;
   let api;
 
   function closeMenu() {
@@ -64,11 +65,17 @@
   function buildMenu() {
     menu = createEl('nav', { id: 'settings-menu', className: 'settings-menu' });
     sectionsById = Object.create(null);
+    sectionCallbacks = Object.create(null);
 
     let sections = config.sections || [];
     if (!Array.isArray(sections)) {
       sections = Object.entries(sections).map(([key, cfg]) => {
-        const sec = { ...(cfg || {}) };
+        let sec;
+        if (typeof cfg === 'string') {
+          sec = { title: cfg };
+        } else {
+          sec = { ...(cfg || {}) };
+        }
         if (!sec.id) sec.id = key;
         return sec;
       });
@@ -82,8 +89,29 @@
       const list = createEl('ul');
       (section.items || []).forEach((item) => list.append(renderItem(item)));
       secEl.append(list);
+
+      if (section.script !== undefined) {
+        if (typeof section.script === 'string') {
+          window.scripts?.[section.script]?.init?.(list);
+        } else if (typeof section.script === 'function') {
+          section.script(list, api);
+        }
+      } else if (section.mount !== undefined) {
+        if (typeof section.mount === 'string') {
+          window.scripts?.[section.mount]?.init?.(list);
+        } else if (typeof section.mount === 'function') {
+          section.mount(list, api);
+        }
+      }
+
       menu.append(secEl);
-      if (section.id) sectionsById[section.id] = list;
+      if (section.id) {
+        sectionsById[section.id] = list;
+        if (sectionCallbacks[section.id]) {
+          sectionCallbacks[section.id].forEach((cb) => cb(list));
+          delete sectionCallbacks[section.id];
+        }
+      }
     });
 
     overlay = createEl('div', { className: 'settings-menu__overlay' });
@@ -112,8 +140,29 @@
     const list = createEl('ul');
     (cfg.items || []).forEach((item) => list.append(renderItem(item)));
     secEl.append(list);
+
+    if (cfg.script !== undefined) {
+      if (typeof cfg.script === 'string') {
+        window.scripts?.[cfg.script]?.init?.(list);
+      } else if (typeof cfg.script === 'function') {
+        cfg.script(list, api);
+      }
+    } else if (cfg.mount !== undefined) {
+      if (typeof cfg.mount === 'string') {
+        window.scripts?.[cfg.mount]?.init?.(list);
+      } else if (typeof cfg.mount === 'function') {
+        cfg.mount(list, api);
+      }
+    }
+
     menu.append(secEl);
-    if (cfg.id) sectionsById[cfg.id] = list;
+    if (cfg.id) {
+      sectionsById[cfg.id] = list;
+      if (sectionCallbacks[cfg.id]) {
+        sectionCallbacks[cfg.id].forEach((cb) => cb(list));
+        delete sectionCallbacks[cfg.id];
+      }
+    }
     return list;
   }
 
@@ -122,6 +171,16 @@
     if (!list) return;
     (items || []).forEach((item) => list.append(renderItem(item)));
     return list;
+  }
+
+  function registerSection(id, cb) {
+    const list = getSection(id);
+    if (list) {
+      cb(list);
+    } else {
+      if (!sectionCallbacks[id]) sectionCallbacks[id] = [];
+      sectionCallbacks[id].push(cb);
+    }
   }
 
   function init() {
@@ -133,9 +192,6 @@
       sections: {},
     });
 
-    buildMenu();
-    initialized = true;
-
     api = {
       init,
       open: openMenu,
@@ -143,7 +199,11 @@
       getSection,
       addSection,
       addItems,
+      registerSection,
     };
+
+    buildMenu();
+    initialized = true;
 
     if (helpers.register) {
       helpers.register('settingsMenu', api);

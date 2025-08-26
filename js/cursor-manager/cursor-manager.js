@@ -213,15 +213,19 @@
     });
 
     wrapper.append(list);
-    const menuList = document.querySelector(
-      '#settings-menu .settings-menu__section h3:textContent("Курсоры") + ul',
-    );
+
+    const menuList = window.settingsMenu?.getSection('cursors');
     if (menuList) {
-      menuList.innerHTML = '';
+      menuList.textContent = '';
       menuList.append(...list.children);
       wrapper.remove();
     } else {
       container.append(wrapper);
+      window.settingsMenu?.registerSection?.('cursors', (ul) => {
+        ul.textContent = '';
+        ul.append(...list.children);
+        wrapper.remove();
+      });
     }
   }
 
