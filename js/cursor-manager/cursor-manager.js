@@ -2,7 +2,7 @@
   'use strict';
 
   const helpers = window.helpers;
-  const { createEl, $$ } = helpers;
+  const { createEl } = helpers;
   const config = helpers.getConfig('cursorManager', {
     containerSelector: 'body',
     storageKey: 'selectedCursor',
@@ -160,11 +160,11 @@
     }
   }
 
-  function selectCursor(cur, li, wrapper) {
+  function selectCursor(cur, li, list) {
     applyCursor(cur);
     save(cur);
-    if (wrapper) {
-      $$('.cursor-manager li', wrapper).forEach((el) =>
+    if (list) {
+      Array.from(list.children).forEach((el) =>
         el.classList.toggle('active', el === li),
       );
     }
@@ -179,16 +179,11 @@
     selectCursor({ value: 'auto', id: 'auto' });
   }
 
-  function init() {
+  function initSection(ul, settingsMenuApi) {
+    if (!ul) return;
+
     const saved = loadSaved();
-    if (saved) applyCursor(saved);
-
-    const container = document.querySelector(config.containerSelector);
-    if (!container || !Array.isArray(config.cursors) || !config.cursors.length)
-      return;
-
-    const wrapper = createEl('div', { className: 'cursor-manager' });
-    const list = createEl('ul');
+    ul.textContent = '';
 
     config.cursors.forEach((cur) => {
       const li = createEl('li', { title: cur.title, dataset: { id: cur.id } });
@@ -208,27 +203,37 @@
             saved.value === cur.value));
       if (match) li.classList.add('active');
 
-      li.addEventListener('click', () => selectCursor(cur, li, wrapper));
-      list.append(li);
+      li.addEventListener('click', () => selectCursor(cur, li, ul));
+      ul.append(li);
     });
+  }
 
-    wrapper.append(list);
+  function init() {
+    const saved = loadSaved();
+    if (saved) applyCursor(saved);
 
-    const menuList = window.settingsMenu?.getSection('cursors');
+    if (!Array.isArray(config.cursors) || !config.cursors.length) return;
+
+    const container = document.querySelector(config.containerSelector);
+    if (!container) return;
+
+    const menuList = document.querySelector('#settings-menu #cursors ul');
     if (menuList) {
-      menuList.textContent = '';
-      menuList.append(...list.children);
-      wrapper.remove();
+      initSection(menuList, window.settingsMenu);
     } else {
+      const wrapper = createEl('div', { className: 'cursor-manager' });
+      const list = createEl('ul');
+      wrapper.append(list);
       container.append(wrapper);
-      window.settingsMenu?.registerSection?.('cursors', (ul) => {
-        ul.textContent = '';
-        ul.append(...list.children);
-        wrapper.remove();
-      });
+      initSection(list);
     }
   }
 
   helpers.runOnceOnReady(init);
-  helpers.register('cursorManager', { init, setById, clearCursor });
+  helpers.register('cursorManager', {
+    init,
+    initSection,
+    setById,
+    clearCursor,
+  });
 })();

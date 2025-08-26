@@ -10,6 +10,7 @@
   let toggle;
   let sectionsById;
   let sectionCallbacks;
+  let pendingMounts;
   let api;
 
   function closeMenu() {
@@ -67,7 +68,14 @@
     if (mount === undefined) return;
     if (typeof mount === 'string') {
       const [script, method = 'init'] = mount.split(':');
-      window.scripts?.[script]?.[method]?.(list, api);
+      if (window.scripts?.[script]?.[method]) {
+        window.scripts[script][method](list, api);
+      } else {
+        if (!pendingMounts[script]) pendingMounts[script] = [];
+        pendingMounts[script].push(() =>
+          window.scripts?.[script]?.[method]?.(list, api),
+        );
+      }
     } else if (typeof mount === 'function') {
       mount(list, api);
     }
@@ -91,6 +99,7 @@
     menu = createEl('nav', { id: 'settings-menu', className: 'settings-menu' });
     sectionsById = Object.create(null);
     sectionCallbacks = Object.create(null);
+    pendingMounts = Object.create(null);
 
     let sections = config.sections || [];
     if (!Array.isArray(sections)) {
@@ -166,6 +175,14 @@
     }
   }
 
+  function notifyScriptLoaded(name) {
+    const cbs = pendingMounts?.[name];
+    if (cbs) {
+      cbs.forEach((cb) => cb());
+      delete pendingMounts[name];
+    }
+  }
+
   function init() {
     if (initialized) return;
     helpers = window.helpers;
@@ -183,6 +200,7 @@
       addSection,
       addItems,
       registerSection,
+      notifyScriptLoaded,
     };
 
     buildMenu();

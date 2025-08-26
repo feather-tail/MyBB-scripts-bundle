@@ -64,6 +64,5 @@
     applyTheme(saved);
   });
 
-  window.settingsMenu?.registerSection('themes', initSection);
   helpers.register('themeSwitcher', { initSection });
 })();

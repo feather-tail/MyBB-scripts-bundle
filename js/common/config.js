@@ -580,7 +580,7 @@
       sections: {
         cursors: {
           title: 'Курсоры',
-          mount: 'cursorManager:init',
+          mount: 'cursorManager:initSection',
         },
         themes: {
           title: 'Темы',

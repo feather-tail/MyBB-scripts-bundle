@@ -270,6 +270,7 @@
   const register = (name, api) => {
     window.scripts = window.scripts || {};
     window.scripts[name] = api;
+    window.settingsMenu?.notifyScriptLoaded(name);
     return window.scripts[name];
   };
   window.helpers = {
