@@ -123,17 +123,20 @@
       const dt = Math.min(32, t - last);
       last = t;
 
+      let prevX = trail.targetX;
+      let prevY = trail.targetY;
       for (let i = 0; i < dots.length; i++) {
-        const prev =
-          i === 0 ? { x: trail.targetX, y: trail.targetY } : dots[i - 1];
         const cur = dots[i];
         const k = 0.25;
-        cur.x += (prev.x - cur.x) * k;
-        cur.y += (prev.y - cur.y) * k;
+        cur.x += (prevX - cur.x) * k;
+        cur.y += (prevY - cur.y) * k;
         cur.o += (1 - i / dots.length - cur.o) * 0.15;
 
         cur.el.style.transform = `translate3d(${cur.x}px, ${cur.y}px, 0) translate(-50%, -50%)`;
         cur.el.style.opacity = String(Math.max(0, Math.min(1, cur.o)));
+
+        prevX = cur.x;
+        prevY = cur.y;
       }
 
       const fade = dt / decay;

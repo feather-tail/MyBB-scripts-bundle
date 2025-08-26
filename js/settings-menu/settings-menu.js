@@ -125,7 +125,7 @@
 
     mountSection(list, cfg);
 
-    return list;
+    return { section: secEl, list };
   }
 
   function buildMenu() {
@@ -139,8 +139,8 @@
     const frag = document.createDocumentFragment();
 
     sections.forEach((section) => {
-      const list = createSection(section);
-      frag.append(list.parentNode);
+      const { section: sectionEl, list } = createSection(section);
+      frag.append(sectionEl);
       if (section.id) {
         sectionsById[section.id] = list;
         if (sectionCallbacks[section.id]) {
@@ -175,8 +175,8 @@
     let firstList;
     const frag = document.createDocumentFragment();
     sections.forEach((section) => {
-      const list = createSection(section);
-      frag.append(list.parentNode);
+      const { section: sectionEl, list } = createSection(section);
+      frag.append(sectionEl);
       if (section.id) {
         sectionsById[section.id] = list;
         if (sectionCallbacks[section.id]) {

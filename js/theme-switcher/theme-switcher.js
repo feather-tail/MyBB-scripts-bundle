@@ -10,12 +10,17 @@
   const themeClasses = config.themes.length
     ? config.themes.map((t) => t.class)
     : [];
+  let currentTheme;
 
   function applyTheme(theme) {
+    if (theme === currentTheme) {
+      return;
+    }
     document.documentElement.classList.remove(...themeClasses);
     document.documentElement.classList.add(theme);
     document.dispatchEvent(new CustomEvent('themechange', { detail: theme }));
     localStorage.setItem(config.storageKey, theme);
+    currentTheme = theme;
   }
 
   function renderThemeSwitcher(container) {
