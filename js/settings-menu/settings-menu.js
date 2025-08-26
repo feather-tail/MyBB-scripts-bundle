@@ -10,9 +10,9 @@
   let toggle;
 
   function closeMenu() {
-    menu.classList.remove('open');
-    overlay.classList.remove('show');
-    document.removeEventListener('keydown', handleKeydown);
+    if (menu.classList.contains('open')) {
+      toggleMenu();
+    }
   }
 
   function handleKeydown(e) {
@@ -20,16 +20,19 @@
   }
 
   function openMenu() {
-    menu.classList.add('open');
-    overlay.classList.add('show');
-    document.addEventListener('keydown', handleKeydown);
+    if (!menu.classList.contains('open')) {
+      toggleMenu();
+    }
   }
 
   function toggleMenu() {
-    if (menu.classList.contains('open')) {
-      closeMenu();
+    const isOpen = menu.classList.toggle('open');
+    toggle.setAttribute('aria-expanded', isOpen);
+    overlay.classList.toggle('show', isOpen);
+    if (isOpen) {
+      document.addEventListener('keydown', handleKeydown);
     } else {
-      openMenu();
+      document.removeEventListener('keydown', handleKeydown);
     }
   }
 
@@ -58,6 +61,7 @@
       className: 'settings-menu__toggle',
       type: 'button',
       'aria-label': config.texts.open,
+      'aria-expanded': 'false',
     });
     for (let i = 0; i < 3; i++) {
       toggle.append(createEl('span'));
