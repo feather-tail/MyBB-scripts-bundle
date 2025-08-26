@@ -578,8 +578,13 @@
         open: 'Меню',
       },
       sections: {
+        cursors: {
+          title: 'Курсоры',
+          mount: 'cursorManager:init',
+        },
         themes: {
-          title: 'Тема',
+          title: 'Темы',
+          mount: 'themeSwitcher:initSection',
         },
         links: {
           title: 'Полезные ссылки',
@@ -592,9 +597,6 @@
               rel: 'noopener noreferrer',
             },
           ],
-        },
-        cursors: {
-          title: 'Курсоры',
         },
       },
     },

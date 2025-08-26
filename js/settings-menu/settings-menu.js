@@ -63,20 +63,28 @@
   }
 
   function mountSection(list, cfg) {
-    if (cfg.script !== undefined) {
-      if (typeof cfg.script === 'string') {
-        window.scripts?.[cfg.script]?.init?.(list);
-      } else if (typeof cfg.script === 'function') {
-        cfg.script(list, api);
-      }
-    } else if (cfg.mount !== undefined) {
-      if (typeof cfg.mount === 'string') {
-        const [script, method = 'init'] = cfg.mount.split(':');
-        window.scripts?.[script]?.[method]?.(list, api);
-      } else if (typeof cfg.mount === 'function') {
-        cfg.mount(list, api);
-      }
+    const { mount } = cfg;
+    if (mount === undefined) return;
+    if (typeof mount === 'string') {
+      const [script, method = 'init'] = mount.split(':');
+      window.scripts?.[script]?.[method]?.(list, api);
+    } else if (typeof mount === 'function') {
+      mount(list, api);
     }
+  }
+
+  function createSection(cfg) {
+    const secEl = createEl('div', { className: 'settings-menu__section' });
+    if (cfg.id) secEl.id = cfg.id;
+    if (cfg.title) secEl.append(createEl('h3', { text: cfg.title }));
+
+    const list = createEl('ul');
+    (cfg.items || []).forEach((item) => list.append(renderItem(item)));
+    secEl.append(list);
+
+    mountSection(list, cfg);
+
+    return list;
   }
 
   function buildMenu() {
@@ -99,17 +107,8 @@
     }
 
     sections.forEach((section) => {
-      const secEl = createEl('div', { className: 'settings-menu__section' });
-      if (section.id) secEl.id = section.id;
-      if (section.title) secEl.append(createEl('h3', { text: section.title }));
-
-      const list = createEl('ul');
-      (section.items || []).forEach((item) => list.append(renderItem(item)));
-      secEl.append(list);
-
-      mountSection(list, section);
-
-      menu.append(secEl);
+      const list = createSection(section);
+      menu.append(list.parentNode);
       if (section.id) {
         sectionsById[section.id] = list;
         if (sectionCallbacks[section.id]) {
@@ -138,17 +137,8 @@
   }
 
   function addSection(cfg) {
-    const secEl = createEl('div', { className: 'settings-menu__section' });
-    if (cfg.id) secEl.id = cfg.id;
-    if (cfg.title) secEl.append(createEl('h3', { text: cfg.title }));
-
-    const list = createEl('ul');
-    (cfg.items || []).forEach((item) => list.append(renderItem(item)));
-    secEl.append(list);
-
-    mountSection(list, cfg);
-
-    menu.append(secEl);
+    const list = createSection(cfg);
+    menu.append(list.parentNode);
     if (cfg.id) {
       sectionsById[cfg.id] = list;
       if (sectionCallbacks[cfg.id]) {
