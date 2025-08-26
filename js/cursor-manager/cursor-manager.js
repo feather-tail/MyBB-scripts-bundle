@@ -4,7 +4,7 @@
   const helpers = window.helpers;
   const { createEl, $$ } = helpers;
   const config = helpers.getConfig('cursorManager', {
-    containerSelector: '#pun-crumbs1',
+    containerSelector: 'body',
     storageKey: 'selectedCursor',
     respectReducedMotion: true,
     cursors: [],
@@ -213,7 +213,16 @@
     });
 
     wrapper.append(list);
-    container.append(wrapper);
+    const menuList = document.querySelector(
+      '#settings-menu .settings-menu__section h3:textContent("Курсоры") + ul',
+    );
+    if (menuList) {
+      menuList.innerHTML = '';
+      menuList.append(...list.children);
+      wrapper.remove();
+    } else {
+      container.append(wrapper);
+    }
   }
 
   helpers.runOnceOnReady(init);

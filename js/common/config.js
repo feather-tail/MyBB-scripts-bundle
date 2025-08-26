@@ -262,7 +262,7 @@
       resetTimeout: 1200,
     },
     cursorManager: {
-      containerSelector: '#pun-crumbs1',
+      containerSelector: 'body',
       storageKey: 'selectedCursor',
       respectReducedMotion: true,
       cursors: [

@@ -98,6 +98,9 @@
     });
 
     buildMenu();
+    const cursorSection = menu.querySelector(
+      '.settings-menu__section h3:textContent("Курсоры") + ul',
+    );
     initialized = true;
 
     if (helpers.register) {
