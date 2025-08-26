@@ -288,7 +288,7 @@
         {
           id: 'dagger',
           title: 'Кинжал',
-          url: 'https://i.imgur.com/0kQv0sX.png',
+          url: 'https://upforme.ru/uploads/001c/89/3b/2/407488.png',
           x: 3,
           y: 1,
           fallback: 'default',
