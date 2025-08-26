@@ -1,12 +1,9 @@
 (() => {
   'use strict';
 
-  const helpers = window.helpers;
-  const { createEl } = helpers;
-  const config = helpers.getConfig('settingsMenu', {
-    texts: { open: 'Меню' },
-    sections: [],
-  });
+  let helpers;
+  let createEl;
+  let config;
 
   let menu;
   let overlay;
@@ -58,9 +55,38 @@
   }
 
   function init() {
+    helpers = window.helpers;
+    ({ createEl } = helpers);
+    config = helpers.getConfig('settingsMenu', {
+      texts: { open: 'Меню' },
+      sections: [],
+    });
+
     buildMenu();
+
+    if (helpers.register) {
+      helpers.register('settingsMenu', {
+        init,
+        open: openMenu,
+        close: closeMenu,
+      });
+    }
   }
 
-  helpers.runOnceOnReady(init);
-  helpers.register('settingsMenu', { init, open: openMenu, close: closeMenu });
+  function bootstrap() {
+    const helpers = window.helpers;
+    if (helpers) {
+      if (helpers.runOnceOnReady) {
+        helpers.runOnceOnReady(init);
+      } else if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+      } else {
+        init();
+      }
+    } else {
+      setTimeout(bootstrap, 25);
+    }
+  }
+
+  bootstrap();
 })();
