@@ -270,9 +270,9 @@
         { id: 'pointer', title: 'Указатель', value: 'pointer' },
         { id: 'cross', title: 'Крест', value: 'crosshair' },
         {
-          id: 'pen',
-          title: 'Перо',
-          url: 'https://i.imgur.com/6fczs8k.png',
+          id: 'red',
+          title: 'Красный',
+          url: 'https://upforme.ru/uploads/001c/89/3b/2/407488.png',
           x: 2,
           y: 2,
           fallback: 'auto',
