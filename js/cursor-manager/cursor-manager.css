@@ -1,0 +1,24 @@
+.cursor-manager {
+  margin-top: 4px;
+}
+
+.cursor-manager ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.cursor-manager li {
+  width: 24px;
+  height: 24px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background: #fff;
+}
+
+.cursor-manager li.active {
+  outline: 2px solid #007bff;
+}

@@ -261,6 +261,15 @@
       doneText: 'Скопировано',
       resetTimeout: 1200,
     },
+    cursorManager: {
+      containerSelector: '#pun-crumbs1',
+      storageKey: 'selectedCursor',
+      cursors: [
+        { id: 'auto', title: 'Стандартный', value: 'auto' },
+        { id: 'pointer', title: 'Указатель', value: 'pointer' },
+        { id: 'crosshair', title: 'Крест', value: 'crosshair' },
+      ],
+    },
     defaultAvatars: {
       DEFAULT_AVATAR: 'https://upforme.ru/uploads/001c/73/bf/2/862383.jpg',
       avatarByRole: {
