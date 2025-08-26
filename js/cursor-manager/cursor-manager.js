@@ -50,7 +50,9 @@
   function disableTrail() {
     document.documentElement.classList.remove('cursor-none');
     if (trail.moveHandler) {
-      window.removeEventListener('mousemove', trail.moveHandler);
+      window.removeEventListener('mousemove', trail.moveHandler, {
+        passive: true,
+      });
       trail.moveHandler = null;
     }
     if (trail.rafId) {
@@ -116,7 +118,7 @@
       trail.targetY = e.clientY;
       if (dots[0]) dots[0].o = 1;
     };
-    window.addEventListener('mousemove', trail.moveHandler);
+    window.addEventListener('mousemove', trail.moveHandler, { passive: true });
 
     let last = performance.now();
     const tick = (t) => {
@@ -132,7 +134,7 @@
         cur.y += (prev.y - cur.y) * k;
         cur.o += (1 - i / dots.length - cur.o) * 0.15;
 
-        cur.el.style.transform = `translate(${cur.x}px, ${cur.y}px) translate(-50%, -50%)`;
+        cur.el.style.transform = `translate3d(${cur.x}px, ${cur.y}px, 0) translate(-50%, -50%)`;
         cur.el.style.opacity = String(Math.max(0, Math.min(1, cur.o)));
       }
 
@@ -185,6 +187,8 @@
     const saved = loadSaved();
     ul.textContent = '';
 
+    const frag = document.createDocumentFragment();
+
     config.cursors.forEach((cur) => {
       const li = createEl('li', { title: cur.title, dataset: { id: cur.id } });
 
@@ -204,8 +208,10 @@
       if (match) li.classList.add('active');
 
       li.addEventListener('click', () => selectCursor(cur, li, ul));
-      ul.append(li);
+      frag.append(li);
     });
+
+    ul.append(frag);
   }
 
   function init() {

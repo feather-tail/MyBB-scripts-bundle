@@ -4,17 +4,18 @@
   const helpers = window.helpers;
   const { $$ } = helpers;
   const config = helpers.getConfig('themeSwitcher', {});
+  const themeClasses = config.themes.map((t) => t.class);
 
   function applyTheme(theme) {
-    document.documentElement.classList.remove(
-      ...config.themes.map((t) => t.class),
-    );
+    document.documentElement.classList.remove(...themeClasses);
     document.documentElement.classList.add(theme);
+    document.dispatchEvent(new CustomEvent('themechange', { detail: theme }));
     localStorage.setItem(config.storageKey, theme);
   }
 
   function renderThemeSwitcher(container) {
     container.textContent = '';
+    const fragment = document.createDocumentFragment();
     config.themes.forEach((t) => {
       const li = document.createElement('li');
       li.title = t.title;
@@ -34,8 +35,9 @@
 
       span.append(input, label);
       li.append(span);
-      container.append(li);
+      fragment.appendChild(li);
     });
+    container.appendChild(fragment);
   }
 
   function restoreTheme(container) {

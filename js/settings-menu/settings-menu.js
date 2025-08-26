@@ -11,12 +11,12 @@
   let sectionsById;
   let sectionCallbacks;
   let pendingMounts;
+  let itemCallbacks;
+  let itemId;
   let api;
 
   function closeMenu() {
-    if (menu.classList.contains('open')) {
-      toggleMenu();
-    }
+    toggleMenu(false);
   }
 
   function handleKeydown(e) {
@@ -29,8 +29,18 @@
     }
   }
 
-  function toggleMenu() {
-    const isOpen = menu.classList.toggle('open');
+  function openMenu() {
+    toggleMenu(true);
+  }
+
+  function toggleMenu(forceState) {
+    let isOpen;
+    if (typeof forceState === 'boolean') {
+      menu.classList.toggle('open', forceState);
+      isOpen = forceState;
+    } else {
+      isOpen = menu.classList.toggle('open');
+    }
     toggle.setAttribute('aria-expanded', isOpen);
     overlay.classList.toggle('show', isOpen);
     if (isOpen) {
@@ -133,9 +143,11 @@
 
     const sections = parseSections(config.sections);
 
+    const frag = document.createDocumentFragment();
+
     sections.forEach((section) => {
       const list = createSection(section);
-      menu.append(list.parentNode);
+      frag.append(list.parentNode);
       if (section.id) {
         sectionsById[section.id] = list;
         if (sectionCallbacks[section.id]) {
@@ -144,6 +156,8 @@
         }
       }
     });
+
+    menu.append(frag);
 
     overlay = createEl('div', { className: 'settings-menu__overlay' });
     toggle = createEl('button', {
@@ -166,9 +180,10 @@
   function addSection(cfg) {
     const sections = parseSections(cfg);
     let firstList;
+    const frag = document.createDocumentFragment();
     sections.forEach((section) => {
       const list = createSection(section);
-      menu.append(list.parentNode);
+      frag.append(list.parentNode);
       if (section.id) {
         sectionsById[section.id] = list;
         if (sectionCallbacks[section.id]) {
@@ -178,6 +193,7 @@
       }
       if (!firstList) firstList = list;
     });
+    menu.append(frag);
     return firstList;
   }
 
