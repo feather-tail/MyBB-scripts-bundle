@@ -530,6 +530,21 @@
       },
       edgeOffset: 80,
     },
+    settingsMenu: {
+      texts: {
+        open: 'Меню',
+      },
+      sections: [
+        {
+          title: 'Тема',
+          items: ['Светлая тема', 'Средняя тема', 'Тёмная тема', 'Ещё темнее'],
+        },
+        { title: 'Полезные ссылки', items: [] },
+        { title: 'Закладки', items: [] },
+        { title: 'Чёрный список', items: [] },
+        { title: 'Курсор', items: [] },
+      ],
+    },
     stickerPack: {
       dataUrl: 'https://forumstatic.ru/files/001c/73/bf/62093.txt?v=4',
       buttonAfterId: 'button-smile',
