@@ -8,6 +8,7 @@
   let menu;
   let overlay;
   let toggle;
+  let cursorSection;
 
   function closeMenu() {
     if (menu.classList.contains('open')) {
@@ -98,7 +99,7 @@
     });
 
     buildMenu();
-    const cursorSection = menu.querySelector(
+    cursorSection = menu.querySelector(
       '.settings-menu__section h3:textContent("Курсоры") + ul',
     );
     initialized = true;
@@ -108,6 +109,7 @@
         init,
         open: openMenu,
         close: closeMenu,
+        getCursorSection: () => cursorSection,
       });
     }
   }
