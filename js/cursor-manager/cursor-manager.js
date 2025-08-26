@@ -66,6 +66,11 @@
     }
   }
 
+  function safeNum(v, min, max, def) {
+    const n = Number(v);
+    return Number.isFinite(n) ? Math.max(min, Math.min(max, n)) : def;
+  }
+
   function enableTrail(opts) {
     if (
       config.respectReducedMotion &&
@@ -84,11 +89,6 @@
       style: `color:${(opts && opts.color) || 'rgba(0,0,0,.7)'}`,
     });
     document.body.append(layer);
-
-    const safeNum = (v, min, max, def) => {
-      const n = Number(v);
-      return Number.isFinite(n) ? Math.max(min, Math.min(max, n)) : def;
-    };
 
     const count = safeNum(opts && opts.dotCount, 4, 32, 10);
     const size = safeNum(opts && opts.size, 4, 32, 10);

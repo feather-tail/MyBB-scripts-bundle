@@ -11,8 +11,6 @@
   let sectionsById;
   let sectionCallbacks;
   let pendingMounts;
-  let itemCallbacks;
-  let itemId;
   let api;
 
   function closeMenu() {
@@ -23,14 +21,8 @@
     if (e.key === 'Escape') closeMenu();
   }
 
-  function openMenu() {
-    if (!menu.classList.contains('open')) {
-      toggleMenu();
-    }
-  }
-
-  function openMenu() {
-    toggleMenu(true);
+  function openMenu(forceState) {
+    toggleMenu(typeof forceState === 'boolean' ? forceState : true);
   }
 
   function toggleMenu(forceState) {
@@ -53,12 +45,13 @@
   function renderItem(item) {
     const li = createEl('li');
     if (item.href) {
+      const target =
+        item.target || (item.href.startsWith('http') ? '_blank' : null);
       const a = createEl('a', {
         href: item.href,
         text: item.text || item.href,
-        target: item.target || (item.href.startsWith('http') ? '_blank' : null),
-        rel:
-          item.rel || (item.target === '_blank' ? 'noopener noreferrer' : null),
+        target: target,
+        rel: item.rel || (target === '_blank' ? 'noopener noreferrer' : null),
         'aria-label': item.ariaLabel || item.text || 'Ссылка',
       });
       a.addEventListener('click', (e) => {

@@ -3,8 +3,13 @@
 
   const helpers = window.helpers;
   const { $$ } = helpers;
-  const config = helpers.getConfig('themeSwitcher', {});
-  const themeClasses = config.themes.map((t) => t.class);
+  const config = helpers.getConfig('themeSwitcher', {
+    themes: [],
+    storageKey: 'theme',
+  });
+  const themeClasses = config.themes.length
+    ? config.themes.map((t) => t.class)
+    : [];
 
   function applyTheme(theme) {
     document.documentElement.classList.remove(...themeClasses);
@@ -41,6 +46,7 @@
   }
 
   function restoreTheme(container) {
+    if (!config.themes.length) return;
     const saved =
       localStorage.getItem(config.storageKey) || config.themes[0].class;
     applyTheme(saved);
@@ -50,17 +56,22 @@
   }
 
   function initSection(ul) {
+    if (!config.themes.length) return;
     renderThemeSwitcher(ul);
     restoreTheme(ul);
 
-    ul.addEventListener('change', (e) => {
-      if (e.target.name === 'switcher') {
-        applyTheme(e.target.value);
-      }
-    });
+    if (!ul.dataset.bound) {
+      ul.addEventListener('change', (e) => {
+        if (e.target.name === 'switcher') {
+          applyTheme(e.target.value);
+        }
+      });
+      ul.dataset.bound = '1';
+    }
   }
 
   helpers.runOnceOnReady(() => {
+    if (!config.themes.length) return;
     const saved =
       localStorage.getItem(config.storageKey) || config.themes[0].class;
     applyTheme(saved);
