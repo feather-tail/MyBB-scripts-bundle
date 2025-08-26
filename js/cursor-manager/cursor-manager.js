@@ -28,11 +28,11 @@
     try {
       const obj = JSON.parse(raw);
       if (obj && (obj.value || obj.url || obj.type)) return obj;
-    } catch (_) {
-      return { id: 'custom', title: 'Custom', value: raw };
-    }
+    } catch (_) {}
+    localStorage.removeItem(config.storageKey);
     return null;
   }
+
   function save(c) {
     localStorage.setItem(config.storageKey, JSON.stringify(c));
   }
@@ -79,15 +79,20 @@
 
     const layer = createEl('div', {
       className: 'cursor-trail-layer',
-      style: `color:${opts.color || 'rgba(0,0,0,.7)'}`,
+      style: `color:${(opts && opts.color) || 'rgba(0,0,0,.7)'}`,
     });
     document.body.append(layer);
 
-    const count = Math.max(4, Math.min(32, opts.dotCount ?? 10));
-    const size = Math.max(4, Math.min(32, opts.size ?? 10));
-    const decay = Math.max(200, Math.min(2000, opts.decayMs ?? 500));
+    const safeNum = (v, min, max, def) => {
+      const n = Number(v);
+      return Number.isFinite(n) ? Math.max(min, Math.min(max, n)) : def;
+    };
 
-    const dots = Array.from({ length: count }).map(() => {
+    const count = safeNum(opts && opts.dotCount, 4, 32, 10);
+    const size = safeNum(opts && opts.size, 4, 32, 10);
+    const decay = safeNum(opts && opts.decayMs, 200, 2000, 500);
+
+    const dots = Array.from({ length: count }, () => {
       const d = createEl('div', { className: 'cursor-dot' });
       d.style.width = `${size}px`;
       d.style.height = `${size}px`;
@@ -103,7 +108,7 @@
       rafId: 0,
       targetX: 0,
       targetY: 0,
-      opts,
+      opts: { ...(opts || {}), dotCount: count, size, decayMs: decay },
     };
 
     trail.moveHandler = (e) => {
@@ -165,6 +170,15 @@
     }
   }
 
+  function setById(id) {
+    const cur = config.cursors.find((c) => c.id === id);
+    if (cur) selectCursor(cur);
+  }
+
+  function clearCursor() {
+    selectCursor({ value: 'auto', id: 'auto' });
+  }
+
   function init() {
     const saved = loadSaved();
     if (saved) applyCursor(saved);
@@ -200,19 +214,8 @@
 
     wrapper.append(list);
     container.append(wrapper);
-
-    helpers.register('cursorManager', {
-      init,
-      setById: (id) => {
-        const cur = config.cursors.find((c) => c.id === id);
-        if (cur) selectCursor(cur);
-      },
-      clearCursor: () => {
-        selectCursor({ value: 'auto', id: 'auto' });
-      },
-    });
   }
 
   helpers.runOnceOnReady(init);
-  helpers.register('cursorManager', { init });
+  helpers.register('cursorManager', { init, setById, clearCursor });
 })();
