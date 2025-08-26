@@ -1,8 +1,9 @@
 (() => {
   'use strict';
-  const helpers = window.helpers;
-  const { initTabs, runOnceOnReady } = helpers;
+  let helpers;
+
   function init() {
+    const { initTabs } = helpers;
     const containers = new Set();
     document.querySelectorAll('.modal__tabs').forEach((tabs) => {
       const container = tabs.parentElement;
@@ -22,6 +23,24 @@
       }),
     );
   }
-  runOnceOnReady(init);
-  helpers.register('autoTabs', { init });
+
+  function bootstrap() {
+    helpers = window.helpers;
+    if (helpers) {
+      if (helpers.runOnceOnReady) {
+        helpers.runOnceOnReady(init);
+      } else if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+      } else {
+        init();
+      }
+      if (helpers.register) {
+        helpers.register('autoTabs', { init });
+      }
+    } else {
+      setTimeout(bootstrap, 25);
+    }
+  }
+
+  bootstrap();
 })();

@@ -47,11 +47,15 @@
 
   function restoreTheme(container) {
     if (!config.themes.length) return;
-    const saved =
-      localStorage.getItem(config.storageKey) || config.themes[0].class;
-    applyTheme(saved);
+    const saved = localStorage.getItem(config.storageKey);
+    const exists = config.themes.some((t) => t.class === saved);
+    const theme = exists ? saved : config.themes[0].class;
+    if (!exists) {
+      localStorage.setItem(config.storageKey, theme);
+    }
+    applyTheme(theme);
     $$("input[name='switcher']", container).forEach(
-      (r) => (r.checked = r.value === saved),
+      (r) => (r.checked = r.value === theme),
     );
   }
 

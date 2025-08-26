@@ -50,9 +50,7 @@
   function disableTrail() {
     document.documentElement.classList.remove('cursor-none');
     if (trail.moveHandler) {
-      window.removeEventListener('mousemove', trail.moveHandler, {
-        passive: true,
-      });
+      window.removeEventListener('mousemove', trail.moveHandler);
       trail.moveHandler = null;
     }
     if (trail.rafId) {
