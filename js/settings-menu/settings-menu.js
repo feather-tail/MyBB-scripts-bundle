@@ -65,7 +65,16 @@
     menu = createEl('nav', { id: 'settings-menu', className: 'settings-menu' });
     sectionsById = Object.create(null);
 
-    (config.sections || []).forEach((section) => {
+    let sections = config.sections || [];
+    if (!Array.isArray(sections)) {
+      sections = Object.entries(sections).map(([key, cfg]) => {
+        const sec = { ...(cfg || {}) };
+        if (!sec.id) sec.id = key;
+        return sec;
+      });
+    }
+
+    sections.forEach((section) => {
       const secEl = createEl('div', { className: 'settings-menu__section' });
       if (section.id) secEl.id = section.id;
       if (section.title) secEl.append(createEl('h3', { text: section.title }));
@@ -121,7 +130,7 @@
     ({ createEl } = helpers);
     config = helpers.getConfig('settingsMenu', {
       texts: { open: 'Меню' },
-      sections: [],
+      sections: {},
     });
 
     buildMenu();

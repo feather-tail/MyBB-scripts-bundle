@@ -577,17 +577,11 @@
       texts: {
         open: 'Меню',
       },
-      sections: [
-        {
+      sections: {
+        themes: {
           title: 'Тема',
-          items: [
-            { text: 'Светлая тема' },
-            { text: 'Средняя тема' },
-            { text: 'Тёмная тема' },
-            { text: 'Ещё темнее' },
-          ],
         },
-        {
+        links: {
           title: 'Полезные ссылки',
           items: [
             { text: 'Правила форума', href: '/viewtopic.php?id=1' },
@@ -599,43 +593,10 @@
             },
           ],
         },
-        {
+        cursors: {
           title: 'Курсоры',
-          items: [
-            {
-              text: 'Стандартный',
-              onClick: () => window.settingsMenu?.clearCursor?.(),
-            },
-            {
-              text: 'Перо',
-              onClick: () =>
-                window.settingsMenu?.setCursor?.({
-                  url: 'https://i.imgur.com/6fczs8k.png',
-                  x: 2,
-                  y: 2,
-                }),
-            },
-            {
-              text: 'Кошачья лапка',
-              onClick: () =>
-                window.settingsMenu?.setCursor?.({
-                  url: 'https://i.imgur.com/9q1dD92.png',
-                  x: 6,
-                  y: 2,
-                }),
-            },
-            {
-              text: 'Кинжал',
-              onClick: () =>
-                window.settingsMenu?.setCursor?.({
-                  url: 'https://i.imgur.com/0kQv0sX.png',
-                  x: 3,
-                  y: 1,
-                }),
-            },
-          ],
         },
-      ],
+      },
     },
     stickerPack: {
       dataUrl: 'https://forumstatic.ru/files/001c/73/bf/62093.txt?v=4',
