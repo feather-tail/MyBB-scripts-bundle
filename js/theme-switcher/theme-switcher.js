@@ -49,7 +49,8 @@
   }
 
   function init() {
-    switcherContainer = $('#theme_switcher');
+    switcherContainer =
+      window.settingsMenu?.getSection('themes') || $('#theme_switcher');
     if (!switcherContainer) return;
 
     renderThemeSwitcher();

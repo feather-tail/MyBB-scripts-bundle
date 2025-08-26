@@ -8,7 +8,6 @@
   let menu;
   let overlay;
   let toggle;
-  let cursorSection;
   let sectionsById;
   let api;
 
@@ -126,16 +125,12 @@
     });
 
     buildMenu();
-    cursorSection = menu.querySelector(
-      '.settings-menu__section h3:textContent("Курсоры") + ul',
-    );
     initialized = true;
 
     api = {
       init,
       open: openMenu,
       close: closeMenu,
-      getCursorSection: () => cursorSection,
       getSection,
       addSection,
       addItems,
