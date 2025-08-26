@@ -128,6 +128,20 @@
   cursor: pointer;
 }
 
+.settings-menu__section li a {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+  padding: 8px 10px;
+  border-radius: 4px;
+}
+.settings-menu__section li a:hover {
+  background: #f9f9f9;
+}
+.settings-menu__section li a:active {
+  background: #e5e5e5;
+}
+
 .settings-menu__section li:hover {
   background: #f9f9f9;
 }

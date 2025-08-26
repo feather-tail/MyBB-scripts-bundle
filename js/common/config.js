@@ -544,8 +544,54 @@
             { text: 'Ещё темнее' },
           ],
         },
-        { title: 'Полезные ссылки', items: [] },
-        { title: 'Курсор', items: [] },
+        {
+          title: 'Полезные ссылки',
+          items: [
+            { text: 'Правила форума', href: '/viewtopic.php?id=1' },
+            {
+              text: 'BBCode справка',
+              href: 'https://bbcode.org/reference.php',
+              target: '_blank',
+              rel: 'noopener noreferrer',
+            },
+          ],
+        },
+        {
+          title: 'Курсоры',
+          items: [
+            {
+              text: 'Стандартный',
+              onClick: () => window.settingsMenu?.clearCursor?.(),
+            },
+            {
+              text: 'Перо',
+              onClick: () =>
+                window.settingsMenu?.setCursor?.({
+                  url: 'https://i.imgur.com/6fczs8k.png',
+                  x: 2,
+                  y: 2,
+                }),
+            },
+            {
+              text: 'Кошачья лапка',
+              onClick: () =>
+                window.settingsMenu?.setCursor?.({
+                  url: 'https://i.imgur.com/9q1dD92.png',
+                  x: 6,
+                  y: 2,
+                }),
+            },
+            {
+              text: 'Кинжал',
+              onClick: () =>
+                window.settingsMenu?.setCursor?.({
+                  url: 'https://i.imgur.com/0kQv0sX.png',
+                  x: 3,
+                  y: 1,
+                }),
+            },
+          ],
+        },
       ],
     },
     stickerPack: {
