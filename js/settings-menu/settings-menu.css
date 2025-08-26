@@ -12,7 +12,7 @@
   transform: translateX(-104%);
   transition: transform 0.28s ease;
   z-index: 1550;
-  padding: 16px 14px 20px;
+  padding: 60px 14px 20px;
   box-sizing: border-box;
   overflow-y: auto;
   font: 14px/1.45 system-ui, -apple-system, 'Segoe UI', Roboto, Arial,

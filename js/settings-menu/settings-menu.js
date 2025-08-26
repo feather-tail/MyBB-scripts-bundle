@@ -1,10 +1,10 @@
 (() => {
   'use strict';
 
+  let initialized = false;
   let helpers;
   let createEl;
   let config;
-
   let menu;
   let overlay;
   let toggle;
@@ -43,7 +43,11 @@
       }
       const list = createEl('ul');
       (section.items || []).forEach((item) => {
-        list.append(createEl('li', { text: item }));
+        const li = createEl('li', { text: item.text });
+        if (item.onClick) {
+          li.addEventListener('click', item.onClick);
+        }
+        list.append(li);
       });
       secEl.append(list);
       menu.append(secEl);
@@ -63,12 +67,10 @@
 
     toggle.addEventListener('click', toggleMenu);
     overlay.addEventListener('click', closeMenu);
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') closeMenu();
-    });
   }
 
   function init() {
+    if (initialized) return;
     helpers = window.helpers;
     ({ createEl } = helpers);
     config = helpers.getConfig('settingsMenu', {
@@ -77,6 +79,7 @@
     });
 
     buildMenu();
+    initialized = true;
 
     if (helpers.register) {
       helpers.register('settingsMenu', {
