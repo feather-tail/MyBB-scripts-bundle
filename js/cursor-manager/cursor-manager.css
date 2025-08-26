@@ -1,7 +1,6 @@
 .cursor-manager {
   margin-top: 4px;
 }
-
 .cursor-manager ul {
   list-style: none;
   margin: 0;
@@ -10,7 +9,6 @@
   flex-wrap: wrap;
   gap: 4px;
 }
-
 .cursor-manager li {
   width: 24px;
   height: 24px;
@@ -18,7 +16,40 @@
   border-radius: 4px;
   background: #fff;
 }
-
 .cursor-manager li.active {
   outline: 2px solid #007bff;
+}
+
+.cursor-manager li.is-trail {
+  position: relative;
+  display: grid;
+  place-items: center;
+  font-size: 0;
+}
+.cursor-manager li.is-trail .trail-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #007bff;
+  box-shadow: 8px 0 0 rgba(0, 123, 255, 0.6), 14px 0 0 rgba(0, 123, 255, 0.3);
+}
+
+html.cursor-none,
+html.cursor-none * {
+  cursor: none !important;
+}
+
+.cursor-trail-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+}
+
+.cursor-dot {
+  position: absolute;
+  border-radius: 50%;
+  background: currentColor;
+  transform: translate(-50%, -50%);
+  will-change: transform, opacity;
 }
