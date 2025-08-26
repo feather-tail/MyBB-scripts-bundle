@@ -12,11 +12,25 @@
   function closeMenu() {
     menu.classList.remove('open');
     overlay.classList.remove('show');
+    document.removeEventListener('keydown', handleKeydown);
+  }
+
+  function handleKeydown(e) {
+    if (e.key === 'Escape') closeMenu();
   }
 
   function openMenu() {
     menu.classList.add('open');
     overlay.classList.add('show');
+    document.addEventListener('keydown', handleKeydown);
+  }
+
+  function toggleMenu() {
+    if (menu.classList.contains('open')) {
+      closeMenu();
+    } else {
+      openMenu();
+    }
   }
 
   function buildMenu() {
@@ -47,7 +61,7 @@
 
     document.body.append(toggle, menu, overlay);
 
-    toggle.addEventListener('click', openMenu);
+    toggle.addEventListener('click', toggleMenu);
     overlay.addEventListener('click', closeMenu);
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') closeMenu();
