@@ -62,6 +62,23 @@
     return li;
   }
 
+  function mountSection(list, cfg) {
+    if (cfg.script !== undefined) {
+      if (typeof cfg.script === 'string') {
+        window.scripts?.[cfg.script]?.init?.(list);
+      } else if (typeof cfg.script === 'function') {
+        cfg.script(list, api);
+      }
+    } else if (cfg.mount !== undefined) {
+      if (typeof cfg.mount === 'string') {
+        const [script, method = 'init'] = cfg.mount.split(':');
+        window.scripts?.[script]?.[method]?.(list, api);
+      } else if (typeof cfg.mount === 'function') {
+        cfg.mount(list, api);
+      }
+    }
+  }
+
   function buildMenu() {
     menu = createEl('nav', { id: 'settings-menu', className: 'settings-menu' });
     sectionsById = Object.create(null);
@@ -90,19 +107,7 @@
       (section.items || []).forEach((item) => list.append(renderItem(item)));
       secEl.append(list);
 
-      if (section.script !== undefined) {
-        if (typeof section.script === 'string') {
-          window.scripts?.[section.script]?.init?.(list);
-        } else if (typeof section.script === 'function') {
-          section.script(list, api);
-        }
-      } else if (section.mount !== undefined) {
-        if (typeof section.mount === 'string') {
-          window.scripts?.[section.mount]?.init?.(list);
-        } else if (typeof section.mount === 'function') {
-          section.mount(list, api);
-        }
-      }
+      mountSection(list, section);
 
       menu.append(secEl);
       if (section.id) {
@@ -141,19 +146,7 @@
     (cfg.items || []).forEach((item) => list.append(renderItem(item)));
     secEl.append(list);
 
-    if (cfg.script !== undefined) {
-      if (typeof cfg.script === 'string') {
-        window.scripts?.[cfg.script]?.init?.(list);
-      } else if (typeof cfg.script === 'function') {
-        cfg.script(list, api);
-      }
-    } else if (cfg.mount !== undefined) {
-      if (typeof cfg.mount === 'string') {
-        window.scripts?.[cfg.mount]?.init?.(list);
-      } else if (typeof cfg.mount === 'function') {
-        cfg.mount(list, api);
-      }
-    }
+    mountSection(list, cfg);
 
     menu.append(secEl);
     if (cfg.id) {
