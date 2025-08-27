@@ -20,6 +20,10 @@
   background: #fff;
 }
 
+.cursor-manager li {
+  cursor: pointer;
+}
+
 #settings-menu #cursors li {
   cursor: pointer;
   padding: 0;

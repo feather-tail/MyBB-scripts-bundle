@@ -228,7 +228,8 @@
 
         if (isTrail(cur)) {
           li.classList.add('is-trail');
-          li.innerHTML = '<span class="trail-dot"></span>';
+          const span = createEl('span', { className: 'trail-dot' });
+          li.append(span);
         } else {
           li.style.cursor = toCssCursor(cur);
           const img = createEl('img', {

@@ -20,6 +20,7 @@
     ];
 
     let currentTheme;
+    let switcherCounter = 0;
 
     function applyTheme(theme) {
       if (!theme || theme === currentTheme) return;
@@ -36,9 +37,10 @@
       currentTheme = theme;
     }
 
-    function renderThemeSwitcher(container) {
+    function renderThemeSwitcher(container, prefix) {
       container.textContent = '';
       const fragment = document.createDocumentFragment();
+      const uniquePrefix = prefix || container?.id || `ts${switcherCounter++}`;
 
       config.themes.forEach((t) => {
         const li = document.createElement('li');
@@ -51,11 +53,12 @@
         input.type = 'radio';
         input.name = 'switcher';
         const safeClass = t.class.replace(/[^\w-]/g, '_');
-        input.id = `theme-${safeClass}`;
+        const id = `${uniquePrefix}-theme-${safeClass}`;
+        input.id = id;
         input.value = t.class;
 
         const label = document.createElement('label');
-        label.htmlFor = `theme-${safeClass}`;
+        label.htmlFor = id;
         label.textContent = t.title;
 
         span.append(input, label);
@@ -82,7 +85,7 @@
 
     function initSection(ul) {
       if (!config.themes.length) return;
-      renderThemeSwitcher(ul);
+      renderThemeSwitcher(ul, ul.id);
       restoreTheme(ul);
 
       if (!ul.dataset.bound) {
