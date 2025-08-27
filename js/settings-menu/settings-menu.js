@@ -158,7 +158,12 @@
       'aria-label': config.texts.open,
       'aria-expanded': 'false',
     });
-    for (let i = 0; i < 3; i++) toggle.append(createEl('span'));
+    toggle.append(
+      createEl('i', {
+        className: 'fa-solid fa-bars',
+        'aria-hidden': 'true',
+      }),
+    );
 
     document.body.append(toggle, menu, overlay);
     toggle.addEventListener('click', toggleMenu);

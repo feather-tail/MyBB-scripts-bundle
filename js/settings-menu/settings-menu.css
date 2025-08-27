@@ -83,12 +83,9 @@
   outline-offset: 2px;
 }
 
-.settings-menu__toggle span {
-  display: block;
-  width: 22px;
-  height: 2px;
-  background: #ffffff;
-  border-radius: 2px;
+.settings-menu__toggle i {
+  color: #fff;
+  font-size: 20px;
 }
 
 .settings-menu__section {
@@ -170,9 +167,8 @@
     width: 44px;
     height: 44px;
   }
-  .settings-menu__toggle span {
-    width: 24px;
-    height: 3px;
+  .settings-menu__toggle i {
+    font-size: 22px;
   }
 }
 
