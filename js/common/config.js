@@ -578,10 +578,6 @@
         open: 'Меню',
       },
       sections: {
-        cursors: {
-          title: 'Курсоры',
-          mount: 'cursorManager:initSection',
-        },
         themes: {
           title: 'Темы',
           mount: 'themeSwitcher:initSection',
@@ -597,6 +593,10 @@
               rel: 'noopener noreferrer',
             },
           ],
+        },
+        cursors: {
+          title: 'Курсоры',
+          mount: 'cursorManager:initSection',
         },
       },
     },

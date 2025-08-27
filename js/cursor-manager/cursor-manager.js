@@ -4,11 +4,13 @@
   const helpers = window.helpers;
   const { createEl } = helpers;
   const config = helpers.getConfig('cursorManager', {
-    containerSelector: 'body',
+    insertAfterSelector: '#pun-crumbs1',
     storageKey: 'selectedCursor',
     respectReducedMotion: true,
     cursors: [],
   });
+
+  let mounted = false;
 
   const isTrail = (c) => c && c.type === 'trail';
   const toCssCursor = (c) => {
@@ -187,7 +189,8 @@
   }
 
   function initSection(ul, settingsMenuApi) {
-    if (!ul) return;
+    if (mounted || !ul) return;
+    mounted = true;
 
     const saved = loadSaved();
     ul.textContent = '';
@@ -225,18 +228,18 @@
 
     if (!Array.isArray(config.cursors) || !config.cursors.length) return;
 
-    const container = document.querySelector(config.containerSelector);
-    if (!container) return;
+    const smCfg = helpers.getConfig('settingsMenu', {});
+    if (smCfg?.sections?.cursors?.mount !== undefined) return;
 
-    const menuList = document.querySelector('#settings-menu #cursors ul');
-    if (menuList) {
-      initSection(menuList);
-    } else {
-      const wrapper = createEl('div', { className: 'cursor-manager' });
-      const list = createEl('ul');
-      wrapper.append(list);
-      container.append(wrapper);
-      initSection(list);
+    if (!mounted && config.insertAfterSelector) {
+      const anchor = document.querySelector(config.insertAfterSelector);
+      if (anchor) {
+        const wrapper = createEl('div', { className: 'cursor-manager' });
+        const list = createEl('ul');
+        wrapper.append(list);
+        anchor.insertAdjacentElement('afterend', wrapper);
+        initSection(list);
+      }
     }
   }
 
