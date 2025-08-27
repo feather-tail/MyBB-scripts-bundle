@@ -44,8 +44,14 @@
   function renderItem(item) {
     const li = createEl('li');
     if (item.href) {
-      const target =
-        item.target || (item.href.startsWith('http') ? '_blank' : null);
+      const isExternal = (() => {
+        try {
+          return new URL(item.href, location.href).origin !== location.origin;
+        } catch {
+          return /^https?:\/\//i.test(item.href);
+        }
+      })();
+      const target = item.target || (isExternal ? '_blank' : null);
       const a = createEl('a', {
         href: item.href,
         text: item.text || item.href,

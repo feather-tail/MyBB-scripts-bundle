@@ -15,9 +15,9 @@
       insertAfterSelector: '#pun-crumbs1',
     });
 
-    const themeClasses = config.themes.length
-      ? config.themes.map((t) => t.class)
-      : [];
+    const themeClasses = [
+      ...new Set(config.themes.flatMap((t) => t.class.split(/\s+/))),
+    ];
 
     let currentTheme;
 
@@ -26,7 +26,9 @@
       if (themeClasses.length) {
         document.documentElement.classList.remove(...themeClasses);
       }
-      document.documentElement.classList.add(theme);
+      theme
+        .split(/\s+/)
+        .forEach((c) => document.documentElement.classList.add(c));
       document.dispatchEvent(new CustomEvent('themechange', { detail: theme }));
       try {
         localStorage.setItem(config.storageKey, theme);
