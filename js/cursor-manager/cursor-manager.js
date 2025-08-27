@@ -230,7 +230,7 @@
 
     const menuList = document.querySelector('#settings-menu #cursors ul');
     if (menuList) {
-      initSection(menuList, window.settingsMenu);
+      initSection(menuList);
     } else {
       const wrapper = createEl('div', { className: 'cursor-manager' });
       const list = createEl('ul');

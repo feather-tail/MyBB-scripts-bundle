@@ -26,16 +26,15 @@
   }
 
   function toggleMenu(forceState) {
-    let isOpen;
-    if (typeof forceState === 'boolean') {
-      menu.classList.toggle('open', forceState);
-      isOpen = forceState;
-    } else {
-      isOpen = menu.classList.toggle('open');
-    }
-    toggle.setAttribute('aria-expanded', isOpen);
-    overlay.classList.toggle('show', isOpen);
-    if (isOpen) {
+    const isOpen = menu.classList.contains('open');
+    const shouldOpen = typeof forceState === 'boolean' ? forceState : !isOpen;
+
+    if (isOpen === shouldOpen) return;
+
+    menu.classList.toggle('open', shouldOpen);
+    toggle.setAttribute('aria-expanded', shouldOpen);
+    overlay.classList.toggle('show', shouldOpen);
+    if (shouldOpen) {
       document.addEventListener('keydown', handleKeydown);
     } else {
       document.removeEventListener('keydown', handleKeydown);
