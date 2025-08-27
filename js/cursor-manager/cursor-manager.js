@@ -163,13 +163,16 @@
     }
   }
 
+  function clearActive(els) {
+    els.forEach((el) => el.classList.remove('active'));
+  }
+
   function selectCursor(cur, li, list) {
     applyCursor(cur);
     save(cur);
     if (list) {
-      Array.from(list.children).forEach((el) =>
-        el.classList.toggle('active', el === li),
-      );
+      clearActive(Array.from(list.children));
+      if (li) li.classList.add('active');
     }
   }
 
@@ -180,6 +183,7 @@
 
   function clearCursor() {
     selectCursor({ value: 'auto', id: 'auto' });
+    clearActive(document.querySelectorAll('#settings-menu #cursors li'));
   }
 
   function initSection(ul, settingsMenuApi) {

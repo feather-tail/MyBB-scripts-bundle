@@ -36,11 +36,12 @@
       const input = document.createElement('input');
       input.type = 'radio';
       input.name = 'switcher';
-      input.id = `theme-${t.class}`;
+      const safeClass = t.class.replace(/[^\w-]/g, '_');
+      input.id = `theme-${safeClass}`;
       input.value = t.class;
 
       const label = document.createElement('label');
-      label.htmlFor = `theme-${t.class}`;
+      label.htmlFor = `theme-${safeClass}`;
       label.textContent = t.title;
 
       span.append(input, label);
