@@ -80,9 +80,10 @@
 
   function init() {
     if (!config.themes.length) return;
-    const saved =
-      localStorage.getItem(config.storageKey) || config.themes[0].class;
-    applyTheme(saved);
+    const saved = localStorage.getItem(config.storageKey);
+    const exists = config.themes.some((t) => t.class === saved);
+    const theme = exists ? saved : config.themes[0].class;
+    applyTheme(theme);
 
     const smCfg = helpers.getConfig('settingsMenu', {});
     if (smCfg?.sections?.themes?.mount !== undefined) return;

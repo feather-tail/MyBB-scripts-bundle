@@ -265,7 +265,8 @@
       insertAfterSelector: '#pun-crumbs1',
       storageKey: 'selectedCursor',
       respectReducedMotion: true,
-      defaultCursorImg: '/i/blank.gif',
+      defaultCursorImg:
+        'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"%3E%3Cpolygon points="0,0 0,16 5,11 9,15 11,13 6,8 16,8" fill="black"/%3E%3C/svg%3E',
       cursors: [
         { id: 'auto', title: 'Стандартный', value: 'auto' },
         { id: 'pointer', title: 'Указатель', value: 'pointer' },
@@ -427,24 +428,6 @@
         duplicateAccount: 'Аккаунт с таким логином уже существует!',
         deleteButton: 'X',
       },
-    },
-    imageUploader: {
-      anchorSelector: 'p.areafield.required .resizable-textarea > span',
-      replyTextareaSelector: '#main-reply',
-      defaultHost: 'forum',
-      allowedMimes: ['image/jpeg', 'image/png', 'image/gif', 'image/webp'],
-      maxFilesPerBatch: 20,
-      defaultInsertFormat: 'img',
-      showOnDemand: true,
-      storage: { host: 'rfu:host', fmt: 'rfu:fmt' },
-      forumUpload: {
-        endpoint: '/upload',
-        token: () => window.ForumAPITicket || '',
-        buildUrl: (fname) => helpers.buildForumUploadsURL(fname),
-        headers: () => ({}),
-      },
-      enabledHosts: ['forum', 'imgbb'],
-      imgbb: { key: 'c5697b050c00a5dcdc012ce325afdd35' },
     },
     mutualPR: {
       ALLOWED_GROUPS: [1, 2, 4, 5],
