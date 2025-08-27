@@ -16,6 +16,13 @@
   border-radius: 4px;
   background: #fff;
 }
+.cursor-manager li img,
+#settings-menu #cursors li img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
 .cursor-manager li.active {
   outline: 2px solid #007bff;
 }
@@ -27,6 +34,44 @@
   font-size: 0;
 }
 .cursor-manager li.is-trail .trail-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #007bff;
+  box-shadow: 8px 0 0 rgba(0, 123, 255, 0.6), 14px 0 0 rgba(0, 123, 255, 0.3);
+}
+
+#settings-menu #cursors {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+#settings-menu #cursors li {
+  width: 24px;
+  height: 24px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+  padding: 0;
+}
+
+#settings-menu #cursors li.active {
+  outline: 2px solid #007bff;
+}
+
+#settings-menu #cursors li.is-trail {
+  position: relative;
+  display: grid;
+  place-items: center;
+  font-size: 0;
+}
+
+#settings-menu #cursors li.is-trail .trail-dot {
   width: 6px;
   height: 6px;
   border-radius: 50%;

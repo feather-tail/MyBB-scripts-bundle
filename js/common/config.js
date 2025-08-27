@@ -265,6 +265,7 @@
       insertAfterSelector: '#pun-crumbs1',
       storageKey: 'selectedCursor',
       respectReducedMotion: true,
+      defaultCursorImg: '/i/blank.gif',
       cursors: [
         { id: 'auto', title: 'Стандартный', value: 'auto' },
         { id: 'pointer', title: 'Указатель', value: 'pointer' },

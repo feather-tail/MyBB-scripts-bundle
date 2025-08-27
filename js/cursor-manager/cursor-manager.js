@@ -1,12 +1,15 @@
 (() => {
   'use strict';
 
+  const DEFAULT_CURSOR_IMG = '/i/blank.gif';
+
   const helpers = window.helpers;
   const { createEl } = helpers;
   const config = helpers.getConfig('cursorManager', {
     insertAfterSelector: '#pun-crumbs1',
     storageKey: 'selectedCursor',
     respectReducedMotion: true,
+    defaultCursorImg: DEFAULT_CURSOR_IMG,
     cursors: [],
   });
 
@@ -15,6 +18,8 @@
   }
 
   let mounted = false;
+  const defaultCursorImg =
+    'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"%3E%3Cpolygon points="0,0 0,16 5,11 9,15 11,13 6,8 16,8" fill="black"/%3E%3C/svg%3E';
 
   const isTrail = (c) => c && c.type === 'trail';
   const toCssCursor = (c) => {
@@ -209,6 +214,11 @@
         li.innerHTML = '<span class="trail-dot"></span>';
       } else {
         li.style.cursor = toCssCursor(cur);
+        const img = createEl('img', {
+          src: cur.url || defaultCursorImg,
+          alt: cur.title || '',
+        });
+        li.append(img);
       }
 
       const match =
