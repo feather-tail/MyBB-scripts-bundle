@@ -207,7 +207,9 @@
 
     function clearCursor(list) {
       const targetList = list || listEl;
-      selectCursor({ value: 'auto', id: 'auto' }, null, targetList);
+      const defaultLi =
+        targetList && targetList.querySelector('[data-id="auto"]');
+      selectCursor({ value: 'auto', id: 'auto' }, defaultLi, targetList);
     }
 
     function initSection(ul, settingsMenuApi) {

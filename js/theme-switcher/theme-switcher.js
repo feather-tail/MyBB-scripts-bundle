@@ -51,7 +51,7 @@
 
         const input = document.createElement('input');
         input.type = 'radio';
-        input.name = 'switcher';
+        input.name = uniquePrefix;
         const safeClass = t.class.replace(/[^\w-]/g, '_');
         const id = `${uniquePrefix}-theme-${safeClass}`;
         input.id = id;
@@ -67,10 +67,12 @@
       });
 
       container.appendChild(fragment);
+      return uniquePrefix;
     }
 
-    function restoreTheme(container) {
+    function restoreTheme(container, prefix) {
       if (!config.themes.length) return;
+      const uniquePrefix = prefix || container?.id;
       let saved = null;
       try {
         saved = localStorage.getItem(config.storageKey);
@@ -78,19 +80,19 @@
       const exists = config.themes.some((t) => t.class === saved);
       const theme = exists ? saved : config.themes[0].class;
       applyTheme(theme);
-      $$("input[name='switcher']", container).forEach(
+      $$(`input[name='${uniquePrefix}']`, container).forEach(
         (r) => (r.checked = r.value === theme),
       );
     }
 
     function initSection(ul) {
       if (!config.themes.length) return;
-      renderThemeSwitcher(ul, ul.id);
-      restoreTheme(ul);
+      const uniquePrefix = renderThemeSwitcher(ul, ul.id);
+      restoreTheme(ul, uniquePrefix);
 
       if (!ul.dataset.bound) {
         ul.addEventListener('change', (e) => {
-          if (e.target && e.target.name === 'switcher') {
+          if (e.target && e.target.name === uniquePrefix) {
             applyTheme(e.target.value);
           }
         });
@@ -112,14 +114,17 @@
       const smCfg = helpers.getConfig('settingsMenu', {});
       if (smCfg?.sections?.themes?.mount !== undefined) return;
 
-      const ul = document.createElement('ul');
-      ul.id = 'theme_switcher';
+      let ul = document.getElementById('theme_switcher');
+      if (!ul) {
+        ul = document.createElement('ul');
+        ul.id = 'theme_switcher';
 
-      const target = document.querySelector(config.insertAfterSelector);
-      if (target) {
-        target.insertAdjacentElement('afterend', ul);
-      } else {
-        document.body.appendChild(ul);
+        const target = document.querySelector(config.insertAfterSelector);
+        if (target) {
+          target.insertAdjacentElement('afterend', ul);
+        } else {
+          document.body.appendChild(ul);
+        }
       }
 
       initSection(ul);
