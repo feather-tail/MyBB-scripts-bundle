@@ -262,7 +262,7 @@
       resetTimeout: 1200,
     },
     cursorManager: {
-      containerSelector: 'body',
+      insertAfterSelector: '#pun-crumbs1',
       storageKey: 'selectedCursor',
       respectReducedMotion: true,
       cursors: [
@@ -647,6 +647,7 @@
         { class: 'CLASS_NAME_3', title: 'NAME_3' },
       ],
       storageKey: 'selectedTheme',
+      insertAfterSelector: '#pun-crumbs1',
     },
   };
 })();

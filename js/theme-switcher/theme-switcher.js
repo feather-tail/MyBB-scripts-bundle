@@ -6,6 +6,7 @@
   const config = helpers.getConfig('themeSwitcher', {
     themes: [],
     storageKey: 'theme',
+    insertAfterSelector: '#pun-crumbs1',
   });
   const themeClasses = config.themes.length
     ? config.themes.map((t) => t.class)
@@ -86,8 +87,17 @@
     const smCfg = helpers.getConfig('settingsMenu', {});
     if (smCfg?.sections?.themes?.mount !== undefined) return;
 
-    const el = document.getElementById('theme_switcher');
-    if (el) initSection(el);
+    const ul = document.createElement('ul');
+    ul.id = 'theme_switcher';
+
+    const target = document.querySelector(config.insertAfterSelector);
+    if (target) {
+      target.insertAdjacentElement('afterend', ul);
+    } else {
+      document.body.appendChild(ul);
+    }
+
+    initSection(ul);
   }
 
   helpers.runOnceOnReady(init);

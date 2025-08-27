@@ -10,6 +10,10 @@
     cursors: [],
   });
 
+  if (config.containerSelector && !config.insertAfterSelector) {
+    config.insertAfterSelector = config.containerSelector;
+  }
+
   let mounted = false;
 
   const isTrail = (c) => c && c.type === 'trail';
