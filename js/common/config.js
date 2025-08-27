@@ -574,14 +574,8 @@
       edgeOffset: 80,
     },
     settingsMenu: {
-      texts: {
-        open: 'Меню',
-      },
+      texts: { open: 'Меню' },
       sections: {
-        themes: {
-          title: 'Темы',
-          mount: 'themeSwitcher:initSection',
-        },
         links: {
           title: 'Полезные ссылки',
           items: [
@@ -593,10 +587,6 @@
               rel: 'noopener noreferrer',
             },
           ],
-        },
-        cursors: {
-          title: 'Курсоры',
-          mount: 'cursorManager:initSection',
         },
       },
     },
