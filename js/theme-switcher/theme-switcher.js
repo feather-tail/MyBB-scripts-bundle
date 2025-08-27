@@ -77,12 +77,20 @@
     }
   }
 
-  helpers.runOnceOnReady(() => {
+  function init() {
     if (!config.themes.length) return;
     const saved =
       localStorage.getItem(config.storageKey) || config.themes[0].class;
     applyTheme(saved);
-  });
 
-  helpers.register('themeSwitcher', { initSection });
+    const smCfg = helpers.getConfig('settingsMenu', {});
+    if (smCfg?.sections?.themes?.mount !== undefined) return;
+
+    const el = document.getElementById('theme_switcher');
+    if (el) initSection(el);
+  }
+
+  helpers.runOnceOnReady(init);
+
+  helpers.register('themeSwitcher', { init, initSection });
 })();
