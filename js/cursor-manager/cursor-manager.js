@@ -232,14 +232,21 @@
     if (smCfg?.sections?.cursors?.mount !== undefined) return;
 
     if (!mounted && config.insertAfterSelector) {
-      const anchor = document.querySelector(config.insertAfterSelector);
-      if (anchor) {
-        const wrapper = createEl('div', { className: 'cursor-manager' });
-        const list = createEl('ul');
-        wrapper.append(list);
+      let anchor = document.querySelector(config.insertAfterSelector);
+
+      const wrapper = createEl('div', { className: 'cursor-manager' });
+      const list = createEl('ul');
+      wrapper.append(list);
+
+      if (!anchor) anchor = document.body;
+
+      if (anchor === document.body || anchor === document.documentElement) {
+        anchor.appendChild(wrapper);
+      } else {
         anchor.insertAdjacentElement('afterend', wrapper);
-        initSection(list);
       }
+
+      initSection(list);
     }
   }
 
