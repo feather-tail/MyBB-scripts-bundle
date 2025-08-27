@@ -17,6 +17,7 @@
   }
 
   let mounted = false;
+  let listEl;
 
   const isTrail = (c) => c && c.type === 'trail';
   const toCssCursor = (c) => {
@@ -189,14 +190,15 @@
     if (cur) selectCursor(cur);
   }
 
-  function clearCursor() {
-    selectCursor({ value: 'auto', id: 'auto' });
-    clearActive(document.querySelectorAll('#settings-menu #cursors li'));
+  function clearCursor(list) {
+    const targetList = list || listEl;
+    selectCursor({ value: 'auto', id: 'auto' }, null, targetList);
   }
 
   function initSection(ul, settingsMenuApi) {
     if (mounted || !ul) return;
     mounted = true;
+    listEl = ul;
 
     const saved = loadSaved();
     ul.textContent = '';

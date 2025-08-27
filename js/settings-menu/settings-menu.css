@@ -117,7 +117,6 @@
 }
 
 .settings-menu__section li {
-  padding: 8px 10px;
   border-radius: 4px;
   line-height: 1.35;
   user-select: none;
@@ -131,6 +130,10 @@
   text-decoration: none;
   padding: 8px 10px;
   border-radius: 4px;
+}
+
+.settings-menu__section li:not(:has(a)) {
+  padding: 8px 10px;
 }
 .settings-menu__section li a:hover {
   background: #f9f9f9;
