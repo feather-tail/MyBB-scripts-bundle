@@ -77,6 +77,7 @@
         ? null
         : setInterval(tryRegister, 100);
       tryRegister();
+      return;
     }
     if (!config.toggleInsertAfter) return;
     const wrap = renderToggle();

@@ -162,7 +162,14 @@
   function createSection(cfg) {
     const secEl = createEl('div', { className: 'settings-menu__section' });
     if (cfg.id) secEl.id = cfg.id;
-    if (cfg.title) secEl.append(createEl('h3', { text: cfg.title }));
+    if (cfg.title) {
+      const heading = createEl('h3', { text: cfg.title });
+      heading.addEventListener('click', () => {
+        secEl.classList.toggle('open');
+        updateFocusableCache();
+      });
+      secEl.append(heading);
+    }
 
     const list = createEl('ul');
     (cfg.items || []).forEach((item) => list.append(renderItem(item)));
@@ -183,8 +190,9 @@
 
     const frag = document.createDocumentFragment();
 
-    sections.forEach((section) => {
+    sections.forEach((section, idx) => {
       const { section: sectionEl, list } = createSection(section);
+      if (idx === 0) sectionEl.classList.add('open');
       frag.append(sectionEl);
       if (section.id) {
         sectionsById[section.id] = list;

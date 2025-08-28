@@ -108,12 +108,22 @@
   letter-spacing: 0.03em;
   text-transform: uppercase;
   font-weight: 600;
+  cursor: pointer;
+  user-select: none;
 }
 
 .settings-menu__section ul {
   list-style: none;
   padding: 0;
   margin: 0;
+  display: none;
+  opacity: 0;
+  transition: opacity 0.28s ease;
+}
+
+.settings-menu__section.open ul {
+  display: block;
+  opacity: 1;
 }
 
 .settings-menu__section li {
