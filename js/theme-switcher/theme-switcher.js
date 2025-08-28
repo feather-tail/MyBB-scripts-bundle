@@ -48,10 +48,10 @@
         .filter(Boolean)
         .forEach((c) => document.documentElement.classList.add(c));
       document.dispatchEvent(new CustomEvent('themechange', { detail: theme }));
+      currentTheme = theme;
       try {
         localStorage.setItem(config.storageKey, theme);
       } catch (_) {}
-      currentTheme = theme;
     }
 
     function renderThemeSwitcher(container, prefix) {
@@ -114,7 +114,11 @@
 
       if (!ul.dataset.bound) {
         ul.addEventListener('change', (e) => {
-          if (e.target && e.target.name === uniquePrefix) {
+          if (
+            e.target &&
+            e.target.name === uniquePrefix &&
+            e.target.value !== currentTheme
+          ) {
             applyTheme(e.target.value);
           }
         });

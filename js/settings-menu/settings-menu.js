@@ -9,6 +9,7 @@
   let overlay;
   let toggle;
   let lastFocused;
+  let focusableCache;
   let sectionsById;
   let sectionCallbacks;
   let pendingMounts;
@@ -24,14 +25,10 @@
 
   function handleTabKeydown(e) {
     if (e.key !== 'Tab' || !menu.contains(e.target)) return;
+    if (!focusableCache?.length) return;
 
-    const focusable = menu.querySelectorAll(
-      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
-    );
-    if (!focusable.length) return;
-
-    const first = focusable[0];
-    const last = focusable[focusable.length - 1];
+    const first = focusableCache[0];
+    const last = focusableCache[focusableCache.length - 1];
     if (e.shiftKey) {
       if (document.activeElement === first) {
         e.preventDefault();
@@ -47,6 +44,13 @@
     toggleMenu(typeof forceState === 'boolean' ? forceState : true);
   }
 
+  function updateFocusableCache() {
+    if (!menu) return;
+    focusableCache = menu.querySelectorAll(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+    );
+  }
+
   function toggleMenu(forceState) {
     const isOpen = menu.classList.contains('open');
     const shouldOpen = typeof forceState === 'boolean' ? forceState : !isOpen;
@@ -54,19 +58,18 @@
     if (isOpen === shouldOpen) return;
 
     menu.classList.toggle('open', shouldOpen);
-    toggle.setAttribute('aria-expanded', shouldOpen);
+    toggle.setAttribute('aria-expanded', String(shouldOpen));
     overlay.classList.toggle('show', shouldOpen);
     if (shouldOpen) {
       lastFocused = document.activeElement;
       document.addEventListener('keydown', handleKeydown);
       document.addEventListener('keydown', handleTabKeydown);
-      const focusable = menu.querySelectorAll(
-        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
-      );
-      if (focusable.length) focusable[0].focus();
+      updateFocusableCache();
+      if (focusableCache.length) focusableCache[0].focus();
     } else {
       document.removeEventListener('keydown', handleKeydown);
       document.removeEventListener('keydown', handleTabKeydown);
+      focusableCache = undefined;
       if (lastFocused instanceof HTMLElement) {
         lastFocused.focus();
       } else {
@@ -235,6 +238,7 @@
       if (!firstList) firstList = list;
     });
     menu.append(frag);
+    updateFocusableCache();
     return firstList;
   }
 
@@ -242,6 +246,7 @@
     const list = getSection(id);
     if (!list) return;
     (items || []).forEach((item) => list.append(renderItem(item)));
+    updateFocusableCache();
     return list;
   }
 
