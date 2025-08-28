@@ -66,8 +66,17 @@
   }
 
   function initToggle() {
-    if (SETTINGS_SECTION && window.settingsMenu?.registerSection) {
-      window.settingsMenu.registerSection(SETTINGS_SECTION, initSection);
+    if (SETTINGS_SECTION) {
+      const tryRegister = () => {
+        if (window.settingsMenu?.registerSection) {
+          window.settingsMenu.registerSection(SETTINGS_SECTION, initSection);
+          clearInterval(timer);
+        }
+      };
+      const timer = window.settingsMenu?.registerSection
+        ? null
+        : setInterval(tryRegister, 100);
+      tryRegister();
     }
     if (!config.toggleInsertAfter) return;
     const wrap = renderToggle();
