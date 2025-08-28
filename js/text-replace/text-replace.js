@@ -1,5 +1,7 @@
 (() => {
   'use strict';
+
+  const helpers = window.helpers;
   const config = helpers.getConfig('textReplace', {});
 
   function init() {
