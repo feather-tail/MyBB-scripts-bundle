@@ -4,6 +4,7 @@
   const helpers = window.helpers;
   const { $, $$, createEl, countGraphemes } = helpers;
   const config = helpers.getConfig('postsCharCounter', {});
+
   const ALLOWED_FORUM_IDS = config.allowedForumIds || [2, 3];
   const SELECTORS = {
     posts: '.post:not(.topicpost)',
@@ -14,6 +15,10 @@
   };
   const FLAGS = { stripMaskBBCode: true, ...(config.flags || {}) };
   const ALLOWED_GROUP_IDS = new Set(config.allowedGroupIds || [1, 2, 4]);
+
+  const STORAGE_KEY = config.storageKey || 'postsCharCounterToggle';
+  const TOGGLE_LABEL = config.toggleLabel || 'Счётчик символов в постах';
+  const SETTINGS_SECTION = config.settingsMenuSection || '';
 
   const extractVisibleText = (postEl) => {
     const src = $(SELECTORS.defaultAfter, postEl);
@@ -36,14 +41,26 @@
     return text.replace(/\s+/g, ' ').trim();
   };
 
-  function init() {
-    if (typeof GroupID !== 'undefined' && !ALLOWED_GROUP_IDS.has(+GroupID))
-      return;
-    if (typeof FORUM === 'object' && typeof FORUM.get === 'function') {
-      const fid = +FORUM.get('topic.forum_id');
-      if (!ALLOWED_FORUM_IDS.includes(fid)) return;
+  const isEnabled = () => {
+    try {
+      const v = localStorage.getItem(STORAGE_KEY);
+      return v === null ? true : v !== '0';
+    } catch {
+      return true;
     }
+  };
 
+  const saveState = (v) => {
+    try {
+      localStorage.setItem(STORAGE_KEY, v ? '1' : '0');
+    } catch {}
+  };
+
+  const removeCounters = () => {
+    $$('.posts-char-count-wrapper').forEach((n) => n.remove());
+  };
+
+  const applyCounters = () => {
     $$(SELECTORS.posts).forEach((post) => {
       if ($('.posts-char-count-wrapper', post)) return;
 
@@ -69,8 +86,53 @@
       wrap.append(box);
       anchor.after(wrap);
     });
+  };
+
+  function init() {
+    if (typeof GroupID !== 'undefined' && !ALLOWED_GROUP_IDS.has(+GroupID))
+      return;
+    if (typeof FORUM === 'object' && typeof FORUM.get === 'function') {
+      const fid = +FORUM.get('topic.forum_id');
+      if (!ALLOWED_FORUM_IDS.includes(fid)) return;
+    }
+
+    if (isEnabled()) applyCounters();
+    else removeCounters();
+  }
+
+  function renderToggle(container) {
+    const label = createEl('label');
+    const cb = createEl('input', { type: 'checkbox' });
+    cb.checked = isEnabled();
+    label.append(cb, document.createTextNode(' ' + TOGGLE_LABEL));
+    cb.addEventListener('change', () => {
+      const on = cb.checked;
+      saveState(on);
+      if (on) applyCounters();
+      else removeCounters();
+    });
+    if (container) container.append(label);
+    return label;
+  }
+
+  function initSection(list) {
+    if (!list) return;
+    const li = createEl('li');
+    renderToggle(li);
+    list.append(li);
+  }
+
+  function initToggle() {
+    if (SETTINGS_SECTION && window.settingsMenu?.registerSection) {
+      window.settingsMenu.registerSection(SETTINGS_SECTION, initSection);
+    }
+    if (config.toggleInsertAfter) {
+      const anchor = document.querySelector(config.toggleInsertAfter);
+      if (anchor) anchor.insertAdjacentElement('afterend', renderToggle());
+    }
   }
 
   helpers.runOnceOnReady(init);
-  helpers.register('postsCharCounter', { init });
+  helpers.runOnceOnReady(initToggle);
+  helpers.register('postsCharCounter', { init, initToggle, initSection });
 })();

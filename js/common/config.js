@@ -451,6 +451,10 @@
     },
     postsCharCounter: {
       allowedForumIds: [1, 3],
+      storageKey: 'postsCharCounterToggle',
+      toggleInsertAfter: '',
+      toggleLabel: 'Счётчик символов в постах',
+      settingsMenuSection: '',
       selectors: {
         posts: '.post:not(.topicpost)',
         insertAfter: '',
