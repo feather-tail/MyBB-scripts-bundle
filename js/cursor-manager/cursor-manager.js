@@ -40,7 +40,12 @@
     };
 
     function loadSaved() {
-      const raw = localStorage.getItem(config.storageKey);
+      let raw;
+      try {
+        raw = localStorage.getItem(config.storageKey);
+      } catch (_) {
+        return null;
+      }
       if (!raw) return null;
       try {
         const obj = JSON.parse(raw);
@@ -225,6 +230,11 @@
         const li = createEl('li', {
           title: cur.title,
           dataset: { id: cur.id },
+        });
+
+        li.tabIndex = 0;
+        li.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') selectCursor(cur);
         });
 
         if (isTrail(cur)) {

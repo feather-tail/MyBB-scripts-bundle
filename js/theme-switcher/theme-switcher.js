@@ -11,7 +11,7 @@
     const { $$ } = helpers;
     const config = helpers.getConfig('themeSwitcher', {
       themes: [],
-      storageKey: 'theme',
+      storageKey: 'selectedTheme',
       insertAfterSelector: '#pun-crumbs1',
     });
 

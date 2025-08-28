@@ -35,6 +35,12 @@
   object-fit: contain;
   display: block;
 }
+
+.cursor-manager li:focus-visible,
+#settings-menu #cursors li:focus-visible {
+  outline: 2px solid #007bff;
+  outline-offset: 1px;
+}
 .cursor-manager li.active,
 #settings-menu #cursors li.active {
   outline: 2px solid #007bff;

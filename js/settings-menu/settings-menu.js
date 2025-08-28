@@ -44,7 +44,11 @@
       if (firstInteractive) firstInteractive.focus();
     } else {
       document.removeEventListener('keydown', handleKeydown);
-      toggle.focus();
+      if (lastFocused instanceof HTMLElement) {
+        lastFocused.focus();
+      } else {
+        toggle.focus();
+      }
     }
   }
 
@@ -59,13 +63,16 @@
         }
       })();
       const target = item.target || (isExternal ? '_blank' : null);
-      const a = createEl('a', {
+      const rel =
+        item.rel || (target === '_blank' ? 'noopener noreferrer' : null);
+      const attrs = {
         href: item.href,
         text: item.text || item.href,
-        target: target,
-        rel: item.rel || (target === '_blank' ? 'noopener noreferrer' : null),
         'aria-label': item.ariaLabel || item.text || 'Ссылка',
-      });
+      };
+      if (target) attrs.target = target;
+      if (rel) attrs.rel = rel;
+      const a = createEl('a', attrs);
       a.addEventListener('click', (e) => {
         if (item.onClick) item.onClick(e);
         closeMenu();
