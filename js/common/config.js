@@ -565,6 +565,9 @@
         open: 'Меню',
       },
       sections: {
+        settings: {
+          title: 'Настройки',
+        },
         themes: {
           title: 'Темы',
           mount: 'themeSwitcher:initSection',

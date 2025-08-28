@@ -2,8 +2,11 @@
   'use strict';
 
   const helpers = window.helpers;
-  const { $, $$ } = helpers;
+  const { $, $$, createEl } = helpers;
   const config = helpers.getConfig('gamepostCounter', {});
+  const STORAGE_KEY = config.storageKey || 'gamepostCounterToggle';
+  const TOGGLE_LABEL = config.toggleLabel || 'Счётчик игровых постов';
+  const SETTINGS_SECTION = config.settingsMenuSection || '';
   const last = (sel, root = document) => {
     const L = root.querySelectorAll(sel);
     return L.length ? L[L.length - 1] : null;
@@ -15,6 +18,21 @@
   };
 
   const getUser = () => helpers.getUserInfo();
+
+  const isEnabled = () => {
+    try {
+      const v = localStorage.getItem(STORAGE_KEY);
+      return v === null ? true : v !== '0';
+    } catch {
+      return true;
+    }
+  };
+
+  const saveState = (v) => {
+    try {
+      localStorage.setItem(STORAGE_KEY, v ? '1' : '0');
+    } catch {}
+  };
 
   const parseQuery = () => {
     const obj = {};
@@ -130,6 +148,21 @@
       }
     }
     existingStrong.textContent = String(value);
+  }
+
+  function clearCounterLi(li) {
+    if (!li) return;
+    const nameSpan = li.querySelector('.fld-name') || li.querySelector('span');
+    let started = !nameSpan;
+    const toRemove = [];
+    for (let n = li.firstChild; n; n = n.nextSibling) {
+      if (!started) {
+        if (n === nameSpan) started = true;
+        continue;
+      }
+      toRemove.push(n);
+    }
+    toRemove.forEach((n) => li.removeChild(n));
   }
 
   async function renderTable(container) {
@@ -351,6 +384,12 @@
     tdRef.parentNode.insertBefore(td, tdRef.nextSibling);
   }
 
+  function removeCounters() {
+    $$('.gpc-open-td').forEach((n) => n.remove());
+    $$('.post-author li.pa-fld' + config.ui.fieldId).forEach(clearCounterLi);
+    clearCounterLi(document.getElementById('pa-fld' + config.ui.fieldId));
+  }
+
   const INTENT_ADD_KEY = 'gpc_add_intent';
   const INTENT_DEL_KEY = 'gpc_del_intent';
 
@@ -404,6 +443,7 @@
   }
 
   function trySendFromIntent() {
+    if (!isEnabled()) return;
     const intent = takeAddIntent();
     if (!intent) return;
     const u = getUser();
@@ -430,7 +470,7 @@
   }
 
   function sendSubtractOnce(info) {
-    if (!info || info.sent) return;
+    if (!isEnabled() || !info || info.sent) return;
     const payload = buildPayload(info.fid, info.tid, !!info.isFirstPost, {
       userId: Number(info.uid || 0),
       username: info.uname || '',
@@ -452,7 +492,7 @@
   }
 
   function trySendFromDelIntent() {
-    if (!PATH.isTopic()) return;
+    if (!isEnabled() || !PATH.isTopic()) return;
     const info = readDelIntent();
     if (!info) return;
     const tidNow = getTopicId();
@@ -472,6 +512,7 @@
     form.addEventListener(
       'submit',
       () => {
+        if (!isEnabled()) return;
         const u = getUser();
         if (!u.id || !u.name) return;
         const fid = (form.action.match(/fid=(\d+)/) || [])[1] || getForumId();
@@ -506,6 +547,7 @@
     );
 
     const prepIntent = () => {
+      if (!isEnabled()) return;
       const fid = getForumId();
       const tid = getTopicId() || '0';
       const isFirstPost = !!(fid && !tid);
@@ -534,7 +576,7 @@
     document.addEventListener(
       'click',
       (ev) => {
-        if (!PATH.isTopic()) return;
+        if (!PATH.isTopic() || !isEnabled()) return;
         const a = ev.target.closest('.pl-delete a[href*="/delete.php?id="]');
         if (!a) return;
         const post = a.closest('.post');
@@ -587,6 +629,7 @@
       form.addEventListener(
         'submit',
         () => {
+          if (!isEnabled()) return;
           sendSubtractOnce(info);
         },
         { passive: true, capture: true },
@@ -614,12 +657,7 @@
     });
   }
 
-  function init() {
-    hookPostSubmit();
-    hookDeleteLinks();
-    hookDeleteConfirmPage();
-    hookDomObserver();
-    hookPageShow();
+  function applyCounters() {
     injectLauncher();
     decorateAuthorsOnTopic();
     decorateProfilePage();
@@ -627,12 +665,58 @@
     setTimeout(() => trySendFromDelIntent(), 0);
   }
 
+  function renderToggle(container) {
+    const label = createEl('label');
+    const cb = createEl('input', { type: 'checkbox' });
+    cb.checked = isEnabled();
+    label.append(cb, document.createTextNode(' ' + TOGGLE_LABEL));
+    cb.addEventListener('change', () => {
+      const on = cb.checked;
+      saveState(on);
+      if (on) applyCounters();
+      else removeCounters();
+    });
+    if (container) container.append(label);
+    return label;
+  }
+
+  function initSection(list) {
+    if (!list) return;
+    const li = createEl('li');
+    renderToggle(li);
+    list.append(li);
+  }
+
+  function initToggle() {
+    if (SETTINGS_SECTION && window.settingsMenu?.registerSection) {
+      window.settingsMenu.registerSection(SETTINGS_SECTION, initSection);
+    }
+    if (config.toggleInsertAfter) {
+      const anchor = document.querySelector(config.toggleInsertAfter);
+      if (anchor) anchor.insertAdjacentElement('afterend', renderToggle());
+    }
+  }
+
+  function init() {
+    hookPostSubmit();
+    hookDeleteLinks();
+    hookDeleteConfirmPage();
+    hookDomObserver();
+    hookPageShow();
+    if (isEnabled()) applyCounters();
+    else removeCounters();
+  }
+
   helpers.runOnceOnReady(init);
+  helpers.runOnceOnReady(initToggle);
 
   helpers.register('gamepostCounter', {
     config,
     SETTINGS: config,
     getUserStats,
+    renderToggle,
+    initToggle,
+    initSection,
     updateGlobal({
       userId,
       username,
