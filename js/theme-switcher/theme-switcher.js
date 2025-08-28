@@ -81,20 +81,19 @@
       return uniquePrefix;
     }
 
-    function restoreTheme(container, prefix) {
-      if (!config.themes.length) return;
-      const uniquePrefix = prefix || container?.id;
+   function getSavedTheme() {
       let saved = null;
       try {
         saved = localStorage.getItem(config.storageKey);
       } catch (_) {}
       const exists = config.themes.some((t) => t.class === saved);
-      const theme = exists ? saved : config.themes[0].class;
-      applyTheme(theme);
-      $$(`input[name='${uniquePrefix}']`, container).forEach(
-        (r) => (r.checked = r.value === theme),
-      );
+      return exists ? saved : config.themes[0].class;
     }
+
+    function restoreTheme(container, prefix) {
+      if (!config.themes.length) return;
+      const uniquePrefix = prefix || container?.id;
+      const theme = getSavedTheme();
 
     function initSection(ul) {
       if (!config.themes.length) return;
@@ -115,12 +114,7 @@
     function init() {
       if (!config.themes.length) return;
 
-      let saved = null;
-      try {
-        saved = localStorage.getItem(config.storageKey);
-      } catch (_) {}
-      const exists = config.themes.some((t) => t.class === saved);
-      const theme = exists ? saved : config.themes[0].class;
+      const theme = getSavedTheme();
       applyTheme(theme);
 
       const smCfg = helpers.getConfig('settingsMenu', {});

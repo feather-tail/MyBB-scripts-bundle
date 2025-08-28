@@ -265,8 +265,7 @@
       insertAfterSelector: '#pun-crumbs1',
       storageKey: 'selectedCursor',
       respectReducedMotion: true,
-      defaultCursorImg:
-        'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"%3E%3Cpolygon points="0,0 0,16 5,11 9,15 11,13 6,8 16,8" fill="black"/%3E%3C/svg%3E',
+      defaultCursorImg: 'https://upforme.ru/uploads/001c/89/3b/2/926162.png',
       cursors: [
         { id: 'auto', title: 'Стандартный', value: 'auto' },
         { id: 'pointer', title: 'Указатель', value: 'pointer' },
@@ -282,7 +281,7 @@
         {
           id: 'paw',
           title: 'Лапка',
-          url: 'https://i.imgur.com/9q1dD92.png',
+          url: 'https://upforme.ru/uploads/001c/89/3b/2/695986.png',
           x: 6,
           y: 2,
           fallback: 'pointer',
@@ -290,7 +289,7 @@
         {
           id: 'dagger',
           title: 'Кинжал',
-          url: 'https://upforme.ru/uploads/001c/89/3b/2/407488.png',
+          url: 'https://upforme.ru/uploads/001c/89/3b/2/33066.png',
           x: 3,
           y: 1,
           fallback: 'default',
