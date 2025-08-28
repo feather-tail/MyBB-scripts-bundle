@@ -38,6 +38,8 @@
 .cursor-manager li.active,
 #settings-menu #cursors li.active {
   outline: 2px solid #007bff;
+  outline-offset: 1px;
+  box-shadow: 0 0 0 1px #fff;
 }
 
 .cursor-manager li.is-trail,

@@ -25,8 +25,7 @@
       config.insertAfterSelector = config.containerSelector;
     }
 
-    let mounted = false;
-    let listEl;
+    const lists = [];
 
     const isTrail = (c) => c && c.type === 'trail';
     const toCssCursor = (c) => {
@@ -191,13 +190,17 @@
       els.forEach((el) => el.classList.remove('active'));
     }
 
-    function selectCursor(cur, li, list) {
+    function selectCursor(cur) {
       applyCursor(cur);
       save(cur);
-      if (list) {
+      const id = cur && cur.id;
+      lists.forEach((list) => {
         clearActive(Array.from(list.children));
-        if (li) li.classList.add('active');
-      }
+        if (id !== undefined) {
+          const li = list.querySelector(`[data-id="${id}"]`);
+          if (li) li.classList.add('active');
+        }
+      });
     }
 
     function setById(id) {
@@ -205,17 +208,13 @@
       if (cur) selectCursor(cur);
     }
 
-    function clearCursor(list) {
-      const targetList = list || listEl;
-      const defaultLi =
-        targetList && targetList.querySelector('[data-id="auto"]');
-      selectCursor({ value: 'auto', id: 'auto' }, defaultLi, targetList);
+    function clearCursor() {
+      selectCursor({ value: 'auto', id: 'auto' });
     }
 
     function initSection(ul, settingsMenuApi) {
-      if (mounted || !ul) return;
-      mounted = true;
-      listEl = ul;
+      if (!ul || lists.includes(ul)) return;
+      lists.push(ul);
 
       const saved = loadSaved();
       ul.textContent = '';
@@ -249,7 +248,7 @@
               saved.value === cur.value));
         if (match) li.classList.add('active');
 
-        li.addEventListener('click', () => selectCursor(cur, li, ul));
+        li.addEventListener('click', () => selectCursor(cur));
         frag.append(li);
       });
 
@@ -265,7 +264,7 @@
       const smCfg = helpers.getConfig('settingsMenu', {});
       if (smCfg?.sections?.cursors?.mount !== undefined) return;
 
-      if (!mounted && config.insertAfterSelector) {
+      if (!lists.length && config.insertAfterSelector) {
         let anchor = document.querySelector(config.insertAfterSelector);
 
         const wrapper = createEl('div', { className: 'cursor-manager' });

@@ -141,6 +141,12 @@
   background: #e5e5e5;
 }
 
+.settings-menu__section li > a:focus-visible,
+.settings-menu__section li:focus-visible {
+  outline: 2px solid #0056b3;
+  outline-offset: 2px;
+}
+
 .settings-menu__section li:hover {
   background: #f9f9f9;
 }

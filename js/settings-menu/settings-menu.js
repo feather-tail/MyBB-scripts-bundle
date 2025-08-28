@@ -8,6 +8,7 @@
   let menu;
   let overlay;
   let toggle;
+  let lastFocused;
   let sectionsById;
   let sectionCallbacks;
   let pendingMounts;
@@ -35,9 +36,15 @@
     toggle.setAttribute('aria-expanded', shouldOpen);
     overlay.classList.toggle('show', shouldOpen);
     if (shouldOpen) {
+      lastFocused = document.activeElement;
       document.addEventListener('keydown', handleKeydown);
+      const firstInteractive = menu.querySelector(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+      );
+      if (firstInteractive) firstInteractive.focus();
     } else {
       document.removeEventListener('keydown', handleKeydown);
+      toggle.focus();
     }
   }
 
@@ -164,6 +171,7 @@
       'aria-label': config.texts.open,
       'aria-expanded': 'false',
     });
+    toggle.setAttribute('aria-controls', 'settings-menu');
     toggle.append(
       createEl('i', {
         className: 'fa-solid fa-bars',
