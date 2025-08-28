@@ -360,6 +360,8 @@
         limit: 20,
         scope: 'site',
       },
+      settingsMenuSection: 'settings',
+      toggleInsertAfter: '',
     },
     guestAddress: {
       selector: '.pa-author',
@@ -447,6 +449,7 @@
       toggleCookie: '_PreviewToggle',
       allowedForums: [1, 5, 10],
       toggleInsertAfter: '#form-buttons',
+      settingsMenuSection: 'settings',
       checkInterval: 800,
     },
     postsCharCounter: {
@@ -454,7 +457,7 @@
       storageKey: 'postsCharCounterToggle',
       toggleInsertAfter: '',
       toggleLabel: 'Счётчик символов в постах',
-      settingsMenuSection: '',
+      settingsMenuSection: 'settings',
       selectors: {
         posts: '.post:not(.topicpost)',
         insertAfter: '',
@@ -507,6 +510,8 @@
       regex: /"([^"]*?)"/g,
     },
     replyCharCounter: {
+      settingsMenuSection: 'settings',
+      toggleInsertAfter: '',
       selectors: {
         textarea: '#main-reply',
         insertAfter: '',
