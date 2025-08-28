@@ -22,6 +22,17 @@
     let currentTheme;
     let switcherCounter = 0;
 
+    const switchers = new Map();
+
+    document.addEventListener('themechange', (e) => {
+      const theme = e.detail;
+      switchers.forEach((prefix, container) => {
+        $$(`input[name='${prefix}']`, container).forEach(
+          (r) => (r.checked = r.value === theme),
+        );
+      });
+    });
+
     function applyTheme(theme) {
       if (!theme || theme === currentTheme) return;
       if (themeClasses.length) {
@@ -89,6 +100,7 @@
       if (!config.themes.length) return;
       const uniquePrefix = renderThemeSwitcher(ul, ul.id);
       restoreTheme(ul, uniquePrefix);
+      switchers.set(ul, uniquePrefix);
 
       if (!ul.dataset.bound) {
         ul.addEventListener('change', (e) => {
