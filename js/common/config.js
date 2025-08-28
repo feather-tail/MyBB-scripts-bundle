@@ -625,9 +625,9 @@
     },
     themeSwitcher: {
       themes: [
-        { class: 'CLASS_NAME_1', title: 'NAME_1' },
-        { class: 'CLASS_NAME_2', title: 'NAME_2' },
-        { class: 'CLASS_NAME_3', title: 'NAME_3' },
+        { className: 'CLASS_NAME_1', title: 'NAME_1' },
+        { className: 'CLASS_NAME_2', title: 'NAME_2' },
+        { className: 'CLASS_NAME_3', title: 'NAME_3' },
       ],
       storageKey: 'selectedTheme',
       insertAfterSelector: '#pun-crumbs1',

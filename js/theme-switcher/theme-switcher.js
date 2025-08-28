@@ -16,7 +16,11 @@
     });
 
     const themeClasses = [
-      ...new Set(config.themes.flatMap((t) => t.class.split(/\s+/))),
+      ...new Set(
+        config.themes.flatMap((t) =>
+          t.className.trim().split(/\s+/).filter(Boolean),
+        ),
+      ),
     ];
 
     let currentTheme;
@@ -39,7 +43,9 @@
         document.documentElement.classList.remove(...themeClasses);
       }
       theme
+        .trim()
         .split(/\s+/)
+        .filter(Boolean)
         .forEach((c) => document.documentElement.classList.add(c));
       document.dispatchEvent(new CustomEvent('themechange', { detail: theme }));
       try {
@@ -63,10 +69,10 @@
         const input = document.createElement('input');
         input.type = 'radio';
         input.name = uniquePrefix;
-        const safeClass = t.class.replace(/[^\w-]/g, '_');
+        const safeClass = t.className.replace(/[^\w-]/g, '_');
         const id = `${uniquePrefix}-theme-${safeClass}`;
         input.id = id;
-        input.value = t.class;
+        input.value = t.className;
 
         const label = document.createElement('label');
         label.htmlFor = id;
@@ -86,8 +92,8 @@
       try {
         saved = localStorage.getItem(config.storageKey);
       } catch (_) {}
-      const exists = config.themes.some((t) => t.class === saved);
-      return exists ? saved : config.themes[0].class;
+      const exists = config.themes.some((t) => t.className === saved);
+      return exists ? saved : config.themes[0].className;
     }
 
     function restoreTheme(container, prefix) {

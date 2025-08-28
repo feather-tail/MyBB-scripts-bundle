@@ -22,6 +22,27 @@
     if (e.key === 'Escape') closeMenu();
   }
 
+  function handleTabKeydown(e) {
+    if (e.key !== 'Tab' || !menu.contains(e.target)) return;
+
+    const focusable = menu.querySelectorAll(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+    );
+    if (!focusable.length) return;
+
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (e.shiftKey) {
+      if (document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      }
+    } else if (document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  }
+
   function openMenu(forceState) {
     toggleMenu(typeof forceState === 'boolean' ? forceState : true);
   }
@@ -38,12 +59,14 @@
     if (shouldOpen) {
       lastFocused = document.activeElement;
       document.addEventListener('keydown', handleKeydown);
-      const firstInteractive = menu.querySelector(
+      document.addEventListener('keydown', handleTabKeydown);
+      const focusable = menu.querySelectorAll(
         'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
       );
-      if (firstInteractive) firstInteractive.focus();
+      if (focusable.length) focusable[0].focus();
     } else {
       document.removeEventListener('keydown', handleKeydown);
+      document.removeEventListener('keydown', handleTabKeydown);
       if (lastFocused instanceof HTMLElement) {
         lastFocused.focus();
       } else {
