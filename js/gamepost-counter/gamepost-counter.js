@@ -34,6 +34,8 @@
     } catch {}
   };
 
+  let intentsSent = false;
+
   const parseQuery = () => {
     const obj = {};
     const q = location.search.slice(1);
@@ -119,6 +121,7 @@
 
   function normalizeCounterLi(li, value) {
     if (!li) return;
+    li.style.removeProperty('display');
     const nameSpan = li.querySelector('.fld-name') || li.querySelector('span');
     let started = !nameSpan;
     const toRemove = [];
@@ -148,21 +151,6 @@
       }
     }
     existingStrong.textContent = String(value);
-  }
-
-  function clearCounterLi(li) {
-    if (!li) return;
-    const nameSpan = li.querySelector('.fld-name') || li.querySelector('span');
-    let started = !nameSpan;
-    const toRemove = [];
-    for (let n = li.firstChild; n; n = n.nextSibling) {
-      if (!started) {
-        if (n === nameSpan) started = true;
-        continue;
-      }
-      toRemove.push(n);
-    }
-    toRemove.forEach((n) => li.removeChild(n));
   }
 
   async function renderTable(container) {
@@ -386,8 +374,11 @@
 
   function removeCounters() {
     $$('.gpc-open-td').forEach((n) => n.remove());
-    $$('.post-author li.pa-fld' + config.ui.fieldId).forEach(clearCounterLi);
-    clearCounterLi(document.getElementById('pa-fld' + config.ui.fieldId));
+    $$('.post-author li.pa-fld' + config.ui.fieldId).forEach((li) => {
+      li.style.display = 'none';
+    });
+    const profileLi = document.getElementById('pa-fld' + config.ui.fieldId);
+    if (profileLi) profileLi.style.display = 'none';
   }
 
   const INTENT_ADD_KEY = 'gpc_add_intent';
@@ -661,8 +652,11 @@
     injectLauncher();
     decorateAuthorsOnTopic();
     decorateProfilePage();
-    setTimeout(() => trySendFromIntent(), 0);
-    setTimeout(() => trySendFromDelIntent(), 0);
+    if (!intentsSent) {
+      intentsSent = true;
+      setTimeout(() => trySendFromIntent(), 0);
+      setTimeout(() => trySendFromDelIntent(), 0);
+    }
   }
 
   function renderToggle(container) {
