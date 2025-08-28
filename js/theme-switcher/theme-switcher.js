@@ -81,7 +81,7 @@
       return uniquePrefix;
     }
 
-   function getSavedTheme() {
+    function getSavedTheme() {
       let saved = null;
       try {
         saved = localStorage.getItem(config.storageKey);
@@ -94,6 +94,11 @@
       if (!config.themes.length) return;
       const uniquePrefix = prefix || container?.id;
       const theme = getSavedTheme();
+      applyTheme(theme);
+      $$(`input[name='${uniquePrefix}']`, container).forEach(
+        (r) => (r.checked = r.value === theme),
+      );
+    }
 
     function initSection(ul) {
       if (!config.themes.length) return;
