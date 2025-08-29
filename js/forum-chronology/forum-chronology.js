@@ -122,7 +122,7 @@
         }
         return { y: endYear, m: endMonth, d: 0, r: range };
       }
-      return null;
+      return { y: getFullYear(cfg.currentYear), m: 0, d: 0, fallback: true };
     }
 
     m = subject.match(re1);
@@ -155,8 +155,12 @@
 
     const d = message.match(addonRx.date);
     if (d) {
-      res.date = { y: +d[1], m: +d[2], d: +d[3] };
-      matched = true;
+      const month = +d[2];
+      const day = +d[3];
+      if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+        res.date = { y: getFullYear(d[1]), m: month, d: day };
+        matched = true;
+      }
     }
 
     const s = message.match(addonRx.serial);
