@@ -92,8 +92,8 @@
         method: 'POST',
         data: JSON.stringify(body),
         headers: { 'Content-Type': 'application/json' },
+        responseType: 'json',
       })
-      .then((r) => r.json().catch(() => ({})))
       .catch(() => null);
   }
 
@@ -103,8 +103,9 @@
       `&subscription=${encodeURIComponent(config.backend.subscription)}` +
       `&tableKey=${encodeURIComponent(config.backend.tableKey)}` +
       `&userId=${userId}`;
-    const res = await helpers.request(u);
-    const data = await res.json().catch(() => null);
+    const data = await helpers
+      .request(u, { responseType: 'json' })
+      .catch(() => null);
     return data?.ok ? data.user : null;
   }
 
@@ -115,8 +116,7 @@
       `&tableKey=${encodeURIComponent(config.backend.tableKey)}` +
       `&limit=${config.backend.limit}` +
       `&scope=${config.backend.scope}`;
-    const res = await helpers.request(url);
-    return res.json().catch(() => null);
+    return helpers.request(url, { responseType: 'json' }).catch(() => null);
   }
 
   function normalizeCounterLi(li, value) {

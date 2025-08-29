@@ -109,9 +109,9 @@
       const url = `/api.php?method=post.get&topic_id=${encodeURIComponent(
         topicId,
       )}&limit=${limit}&skip=${skip}&fields=id,username,message,posted`;
-      const res = await helpers.request(url);
-      if (!res.ok) break;
-      const data = await res.json().catch(() => ({}));
+      const data = await helpers
+        .request(url, { responseType: 'json' })
+        .catch(() => ({}));
       const batch = Array.isArray(data?.response) ? data.response : [];
       if (!batch.length) break;
       all.push(...batch);

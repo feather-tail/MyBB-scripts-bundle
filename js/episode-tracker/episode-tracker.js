@@ -97,8 +97,8 @@
     helpers
       .request(
         `${domain}/api.php?method=topic.get&topic_id=${id}&fields=subject,title,num_replies,last_username&format=json`,
+        { responseType: 'json' },
       )
-      .then((r) => r.json())
       .then((j) => {
         const x = j?.response?.[0] || {};
         return {

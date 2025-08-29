@@ -104,8 +104,9 @@
           method: 'storage.get',
           key: config.storageKey,
         });
-        const resp = await helpers.request(`/api.php?${params}`);
-        const json = await resp.json();
+        const json = await helpers.request(`/api.php?${params}`, {
+          responseType: 'json',
+        });
         const raw = json.response?.storage?.data?.[config.storageKey] || '';
         const decoded = raw ? decodeURIComponent(raw) : '';
         const cleaned = decoded ? sanitizeStorageData(decoded) : '';
@@ -685,8 +686,9 @@
       method: 'users.get',
       user_id: ids.join(','),
     });
-    const r = await helpers.request(`/api.php?${params}`);
-    const json = await r.json();
+    const json = await helpers.request(`/api.php?${params}`, {
+      responseType: 'json',
+    });
     const list = json.response?.users || {};
     Object.values(list).forEach((u) => {
       res[u.user_id] = {
@@ -1458,8 +1460,9 @@
         app_id: 16777215,
       });
       try {
-        const r = await helpers.request(`/api.php?${getParams}`);
-        const j = await r.json();
+        const j = await helpers.request(`/api.php?${getParams}`, {
+          responseType: 'json',
+        });
         const saved = j?.response?.storage?.data?.profileMaskSettings;
         if (saved !== JSON.stringify(toSave)) {
           const body = new URLSearchParams({

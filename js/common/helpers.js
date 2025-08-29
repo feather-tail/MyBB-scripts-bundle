@@ -97,8 +97,10 @@
       onProgress,
       signal,
       referrer,
+      retries = 0,
     } = opts;
-    if (typeof fetch === 'function' && !onProgress) {
+
+    const doFetch = () => {
       const ctrl = new AbortController();
       if (signal)
         try {
@@ -112,67 +114,83 @@
         signal: ctrl.signal,
       };
       if (referrer) fopts.referrer = referrer;
-      const p = fetch(url, fopts);
-      if (!timeout) return p;
-      return new Promise((resolve, reject) => {
-        const t = setTimeout(() => {
-          ctrl.abort();
-          reject(new Error('Таймаут запроса'));
-        }, timeout);
-        p.then(resolve, reject).finally(() => clearTimeout(t));
+      let p = fetch(url, fopts);
+      if (timeout)
+        p = new Promise((resolve, reject) => {
+          const t = setTimeout(() => {
+            ctrl.abort();
+            reject(new Error('Таймаут запроса'));
+          }, timeout);
+          p.then(resolve, reject).finally(() => clearTimeout(t));
+        });
+      if (responseType === 'json') return p.then((r) => r.json());
+      return p;
+    };
+
+    const doXhr = () =>
+      new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open(method, url, true);
+        xhr.withCredentials = true;
+        xhr.responseType =
+          responseType === 'json' ? 'json' : responseType || 'arraybuffer';
+        Object.entries(headers || {}).forEach(([k, v]) =>
+          xhr.setRequestHeader(k, v),
+        );
+        if (timeout) xhr.timeout = timeout;
+        if (signal)
+          try {
+            signal.addEventListener('abort', () => xhr.abort());
+          } catch {}
+        if (onProgress && xhr.upload) {
+          xhr.upload.onprogress = (e) => {
+            if (e.lengthComputable)
+              onProgress(Math.ceil((e.loaded / e.total) * 100), e);
+          };
+        }
+        xhr.onerror = () => reject(new Error('Network error'));
+        xhr.ontimeout = () => reject(new Error('Таймаут запроса'));
+        xhr.onabort = () => reject(new Error('Отменено'));
+        xhr.onload = () => {
+          if (responseType === 'json') return resolve(xhr.response);
+          const headersMap = {};
+          xhr
+            .getAllResponseHeaders()
+            .trim()
+            .split(/\r?\n/)
+            .forEach((line) => {
+              const i = line.indexOf(':');
+              if (i > -1)
+                headersMap[line.slice(0, i).trim().toLowerCase()] = line
+                  .slice(i + 1)
+                  .trim();
+            });
+          const buf = xhr.response || new ArrayBuffer(0);
+          const resp = {
+            ok: xhr.status >= 200 && xhr.status < 300,
+            status: xhr.status,
+            statusText: xhr.statusText,
+            headers: {
+              get: (k) => headersMap[String(k).toLowerCase()] || null,
+            },
+            arrayBuffer: () => Promise.resolve(buf),
+            text: () => Promise.resolve(new TextDecoder().decode(buf)),
+          };
+          resp.json = () => resp.text().then((t) => JSON.parse(t));
+          resolve(resp);
+        };
+        xhr.send(data);
       });
-    }
-    return new Promise((resolve, reject) => {
-      const xhr = new XMLHttpRequest();
-      xhr.open(method, url, true);
-      xhr.withCredentials = true;
-      xhr.responseType = responseType || 'arraybuffer';
-      Object.entries(headers || {}).forEach(([k, v]) =>
-        xhr.setRequestHeader(k, v),
-      );
-      if (timeout) xhr.timeout = timeout;
-      if (signal)
-        try {
-          signal.addEventListener('abort', () => xhr.abort());
-        } catch {}
-      if (onProgress && xhr.upload) {
-        xhr.upload.onprogress = (e) => {
-          if (e.lengthComputable)
-            onProgress(Math.ceil((e.loaded / e.total) * 100), e);
-        };
-      }
-      xhr.onerror = () => reject(new Error('Network error'));
-      xhr.ontimeout = () => reject(new Error('Таймаут запроса'));
-      xhr.onabort = () => reject(new Error('Отменено'));
-      xhr.onload = () => {
-        const headersMap = {};
-        xhr
-          .getAllResponseHeaders()
-          .trim()
-          .split(/\r?\n/)
-          .forEach((line) => {
-            const i = line.indexOf(':');
-            if (i > -1)
-              headersMap[line.slice(0, i).trim().toLowerCase()] = line
-                .slice(i + 1)
-                .trim();
-          });
-        const buf = xhr.response || new ArrayBuffer(0);
-        const resp = {
-          ok: xhr.status >= 200 && xhr.status < 300,
-          status: xhr.status,
-          statusText: xhr.statusText,
-          headers: {
-            get: (k) => headersMap[String(k).toLowerCase()] || null,
-          },
-          arrayBuffer: () => Promise.resolve(buf),
-          text: () => Promise.resolve(new TextDecoder().decode(buf)),
-        };
-        resp.json = () => resp.text().then((t) => JSON.parse(t));
-        resolve(resp);
-      };
-      xhr.send(data);
-    });
+
+    const attempt = (n) => {
+      const fn = typeof fetch === 'function' && !onProgress ? doFetch : doXhr;
+      return fn().catch((err) => {
+        if (n < retries) return attempt(n + 1);
+        throw err;
+      });
+    };
+
+    return attempt(0);
   };
   const ready = (fn) => {
     if (document.readyState !== 'loading') fn();

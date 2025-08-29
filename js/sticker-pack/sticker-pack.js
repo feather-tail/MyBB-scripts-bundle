@@ -379,10 +379,10 @@
   async function loadUserStickers() {
     if (getUserInfo().id === 1) return;
     try {
-      const r = await helpers.request(
+      const result = await helpers.request(
         `${config.apiUrl}?method=${config.apiGetMethod}&key=${config.storageKey}`,
+        { responseType: 'json' },
       );
-      const result = await r.json();
       const str = result?.response?.storage?.data?.[config.storageKey] || '';
       if (str) {
         try {

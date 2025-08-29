@@ -570,13 +570,6 @@
         open: 'Меню',
       },
       sections: {
-        settings: {
-          title: 'Настройки',
-        },
-        themes: {
-          title: 'Темы',
-          mount: 'themeSwitcher:initSection',
-        },
         links: {
           title: 'Полезные ссылки',
           items: [
@@ -601,6 +594,13 @@
               rel: 'noopener noreferrer',
             },
           ],
+        },
+        themes: {
+          title: 'Темы',
+          mount: 'themeSwitcher:initSection',
+        },
+        settings: {
+          title: 'Настройки',
         },
         cursors: {
           title: 'Курсоры',
