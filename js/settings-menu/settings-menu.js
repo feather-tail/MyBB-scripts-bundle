@@ -67,6 +67,10 @@
     if (isOpen === shouldOpen) return;
 
     menu.classList.toggle('open', shouldOpen);
+    toggle.setAttribute(
+      'aria-label',
+      shouldOpen ? config.texts.close : config.texts.open,
+    );
     toggle.setAttribute('aria-expanded', String(shouldOpen));
     overlay.classList.toggle('show', shouldOpen);
     toggle.classList.toggle('hidden', shouldOpen);
@@ -160,6 +164,10 @@
       toggleSubmenu = () => {
         const isOpen = li.classList.toggle('open');
         toggleBtn.setAttribute('aria-expanded', String(isOpen));
+        toggleBtn.setAttribute(
+          'aria-label',
+          isOpen ? 'Свернуть подменю' : 'Раскрыть подменю',
+        );
         updateFocusableCache();
       };
 
@@ -377,7 +385,7 @@
     helpers = window.helpers;
     ({ createEl } = helpers);
     config = helpers.getConfig('settingsMenu', {
-      texts: { open: 'Меню' },
+      texts: { open: 'Меню', close: 'Закрыть меню' },
       sections: {},
     });
 

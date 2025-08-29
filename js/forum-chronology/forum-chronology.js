@@ -54,7 +54,7 @@
   };
 
   const addonRx = {
-    display: /\[chronodisplay\](.*?)\[\/chronodisplay\]/i,
+    display: /\[chronodisplay\]([\s\S]*?)\[\/chronodisplay\]/i,
     date: /\[chronodate\]y:\s*(\d+),\s*m:\s*(\d+),\s*d:\s*(\d+)\[\/chronodate\]/i,
     serial: /\[chronoserial\](\d+)\[\/chronoserial\]/i,
     quest: /\[chronoquest\]([\s\S]*?)\[\/chronoquest\]/i,
@@ -232,7 +232,7 @@
         const addons = parseAddons(p.message);
         if (addons) Object.assign(t.addon, addons);
         if (!correctFirst) t.first_post = p.id;
-        if (!t.addon.description) t.addon.description = p.message;
+        t.addon.description = p.message;
       }
     }
 
