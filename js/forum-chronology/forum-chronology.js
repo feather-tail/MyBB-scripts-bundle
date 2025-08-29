@@ -76,10 +76,10 @@
   function parseDate(subject) {
     const re1 = /(\d{1,2})[.\/ -](\d{1,2})[.\/ -](\d{2,4})/;
     const re2 = /(\d{2,4})[.\/ -]?([a-zа-я]+)/i;
-    const re3 = new RegExp(
-      `(${Object.keys(monthMap).join('|')})\\s*(\\d{4})`,
-      'i',
-    );
+    const monthPattern = Object.keys(monthMap)
+      .map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+      .join('|');
+    const re3 = new RegExp(`(${monthPattern})\\s*(\\d{4})`, 'i');
     const re4 = /(\d{1,2})\.(\d{3,})-(\d{1,2})\.(\d{3,})/i;
 
     let m = subject.match(re1);

@@ -53,11 +53,16 @@
       menu.querySelectorAll(
         'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
       ),
-    ).filter(
-      (el) =>
-        !el.disabled &&
-        (el.offsetParent !== null || getComputedStyle(el).position === 'fixed'),
-    );
+    ).filter((el) => {
+      if (el.disabled) return false;
+      const style = getComputedStyle(el);
+      return (
+        style.visibility !== 'hidden' &&
+        (el.offsetParent !== null ||
+          style.position === 'fixed' ||
+          el.getClientRects().length > 0)
+      );
+    });
   }
 
   function toggleMenu(forceState) {
