@@ -157,17 +157,30 @@
 
   async function getTopics(fIds) {
     if (!fIds.length) return [];
-    let skip = 0;
     const topics = [];
-    while (true) {
-      const params =
-        `method=topic.get&forum_id=${fIds.join(',')}` +
-        `&fields=id,subject,first_post&limit=${cfg.topicsPerReq}&skip=${skip}`;
-      const data = await requestJson(params);
-      if (!data?.response?.length) break;
-      topics.push(...data.response);
-      if (data.response.length < cfg.topicsPerReq) break;
-      skip += cfg.topicsPerReq;
+    const batchSize = 5;
+    let skip = 0;
+    let hasMore = true;
+    while (hasMore) {
+      const batch = [];
+      for (let i = 0; i < batchSize; i++) {
+        const params =
+          `method=topic.get&forum_id=${fIds.join(',')}` +
+          `&fields=id,subject,first_post&limit=${cfg.topicsPerReq}&skip=${skip}`;
+        const req = requestJson(params)
+          .then((data) => {
+            if (data?.response?.length) {
+              topics.push(...data.response);
+              return data.response.length === cfg.topicsPerReq;
+            }
+            return false;
+          })
+          .catch((e) => (cfg.debug && console.error(e), false));
+        batch.push(req);
+        skip += cfg.topicsPerReq;
+      }
+      const results = await Promise.all(batch);
+      hasMore = results.some((v) => v);
     }
     return topics;
   }
@@ -175,7 +188,10 @@
   async function getPosts(tIds) {
     if (!tIds.length) return [];
     const posts = [];
-    for (const tId of tIds) {
+    const limit = 5;
+    let index = 0;
+
+    const fetchTopic = async (tId) => {
       const topicPosts = [];
       let skip = 0;
       while (true) {
@@ -183,14 +199,31 @@
           `method=post.get&topic_id=${tId}` +
           `&fields=id,user_id,username,message,topic_id` +
           `&limit=${cfg.postsPerReq}&skip=${skip}`;
-        const data = await requestJson(params);
-        if (!data?.response?.length) break;
-        topicPosts.push(...data.response);
-        if (data.response.length < cfg.postsPerReq) break;
-        skip += cfg.postsPerReq;
+        try {
+          const data = await requestJson(params);
+          if (!data?.response?.length) break;
+          topicPosts.push(...data.response);
+          if (data.response.length < cfg.postsPerReq) break;
+          skip += cfg.postsPerReq;
+        } catch (e) {
+          if (cfg.debug) console.error(e);
+          break;
+        }
       }
       posts.push(...topicPosts);
-    }
+    };
+
+    const worker = async () => {
+      while (index < tIds.length) {
+        const tId = tIds[index++];
+        await fetchTopic(tId);
+      }
+    };
+
+    const workers = Array.from({ length: Math.min(limit, tIds.length) }, () =>
+      worker().catch((e) => cfg.debug && console.error(e)),
+    );
+    await Promise.all(workers);
     return posts;
   }
 
@@ -241,15 +274,21 @@
       const correctFirst = t.first_post && t.first_post < p.id;
       if (p.id === t.first_post || !correctFirst) {
         const addons = parseAddons(p.message);
-        if (addons) Object.assign(t.addon, addons);
+        if (addons) {
+          Object.assign(t.addon, addons);
+          if (addons.display) {
+            t.addon.description = p.message;
+          }
+        }
         if (!correctFirst) t.first_post = p.id;
-        t.addon.description = p.message;
       }
     }
 
     processed.forEach((t) => {
       t.users = [...t.users.values()];
-      t.flags.descr = Boolean(t.addon.description);
+      t.flags.descr = Boolean(t.addon.display);
+      if (!t.flags.descr && cfg.debug)
+        console.log('No description tag found for topic', t.id);
       const ad = t.addon.date;
       if (ad && ad.y) {
         t.date = ad;

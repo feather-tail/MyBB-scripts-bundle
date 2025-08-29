@@ -14,6 +14,7 @@
   let sectionsById;
   let sectionCallbacks;
   let pendingMounts;
+  let earlyNotifies = [];
   let api;
 
   function closeMenu() {
@@ -391,7 +392,11 @@
   }
 
   function notifyScriptLoaded(name) {
-    const cbs = pendingMounts?.[name];
+    if (!pendingMounts) {
+      earlyNotifies.push(name);
+      return;
+    }
+    const cbs = pendingMounts[name];
     if (cbs) {
       cbs.forEach((cb) => cb());
       delete pendingMounts[name];
@@ -420,6 +425,11 @@
 
     buildMenu();
     initialized = true;
+
+    if (earlyNotifies.length) {
+      earlyNotifies.forEach((name) => notifyScriptLoaded(name));
+      earlyNotifies = [];
+    }
 
     if (helpers.register) {
       helpers.register('settingsMenu', api);
