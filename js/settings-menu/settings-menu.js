@@ -41,7 +41,7 @@
     }
   }
 
-  function openMenu(forceState) {
+  function setMenuState(forceState) {
     toggleMenu(typeof forceState === 'boolean' ? forceState : true);
   }
 
@@ -347,7 +347,7 @@
 
     api = {
       init,
-      open: openMenu,
+      setMenuState,
       close: closeMenu,
       getSection,
       addSection,

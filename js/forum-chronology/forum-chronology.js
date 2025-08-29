@@ -78,7 +78,7 @@
   function getFullYear(year) {
     const n = Number(year);
     if (!n) return 0;
-    if (n > 999) return n;
+    if (n >= 100) return n;
     const cur = Number(cfg.currentYear);
     const century = Math.floor(cur / 100) * 100;
     let y = century + n;
@@ -112,7 +112,7 @@
     if (m) {
       return { y: getFullYear(m[2]), m: +m[1], d: 0 };
     }
-    m = subject.match(/(\d{1,})/);
+    m = subject.match(/\b(\d{3,4})\b/);
     if (m) return { y: getFullYear(m[1]), m: 0, d: 0 };
     return null;
   }
