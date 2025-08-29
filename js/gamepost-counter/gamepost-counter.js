@@ -502,8 +502,10 @@
     if (!form) return;
     form.addEventListener(
       'submit',
-      () => {
+      (e) => {
         if (!isEnabled()) return;
+        const sb = e.submitter || document.activeElement;
+        if (sb && (sb.classList?.contains('preview') || sb.name === 'preview')) return;
         const u = getUser();
         if (!u.id || !u.name) return;
         const fid = (form.action.match(/fid=(\d+)/) || [])[1] || getForumId();
@@ -537,8 +539,11 @@
       { passive: true },
     );
 
-    const prepIntent = () => {
+    const prepIntent = (e) => {
       if (!isEnabled()) return;
+      const btn = e?.currentTarget;
+      if (btn && (btn.classList?.contains('preview') || btn.name === 'preview'))
+        return;
       const fid = getForumId();
       const tid = getTopicId() || '0';
       const isFirstPost = !!(fid && !tid);
