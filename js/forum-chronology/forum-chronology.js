@@ -6,48 +6,60 @@
 
   const monthMap = {
     январь: 1,
+    января: 1,
     янв: 1,
     january: 1,
     jan: 1,
     февраль: 2,
+    февраля: 2,
     февр: 2,
     february: 2,
     feb: 2,
     март: 3,
+    марта: 3,
     мар: 3,
     march: 3,
     mar: 3,
     апрель: 4,
+    апреля: 4,
     апр: 4,
     april: 4,
     apr: 4,
     май: 5,
+    мая: 5,
     may: 5,
     июнь: 6,
+    июня: 6,
     июн: 6,
     june: 6,
     jun: 6,
     июль: 7,
+    июля: 7,
     июл: 7,
     july: 7,
     jul: 7,
     август: 8,
+    августа: 8,
     авг: 8,
     august: 8,
     aug: 8,
     сентябрь: 9,
+    сентября: 9,
     сент: 9,
     september: 9,
     sep: 9,
     октябрь: 10,
+    октября: 10,
     окт: 10,
     october: 10,
     oct: 10,
     ноябрь: 11,
+    ноября: 11,
     ноя: 11,
     november: 11,
     nov: 11,
     декабрь: 12,
+    декабря: 12,
     дек: 12,
     december: 12,
     dec: 12,
@@ -77,6 +89,8 @@
   }
 
   function parseDate(subject) {
+    if (!subject)
+      return { y: getFullYear(cfg.currentYear), m: 0, d: 0, fallback: true };
     const re1 = /(\d{1,2})[.\/ -](\d{1,2})[.\/ -](\d{2,4})/;
     const re2 = /(\d{2,4})[.\/ -]?([a-zа-я]+)/i;
     const monthPattern = Object.keys(monthMap)
@@ -126,7 +140,7 @@
     }
     m = subject.match(/\b(\d{3,4})\b/);
     if (m) return { y: getFullYear(m[1]), m: 0, d: 0 };
-    return null;
+    return { y: getFullYear(cfg.currentYear), m: 0, d: 0, fallback: true };
   }
 
   function parseAddons(message) {
@@ -195,7 +209,7 @@
         skip += cfg.topicsPerReq;
       }
       const results = await Promise.all(batch);
-      hasMore = results.some((v) => v);
+      hasMore = results.every((v) => v);
     }
     return topics;
   }
@@ -229,8 +243,10 @@
     };
 
     const worker = async () => {
-      while (index < tIds.length) {
-        const tId = tIds[index++];
+      while (true) {
+        const cur = index++;
+        if (cur >= tIds.length) break;
+        const tId = tIds[cur];
         await fetchTopic(tId);
       }
     };
@@ -258,6 +274,8 @@
           done: !isActive,
           fullDate: false,
           descr: false,
+          noDate: false,
+          dateSubst: false,
         },
         addon: {
           display: null,
@@ -309,11 +327,13 @@
         t.date = ad;
         t.flags.fullDate = ad.d !== 0;
       } else {
+        if (ad && !ad.y) t.flags.noDate = true;
         const dt = parseDate(t.subject);
-        if (dt) {
-          t.date = dt;
-          t.flags.fullDate = dt.d !== 0;
-        } else if (cfg.debug) console.warn('Cannot parse date:', t.subject);
+        t.date = dt;
+        t.flags.fullDate = dt.d !== 0;
+        t.flags.dateSubst = Boolean(dt.fallback);
+        if (dt.fallback && cfg.debug)
+          console.warn('Cannot parse date:', t.subject);
       }
     });
 

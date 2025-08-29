@@ -13,8 +13,7 @@
   let focusableCache;
   let sectionsById;
   let sectionCallbacks;
-  let pendingMounts;
-  let earlyNotifies = [];
+  const earlyNotifies = new Set();
   let api;
 
   function closeMenu() {
@@ -68,6 +67,11 @@
   }
 
   function toggleMenu(forceState) {
+    if (!menu || !overlay || !toggle) {
+      if (!initialized) init();
+      if (!menu || !overlay || !toggle) return;
+    }
+
     const isOpen = menu.classList.contains('open');
     const shouldOpen = typeof forceState === 'boolean' ? forceState : !isOpen;
 
@@ -122,6 +126,7 @@
           (item.onClick && item.onClick(e) === false)
         ) {
           e.preventDefault();
+          e.stopPropagation();
           return;
         }
         if (item.href) closeMenu();
@@ -136,7 +141,7 @@
           return /^https?:\/\//i.test(item.href);
         }
       })();
-      const target = item.target || (isExternal ? '_blank' : null);
+      const target = item.target ?? (isExternal ? '_blank' : null);
       const rel =
         item.rel || (target === '_blank' ? 'noopener noreferrer' : null);
       const attrs = {
@@ -393,7 +398,7 @@
 
   function notifyScriptLoaded(name) {
     if (!pendingMounts) {
-      earlyNotifies.push(name);
+      earlyNotifies.add(name);
       return;
     }
     const cbs = pendingMounts[name];
@@ -426,9 +431,9 @@
     buildMenu();
     initialized = true;
 
-    if (earlyNotifies.length) {
+    if (earlyNotifies.size) {
       earlyNotifies.forEach((name) => notifyScriptLoaded(name));
-      earlyNotifies = [];
+      earlyNotifies.clear();
     }
 
     if (helpers.register) {
