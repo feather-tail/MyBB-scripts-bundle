@@ -80,6 +80,8 @@
 
   function renderItem(item) {
     const li = createEl('li');
+    let mainEl;
+
     if (item.href) {
       const isExternal = (() => {
         try {
@@ -98,16 +100,58 @@
       };
       if (target) attrs.target = target;
       if (rel) attrs.rel = rel;
-      const a = createEl('a', attrs);
-      a.addEventListener('click', (e) => {
+      mainEl = createEl('a', attrs);
+      mainEl.addEventListener('click', (e) => {
         if (item.onClick) item.onClick(e);
         closeMenu();
       });
-      li.append(a);
+      li.append(mainEl);
     } else {
-      li.textContent = item.text || '—';
-      if (item.onClick) li.addEventListener('click', item.onClick);
+      mainEl = createEl('span', { text: item.text || '—' });
+      if (item.onClick) mainEl.addEventListener('click', item.onClick);
+      li.append(mainEl);
     }
+
+    if (item.children?.length) {
+      li.classList.add('settings-menu__item--has-children');
+
+      const toggleBtn = createEl('button', {
+        className: 'settings-menu__expand',
+        type: 'button',
+        'aria-label': 'Раскрыть подменю',
+        'aria-expanded': 'false',
+      });
+      toggleBtn.append(
+        createEl('i', {
+          className: 'fa-solid fa-chevron-right',
+          'aria-hidden': 'true',
+        }),
+      );
+
+      const subList = createEl('ul', { className: 'settings-menu__submenu' });
+      item.children.forEach((child) => subList.append(renderItem(child)));
+
+      const toggle = () => {
+        const isOpen = li.classList.toggle('open');
+        toggleBtn.setAttribute('aria-expanded', String(isOpen));
+        updateFocusableCache();
+      };
+
+      toggleBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggle();
+      });
+
+      if (!item.href) {
+        mainEl.addEventListener('click', (e) => {
+          e.stopPropagation();
+          toggle();
+        });
+      }
+
+      li.append(toggleBtn, subList);
+    }
+
     return li;
   }
 
