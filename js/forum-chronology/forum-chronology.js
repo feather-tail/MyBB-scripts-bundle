@@ -108,15 +108,23 @@
     if (m) {
       return { y: getFullYear(m[2]), m: getMonthNum(m[1]), d: 0 };
     }
+    m = subject.match(re4);
+    if (m) {
+      return { y: getFullYear(m[2]), m: +m[1], d: 0 };
+    }
     m = subject.match(/(\d{1,})/);
     if (m) return { y: getFullYear(m[1]), m: 0, d: 0 };
-    m = subject.match(re4);
-    if (m) return { y: getFullYear(m[2]), m: +m[1], d: 0 };
     return null;
   }
 
   function parseAddons(message) {
-    const res = { display: null, date: null, serial: null, quest: null };
+    const res = {
+      display: null,
+      date: null,
+      isSerial: false,
+      serialFirst: 0,
+      quest: null,
+    };
     let matched = false;
 
     const disp = message.match(addonRx.display);
@@ -133,7 +141,8 @@
 
     const s = message.match(addonRx.serial);
     if (s) {
-      res.serial = { isSerial: true, serialFirst: +s[1] };
+      res.isSerial = true;
+      res.serialFirst = +s[1];
       matched = true;
     }
 
@@ -186,30 +195,34 @@
     const tIds = topics.map((t) => t.id);
     const posts = await getPosts(tIds);
 
-    const processed = topics.map((t) => ({
-      ...t,
-      postsCount: 0,
-      users: [],
-      flags: {
-        active: isActive,
-        done: !isActive,
-        fullDate: false,
-        descr: false,
-      },
-      addon: {
-        display: null,
-        date: { y: 0, m: 0, d: 0 },
-        isSerial: false,
-        serialFirst: 0,
-        quest: false,
-        description: '',
-      },
-    }));
+    const topicMap = {};
+    const processed = topics.map((t) => {
+      const topic = {
+        ...t,
+        postsCount: 0,
+        users: [],
+        flags: {
+          active: isActive,
+          done: !isActive,
+          fullDate: false,
+          descr: false,
+        },
+        addon: {
+          display: null,
+          date: { y: 0, m: 0, d: 0 },
+          isSerial: false,
+          serialFirst: 0,
+          quest: false,
+          description: '',
+        },
+      };
+      topicMap[t.id] = topic;
+      return topic;
+    });
 
     for (const p of posts) {
-      const idx = processed.findIndex((t) => t.id === p.topic_id);
-      if (idx === -1) continue;
-      const t = processed[idx];
+      const t = topicMap[p.topic_id];
+      if (!t) continue;
 
       t.postsCount++;
       const nick = (p.message.match(/\[nick\](.*?)\[\/nick\]/) || [])[1];
@@ -220,12 +233,12 @@
         const addons = parseAddons(p.message);
         if (addons) Object.assign(t.addon, addons);
         if (!correctFirst) t.first_post = p.id;
-        if (!t.addon.description) t.description = p.message;
+        if (!t.addon.description) t.addon.description = p.message;
       }
-      t.flags.descr = t.first_post !== 0;
     }
 
     processed.forEach((t) => {
+      t.flags.descr = Boolean(t.addon.description);
       const dt = parseDate(t.subject);
       if (dt) {
         t.date = dt;

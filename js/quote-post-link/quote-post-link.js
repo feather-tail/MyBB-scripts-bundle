@@ -1,9 +1,10 @@
 (() => {
   'use strict';
 
-  const helpers = window.helpers;
-  const { $$, createEl } = helpers;
-  const config = helpers.getConfig('quotePostLink', {});
+  let helpers;
+  let $$;
+  let createEl;
+  let config;
 
   function init() {
     $$(config.selectors.cite).forEach((cite) => {
@@ -35,6 +36,26 @@
     });
   }
 
-  helpers.runOnceOnReady(init);
-  helpers.register('quotePostLink', { init });
+  function bootstrap() {
+    helpers = window.helpers;
+    if (helpers) {
+      $$ = helpers.$$;
+      createEl = helpers.createEl;
+      config = helpers.getConfig('quotePostLink', {});
+      if (helpers.runOnceOnReady) {
+        helpers.runOnceOnReady(init);
+      } else if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+      } else {
+        init();
+      }
+      if (helpers.register) {
+        helpers.register('quotePostLink', { init });
+      }
+    } else {
+      setTimeout(bootstrap, 25);
+    }
+  }
+
+  bootstrap();
 })();

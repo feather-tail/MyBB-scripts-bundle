@@ -133,7 +133,7 @@
       const subList = createEl('ul', { className: 'settings-menu__submenu' });
       item.children.forEach((child) => subList.append(renderItem(child)));
 
-      const toggle = () => {
+      const toggleSubmenu = () => {
         const isOpen = li.classList.toggle('open');
         toggleBtn.setAttribute('aria-expanded', String(isOpen));
         updateFocusableCache();
@@ -141,13 +141,13 @@
 
       toggleBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        toggle();
+        toggleSubmenu();
       });
 
       if (!item.href) {
         mainEl.addEventListener('click', (e) => {
           e.stopPropagation();
-          toggle();
+          toggleSubmenu();
         });
       }
 
