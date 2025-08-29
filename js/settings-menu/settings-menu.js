@@ -69,7 +69,7 @@
     menu.classList.toggle('open', shouldOpen);
     toggle.setAttribute('aria-expanded', String(shouldOpen));
     overlay.classList.toggle('show', shouldOpen);
-    toggle.style.display = shouldOpen ? 'none' : '';
+    toggle.classList.toggle('hidden', shouldOpen);
     if (shouldOpen) {
       lastFocused = document.activeElement;
       document.addEventListener('keydown', handleKeydown);
@@ -91,6 +91,19 @@
   function renderItem(item) {
     const li = createEl('li');
     let mainEl;
+    let toggleSubmenu;
+
+    const handleMainClick = (e) => {
+      if (item.children?.length) {
+        if (item.onClick && item.onClick(e) === false) return;
+        e.preventDefault();
+        e.stopPropagation();
+        toggleSubmenu();
+      } else {
+        if (item.onClick) item.onClick(e);
+        if (item.href) closeMenu();
+      }
+    };
 
     if (item.href) {
       const isExternal = (() => {
@@ -111,19 +124,14 @@
       if (target) attrs.target = target;
       if (rel) attrs.rel = rel;
       mainEl = createEl('a', attrs);
-      mainEl.addEventListener('click', (e) => {
-        if (item.onClick) item.onClick(e);
-        closeMenu();
-      });
+      mainEl.addEventListener('click', handleMainClick);
       li.append(mainEl);
     } else {
       mainEl = createEl('button', {
         type: 'button',
         text: item.text || '—',
       });
-      mainEl.addEventListener('click', (e) => {
-        if (item.onClick) item.onClick(e);
-      });
+      mainEl.addEventListener('click', handleMainClick);
       li.append(mainEl);
     }
 
@@ -146,7 +154,7 @@
       const subList = createEl('ul', { className: 'settings-menu__submenu' });
       item.children.forEach((child) => subList.append(renderItem(child)));
 
-      const toggleSubmenu = () => {
+      toggleSubmenu = () => {
         const isOpen = li.classList.toggle('open');
         toggleBtn.setAttribute('aria-expanded', String(isOpen));
         updateFocusableCache();
@@ -156,13 +164,6 @@
         e.stopPropagation();
         toggleSubmenu();
       });
-
-      if (!item.href) {
-        mainEl.addEventListener('click', (e) => {
-          e.stopPropagation();
-          toggleSubmenu();
-        });
-      }
 
       li.append(toggleBtn, subList);
     }

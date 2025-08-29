@@ -1,3 +1,7 @@
+.hidden {
+  display: none;
+}
+
 .settings-menu {
   position: fixed;
   top: 0;

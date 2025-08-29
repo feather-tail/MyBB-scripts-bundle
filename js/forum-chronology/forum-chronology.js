@@ -1,21 +1,8 @@
-/**
- * Forum chronology collector
- * – получает темы и посты из указанных форумов,
- * – парсит даты из заголовков тем,
- * – извлекает дополнительные теги ([chronodisplay], [chronodate] и т.д.).
- */
 (() => {
   'use strict';
 
-  const helpers = window.helpers;
-  const cfg = helpers.getConfig('forumChronology', {
-    forums: { active: [23, 24], done: [19] },
-    currentYear: 2010,
-    debug: false,
-    topicsPerReq: 100,
-    postsPerReq: 100,
-    backend: { endpoint: '/api.php' },
-  });
+  let helpers;
+  let cfg;
 
   const monthMap = {
     январь: 1,
@@ -177,18 +164,21 @@
 
   async function getPosts(tIds) {
     if (!tIds.length) return [];
-    let skip = 0;
     const posts = [];
-    while (true) {
-      const params =
-        `method=post.get&topic_id=${tIds.join(',')}` +
-        `&fields=id,user_id,username,message,topic_id` +
-        `&limit=${cfg.postsPerReq}&skip=${skip}`;
-      const data = await requestJson(params);
-      if (!data?.response?.length) break;
-      posts.push(...data.response);
-      if (data.response.length < cfg.postsPerReq) break;
-      skip += cfg.postsPerReq;
+    for (let i = 0; i < tIds.length; i += cfg.postsPerReq) {
+      const chunk = tIds.slice(i, i + cfg.postsPerReq);
+      let skip = 0;
+      while (true) {
+        const params =
+          `method=post.get&topic_id=${chunk.join(',')}` +
+          `&fields=id,user_id,username,message,topic_id` +
+          `&limit=${cfg.postsPerReq}&skip=${skip}`;
+        const data = await requestJson(params);
+        if (!data?.response?.length) break;
+        posts.push(...data.response);
+        if (data.response.length < cfg.postsPerReq) break;
+        skip += cfg.postsPerReq;
+      }
     }
     return posts;
   }
@@ -203,7 +193,7 @@
       const topic = {
         ...t,
         postsCount: 0,
-        users: [],
+        users: new Map(),
         flags: {
           active: isActive,
           done: !isActive,
@@ -229,11 +219,13 @@
 
       t.postsCount++;
       const nick = (p.message.match(/\[nick\](.*?)\[\/nick\]/) || [])[1];
-      t.users.push(
-        [p.user_id, p.username, nick].filter(
-          (v) => v !== null && v !== undefined && v !== '',
-        ),
-      );
+      if (!t.users.has(p.user_id))
+        t.users.set(
+          p.user_id,
+          [p.user_id, p.username, nick].filter(
+            (v) => v !== null && v !== undefined && v !== '',
+          ),
+        );
 
       const correctFirst = t.first_post && t.first_post < p.id;
       if (p.id === t.first_post || !correctFirst) {
@@ -245,6 +237,7 @@
     }
 
     processed.forEach((t) => {
+      t.users = [...t.users.values()];
       t.flags.descr = Boolean(t.addon.description);
       const dt = parseDate(t.subject);
       if (dt) {
@@ -257,6 +250,16 @@
   }
 
   async function init() {
+    helpers = window.helpers;
+    cfg = helpers.getConfig('forumChronology', {
+      forums: { active: [23, 24], done: [19] },
+      currentYear: 2010,
+      debug: false,
+      topicsPerReq: 100,
+      postsPerReq: 100,
+      backend: { endpoint: '/api.php' },
+    });
+
     const pairs = [
       ...cfg.forums.done.map((fid) => [fid, false]),
       ...cfg.forums.active.map((fid) => [fid, true]),
@@ -272,5 +275,20 @@
     if (cfg.debug) console.log(result);
   }
 
-  init();
+  function bootstrap() {
+    const helpers = window.helpers;
+    if (helpers) {
+      if (helpers.runOnceOnReady) {
+        helpers.runOnceOnReady(init);
+      } else if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+      } else {
+        init();
+      }
+    } else {
+      setTimeout(bootstrap, 25);
+    }
+  }
+
+  bootstrap();
 })();
