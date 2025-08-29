@@ -97,7 +97,7 @@
     }
     m = subject.match(re4);
     if (m) {
-      return { y: getFullYear(m[2]), m: +m[1], d: 0 };
+      return { y: getFullYear(m[4]), m: +m[3], d: 0 };
     }
     m = subject.match(/\b(\d{3,4})\b/);
     if (m) return { y: getFullYear(m[1]), m: 0, d: 0 };
@@ -239,11 +239,17 @@
     processed.forEach((t) => {
       t.users = [...t.users.values()];
       t.flags.descr = Boolean(t.addon.description);
-      const dt = parseDate(t.subject);
-      if (dt) {
-        t.date = dt;
-        t.flags.fullDate = dt.d !== 0;
-      } else if (cfg.debug) console.warn('Cannot parse date:', t.subject);
+      const ad = t.addon.date;
+      if (ad && ad.y) {
+        t.date = ad;
+        t.flags.fullDate = ad.d !== 0;
+      } else {
+        const dt = parseDate(t.subject);
+        if (dt) {
+          t.date = dt;
+          t.flags.fullDate = dt.d !== 0;
+        } else if (cfg.debug) console.warn('Cannot parse date:', t.subject);
+      }
     });
 
     return processed;

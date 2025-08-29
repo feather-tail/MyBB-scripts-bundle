@@ -100,7 +100,10 @@
         e.stopPropagation();
         toggleSubmenu();
       } else {
-        if (item.onClick) item.onClick(e);
+        if (item.onClick && item.onClick(e) === false) {
+          e.preventDefault();
+          return;
+        }
         if (item.href) closeMenu();
       }
     };
