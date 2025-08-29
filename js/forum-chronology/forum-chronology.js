@@ -118,13 +118,7 @@
   }
 
   function parseAddons(message) {
-    const res = {
-      display: null,
-      date: null,
-      isSerial: false,
-      serialFirst: 0,
-      quest: null,
-    };
+    const res = {};
     let matched = false;
 
     const disp = message.match(addonRx.display);
@@ -250,9 +244,16 @@
   }
 
   async function init() {
-    const ids = Object.values(cfg.forums).flat();
-    const promises = ids.map((fid) =>
-      processForum(fid, cfg.forums.active.includes(fid)),
+    const pairs = [
+      ...cfg.forums.done.map((fid) => [fid, false]),
+      ...cfg.forums.active.map((fid) => [fid, true]),
+    ];
+    const unique = new Map();
+    for (const [fid, isActive] of pairs) {
+      if (!unique.has(fid) || isActive) unique.set(fid, isActive);
+    }
+    const promises = [...unique].map(([fid, isActive]) =>
+      processForum(fid, isActive),
     );
     const result = (await Promise.all(promises)).flat();
     if (cfg.debug) console.log(result);

@@ -28,16 +28,18 @@
     if (e.key !== 'Tab' || !menu.contains(e.target)) return;
     if (!focusableCache?.length) return;
 
-    const first = focusableCache[0];
-    const last = focusableCache[focusableCache.length - 1];
+    const idx = focusableCache.indexOf(document.activeElement);
+    if (idx === -1) return;
+    const lastIdx = focusableCache.length - 1;
+
     if (e.shiftKey) {
-      if (document.activeElement === first) {
+      if (idx === 0) {
         e.preventDefault();
-        last.focus();
+        focusableCache[lastIdx].focus();
       }
-    } else if (document.activeElement === last) {
+    } else if (idx === lastIdx) {
       e.preventDefault();
-      first.focus();
+      focusableCache[0].focus();
     }
   }
 
@@ -47,9 +49,11 @@
 
   function updateFocusableCache() {
     if (!menu) return;
-    focusableCache = menu.querySelectorAll(
-      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
-    );
+    focusableCache = Array.from(
+      menu.querySelectorAll(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+      ),
+    ).filter((el) => !el.disabled && el.offsetParent !== null);
   }
 
   function toggleMenu(forceState) {
@@ -208,11 +212,27 @@
   function createSection(cfg) {
     const secEl = createEl('div', { className: 'settings-menu__section' });
     if (cfg.id) secEl.id = cfg.id;
+    let heading;
     if (cfg.title) {
-      const heading = createEl('h3', { text: cfg.title });
-      heading.addEventListener('click', () => {
-        secEl.classList.toggle('open');
+      heading = createEl('h3', {
+        text: cfg.title,
+        role: 'button',
+        tabindex: '0',
+        'aria-expanded': 'false',
+      });
+
+      const toggleSection = () => {
+        const isOpen = secEl.classList.toggle('open');
+        heading.setAttribute('aria-expanded', String(isOpen));
         updateFocusableCache();
+      };
+
+      heading.addEventListener('click', toggleSection);
+      heading.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          toggleSection();
+        }
       });
       secEl.append(heading);
     }
@@ -223,7 +243,7 @@
 
     mountSection(list, cfg);
 
-    return { section: secEl, list };
+    return { section: secEl, list, header: heading };
   }
 
   function buildMenu() {
@@ -237,8 +257,11 @@
     const frag = document.createDocumentFragment();
 
     sections.forEach((section, idx) => {
-      const { section: sectionEl, list } = createSection(section);
-      if (idx === 0) sectionEl.classList.add('open');
+      const { section: sectionEl, list, header } = createSection(section);
+      if (idx === 0) {
+        sectionEl.classList.add('open');
+        if (header) header.setAttribute('aria-expanded', 'true');
+      }
       frag.append(sectionEl);
       if (section.id) {
         sectionsById[section.id] = list;
