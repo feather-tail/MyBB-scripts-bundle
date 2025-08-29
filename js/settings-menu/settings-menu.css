@@ -1,7 +1,3 @@
-.hidden {
-  display: none;
-}
-
 .settings-menu {
   position: fixed;
   top: 0;
@@ -259,7 +255,6 @@
   transition: opacity 0.28s ease;
 }
 
-.settings-menu__item--has-children:hover > .settings-menu__submenu,
 .settings-menu__item--has-children.open > .settings-menu__submenu {
   display: block;
   opacity: 1;

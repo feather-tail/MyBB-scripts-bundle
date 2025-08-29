@@ -80,7 +80,7 @@
     );
     toggle.setAttribute('aria-expanded', String(shouldOpen));
     overlay.classList.toggle('show', shouldOpen);
-    toggle.classList.toggle('hidden', shouldOpen);
+    toggle.classList.toggle('settings-menu__toggle--hidden', shouldOpen);
     if (shouldOpen) {
       lastFocused = document.activeElement;
       document.addEventListener('keydown', handleKeydown);

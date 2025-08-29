@@ -66,7 +66,10 @@
     const n = Number(year);
     if (!n) return 0;
     if (n >= 100) return n;
-    const cur = Number(cfg.currentYear);
+    let cur = Number(cfg.currentYear);
+    if (!Number.isFinite(cur)) {
+      cur = new Date().getFullYear();
+    }
     const century = Math.floor(cur / 100) * 100;
     let y = century + n;
     if (y > cur) y -= 100;
@@ -82,7 +85,33 @@
     const re3 = new RegExp(`(${monthPattern})\\s*(\\d{4})`, 'i');
     const re4 = /(\d{1,2})\.(\d{4})-(\d{1,2})\.(\d{4})/;
 
-    let m = subject.match(re1);
+    let m = subject.match(re4);
+    if (m) {
+      const startMonth = +m[1];
+      const startYear = getFullYear(m[2]);
+      const endMonth = +m[3];
+      let endYear = getFullYear(m[4]);
+      if (
+        startMonth >= 1 &&
+        startMonth <= 12 &&
+        endMonth >= 1 &&
+        endMonth <= 12 &&
+        startYear &&
+        endYear
+      ) {
+        let range = false;
+        if (startYear !== endYear) {
+          range = true;
+        } else if (endMonth < startMonth) {
+          endYear++;
+          range = true;
+        }
+        return { y: endYear, m: endMonth, d: 0, r: range };
+      }
+      return null;
+    }
+
+    m = subject.match(re1);
     if (m) {
       return { y: getFullYear(m[3]), m: +m[2], d: +m[1] };
     }
@@ -94,20 +123,6 @@
     m = subject.replace(/,/g, '').match(re3);
     if (m) {
       return { y: getFullYear(m[2]), m: getMonthNum(m[1]), d: 0 };
-    }
-    m = subject.match(re4);
-    if (m) {
-      const startMonth = +m[1];
-      const endMonth = +m[3];
-      if (
-        startMonth >= 1 &&
-        startMonth <= 12 &&
-        endMonth >= 1 &&
-        endMonth <= 12
-      ) {
-        return { y: getFullYear(m[4]), m: endMonth, d: 0 };
-      }
-      return null;
     }
     m = subject.match(/\b(\d{3,4})\b/);
     if (m) return { y: getFullYear(m[1]), m: 0, d: 0 };
@@ -346,5 +361,14 @@
     }
   }
 
-  bootstrap();
+  if (typeof module !== 'undefined') {
+    module.exports = {
+      parseDate,
+      __setCfg: (c) => (cfg = c),
+    };
+  }
+
+  if (typeof window !== 'undefined') {
+    bootstrap();
+  }
 })();
