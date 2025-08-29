@@ -580,7 +580,20 @@
         links: {
           title: 'Полезные ссылки',
           items: [
-            { text: 'Правила форума', href: '/viewtopic.php?id=1' },
+            {
+              text: 'Правила форума',
+              children: [
+                { text: 'Правила раздела 1', href: '/viewtopic.php?id=1' },
+                {
+                  text: 'Правила раздела 2',
+                  href: 'https://mayakfor.me/search.php?action=show_new',
+                },
+                {
+                  text: 'Правила раздела 3',
+                  href: 'https://mayakfor.me/viewtopic.php?id=2300&p=35#p200656',
+                },
+              ],
+            },
             {
               text: 'BBCode справка',
               href: 'https://bbcode.org/reference.php',
