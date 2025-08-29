@@ -80,7 +80,7 @@
       .map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
       .join('|');
     const re3 = new RegExp(`(${monthPattern})\\s*(\\d{4})`, 'i');
-    const re4 = /(\d{1,2})\.(\d{3,})-(\d{1,2})\.(\d{3,})/i;
+    const re4 = /(\d{1,2})\.(\d{4})-(\d{1,2})\.(\d{4})/;
 
     let m = subject.match(re1);
     if (m) {
@@ -97,7 +97,17 @@
     }
     m = subject.match(re4);
     if (m) {
-      return { y: getFullYear(m[4]), m: +m[3], d: 0 };
+      const startMonth = +m[1];
+      const endMonth = +m[3];
+      if (
+        startMonth >= 1 &&
+        startMonth <= 12 &&
+        endMonth >= 1 &&
+        endMonth <= 12
+      ) {
+        return { y: getFullYear(m[4]), m: endMonth, d: 0 };
+      }
+      return null;
     }
     m = subject.match(/\b(\d{3,4})\b/);
     if (m) return { y: getFullYear(m[1]), m: 0, d: 0 };
@@ -165,20 +175,21 @@
   async function getPosts(tIds) {
     if (!tIds.length) return [];
     const posts = [];
-    for (let i = 0; i < tIds.length; i += cfg.postsPerReq) {
-      const chunk = tIds.slice(i, i + cfg.postsPerReq);
+    for (const tId of tIds) {
+      const topicPosts = [];
       let skip = 0;
       while (true) {
         const params =
-          `method=post.get&topic_id=${chunk.join(',')}` +
+          `method=post.get&topic_id=${tId}` +
           `&fields=id,user_id,username,message,topic_id` +
           `&limit=${cfg.postsPerReq}&skip=${skip}`;
         const data = await requestJson(params);
         if (!data?.response?.length) break;
-        posts.push(...data.response);
+        topicPosts.push(...data.response);
         if (data.response.length < cfg.postsPerReq) break;
         skip += cfg.postsPerReq;
       }
+      posts.push(...topicPosts);
     }
     return posts;
   }

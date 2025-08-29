@@ -44,6 +44,7 @@
   }
 
   function setMenuState(forceState) {
+    if (!initialized) init();
     toggleMenu(typeof forceState === 'boolean' ? forceState : true);
   }
 
@@ -104,12 +105,21 @@
 
     const handleMainClick = (e) => {
       if (item.children?.length) {
-        if (item.onClick && item.onClick(e) === false) return;
+        if (
+          item.onClick === false ||
+          (item.onClick && item.onClick(e) === false)
+        ) {
+          e.preventDefault();
+          return;
+        }
         e.preventDefault();
         e.stopPropagation();
         toggleSubmenu();
       } else {
-        if (item.onClick && item.onClick(e) === false) {
+        if (
+          item.onClick === false ||
+          (item.onClick && item.onClick(e) === false)
+        ) {
           e.preventDefault();
           return;
         }
@@ -339,6 +349,7 @@
   }
 
   function addSection(cfg) {
+    if (!initialized) init();
     const sections = parseSections(cfg);
     let firstList;
     const frag = document.createDocumentFragment();
@@ -360,6 +371,7 @@
   }
 
   function addItems(id, items) {
+    if (!initialized) init();
     const list = getSection(id);
     if (!list) return;
     (items || []).forEach((item) => list.append(renderItem(item)));
@@ -368,6 +380,7 @@
   }
 
   function registerSection(id, cb) {
+    if (!initialized) init();
     const list = getSection(id);
     if (list) {
       cb(list);
@@ -386,7 +399,7 @@
   }
 
   function init() {
-    if (initialized) return;
+    if (initialized) return api;
     helpers = window.helpers;
     ({ createEl } = helpers);
     config = helpers.getConfig('settingsMenu', {
@@ -413,6 +426,7 @@
     }
 
     window.settingsMenu = api;
+    return api;
   }
 
   function bootstrap() {
