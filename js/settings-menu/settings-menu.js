@@ -53,7 +53,11 @@
       menu.querySelectorAll(
         'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
       ),
-    ).filter((el) => !el.disabled && el.offsetParent !== null);
+    ).filter(
+      (el) =>
+        !el.disabled &&
+        (el.offsetParent !== null || getComputedStyle(el).position === 'fixed'),
+    );
   }
 
   function toggleMenu(forceState) {
@@ -113,8 +117,13 @@
       });
       li.append(mainEl);
     } else {
-      mainEl = createEl('span', { text: item.text || '—' });
-      if (item.onClick) mainEl.addEventListener('click', item.onClick);
+      mainEl = createEl('button', {
+        type: 'button',
+        text: item.text || '—',
+      });
+      mainEl.addEventListener('click', (e) => {
+        if (item.onClick) item.onClick(e);
+      });
       li.append(mainEl);
     }
 

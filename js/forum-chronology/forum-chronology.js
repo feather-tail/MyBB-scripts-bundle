@@ -159,11 +159,20 @@
       .catch((e) => (cfg.debug && console.error(e), null));
 
   async function getTopics(fIds) {
-    const params =
-      `method=topic.get&forum_id=${fIds.join(',')}` +
-      `&fields=id,subject,first_post&limit=${cfg.topicsPerReq}`;
-    const data = await requestJson(params);
-    return data?.response || [];
+    if (!fIds.length) return [];
+    let skip = 0;
+    const topics = [];
+    while (true) {
+      const params =
+        `method=topic.get&forum_id=${fIds.join(',')}` +
+        `&fields=id,subject,first_post&limit=${cfg.topicsPerReq}&skip=${skip}`;
+      const data = await requestJson(params);
+      if (!data?.response?.length) break;
+      topics.push(...data.response);
+      if (data.response.length < cfg.topicsPerReq) break;
+      skip += cfg.topicsPerReq;
+    }
+    return topics;
   }
 
   async function getPosts(tIds) {
@@ -220,7 +229,11 @@
 
       t.postsCount++;
       const nick = (p.message.match(/\[nick\](.*?)\[\/nick\]/) || [])[1];
-      t.users.push([p.user_id, p.username, nick].filter(Boolean));
+      t.users.push(
+        [p.user_id, p.username, nick].filter(
+          (v) => v !== null && v !== undefined && v !== '',
+        ),
+      );
 
       const correctFirst = t.first_post && t.first_post < p.id;
       if (p.id === t.first_post || !correctFirst) {
