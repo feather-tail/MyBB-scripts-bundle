@@ -6,9 +6,9 @@
   const config = helpers.getConfig('defaultAvatars', { avatarByRole: {} });
   const avatarByRole = new Map(Object.entries(config.avatarByRole));
 
-  function getAvatarUrl(authorName) {
-    return avatarByRole.has(authorName)
-      ? avatarByRole.get(authorName)
+  function getAvatarUrl(authorId) {
+    return avatarByRole.has(authorId)
+      ? avatarByRole.get(authorId)
       : config.DEFAULT_AVATAR;
   }
 
@@ -21,8 +21,11 @@
         const wrapper = titleEl.parentElement;
         if (!wrapper || wrapper.querySelector('.pa-avatar')) return;
 
-        const name = titleEl.textContent.trim();
-        const url = getAvatarUrl(name);
+        const post = titleEl.closest('[data-user-id]');
+        if (!post) return;
+
+        const id = post.getAttribute('data-user-id');
+        const url = getAvatarUrl(id);
 
         const avatarLi = document.createElement('li');
         avatarLi.className = 'pa-avatar item2';
@@ -30,6 +33,7 @@
         img.className = 'defavtr';
         img.src = url;
         img.alt = 'Аватар';
+        img.loading = 'lazy';
         avatarLi.append(img);
         titleEl.insertAdjacentElement('afterend', avatarLi);
       });
@@ -49,6 +53,7 @@
         img.src = config.DEFAULT_AVATAR;
         img.alt = 'Аватар по умолчанию';
         div.append(img);
+        img.loading = 'lazy';
         container.textContent = '';
         container.append(div);
       }

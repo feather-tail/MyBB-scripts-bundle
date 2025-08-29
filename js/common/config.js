@@ -308,8 +308,8 @@
     defaultAvatars: {
       DEFAULT_AVATAR: 'https://upforme.ru/uploads/001c/73/bf/2/862383.jpg',
       avatarByRole: {
-        Гость: 'https://upforme.ru/uploads/001c/0a/76/4/246574.jpg',
-        PR: 'https://upforme.ru/uploads/001c/0a/76/4/916153.jpg',
+        0: 'https://upforme.ru/uploads/001c/0a/76/4/246574.jpg',
+        3: 'https://upforme.ru/uploads/001c/0a/76/4/916153.jpg',
       },
     },
     episodeTracker: {
