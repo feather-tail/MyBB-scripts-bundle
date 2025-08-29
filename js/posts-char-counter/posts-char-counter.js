@@ -119,7 +119,7 @@
     if (!list) return;
     const li = createEl('li');
     renderToggle(li);
-    list.append(li);
+    list.insertBefore(li, list.children[2] || null);
   }
 
   function initToggle() {

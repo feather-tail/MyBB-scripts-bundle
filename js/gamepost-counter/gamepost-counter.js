@@ -505,7 +505,8 @@
       (e) => {
         if (!isEnabled()) return;
         const sb = e.submitter || document.activeElement;
-        if (sb && (sb.classList?.contains('preview') || sb.name === 'preview')) return;
+        if (sb && (sb.classList?.contains('preview') || sb.name === 'preview'))
+          return;
         const u = getUser();
         if (!u.id || !u.name) return;
         const fid = (form.action.match(/fid=(\d+)/) || [])[1] || getForumId();
@@ -683,7 +684,7 @@
     if (!list) return;
     const li = createEl('li');
     renderToggle(li);
-    list.append(li);
+    list.insertBefore(li, list.children[1] || null);
   }
 
   function initToggle() {
