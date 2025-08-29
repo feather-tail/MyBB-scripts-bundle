@@ -321,6 +321,10 @@
         insertAfter: '',
       },
     },
+    forumChronology: {
+      endpoint: '/api.php?method=forum.chronology',
+      containerSelector: '#forumChronology',
+    },
     forumTopicsDivider: {
       selectors: {
         forum: '#pun-viewforum',

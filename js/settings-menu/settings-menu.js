@@ -8,6 +8,7 @@
   let menu;
   let overlay;
   let toggle;
+  let closeBtn;
   let lastFocused;
   let focusableCache;
   let sectionsById;
@@ -60,6 +61,7 @@
     menu.classList.toggle('open', shouldOpen);
     toggle.setAttribute('aria-expanded', String(shouldOpen));
     overlay.classList.toggle('show', shouldOpen);
+    toggle.style.display = shouldOpen ? 'none' : '';
     if (shouldOpen) {
       lastFocused = document.activeElement;
       document.addEventListener('keydown', handleKeydown);
@@ -248,6 +250,20 @@
     });
 
     menu.append(frag);
+
+    closeBtn = createEl('button', {
+      className: 'settings-menu__close',
+      type: 'button',
+      'aria-label': 'Закрыть меню',
+    });
+    closeBtn.append(
+      createEl('i', {
+        className: 'fa-solid fa-xmark',
+        'aria-hidden': 'true',
+      }),
+    );
+    closeBtn.addEventListener('click', closeMenu);
+    menu.append(closeBtn);
 
     overlay = createEl('div', { className: 'settings-menu__overlay' });
     toggle = createEl('button', {

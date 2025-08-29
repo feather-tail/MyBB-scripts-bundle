@@ -74,6 +74,43 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
 }
 
+.settings-menu__close {
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  width: 42px;
+  height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  background: #007bff;
+  border: 1px solid #0056b3;
+  border-radius: 6px;
+  padding: 0;
+  cursor: pointer;
+  z-index: 1600;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+
+.settings-menu__close:hover {
+  background: #0056b3;
+}
+
+.settings-menu__close:focus-visible {
+  outline: 2px solid #0056b3;
+  outline-offset: 2px;
+}
+
+.settings-menu__close i {
+  color: #fff;
+  font-size: 20px;
+}
+
+.settings-menu__toggle--hidden {
+  display: none;
+}
+
 .settings-menu__toggle:hover {
   background: #0056b3;
 }
@@ -224,6 +261,15 @@
   .settings-menu__toggle i {
     font-size: 22px;
   }
+  .settings-menu__close {
+    top: 10px;
+    right: 10px;
+    width: 44px;
+    height: 44px;
+  }
+  .settings-menu__close i {
+    font-size: 22px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -236,7 +282,8 @@
 @media print {
   .settings-menu,
   .settings-menu__overlay,
-  .settings-menu__toggle {
+  .settings-menu__toggle,
+  .settings-menu__close {
     display: none !important;
   }
 }
