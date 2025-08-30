@@ -242,6 +242,14 @@
       ajaxFolder: 'pages/',
       charset: 'windows-1251',
     },
+    chronoParser: {
+      forumsWithGames: { active: [1, 24], done: [19] },
+      currentYear: 2010,
+      debugMode: true,
+      topicsPerRequest: 100,
+      postsPerRequest: 100,
+      apiBase: '/api.php',
+    },
     cleanQuote: {
       selectors: {
         post: (id) => `#p${id}`,
