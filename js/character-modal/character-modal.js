@@ -9,7 +9,7 @@
     errorText: 'Ошибка загрузки данных.',
   });
 
-  const awardsCache = (window.__awardsCacheDirect ||= new Map());
+  const awardsCache = (window.__awardsCacheJSONRPC ||= new Map());
   let __boardIdPromise;
 
   function findUserIdForLink(link) {
@@ -32,14 +32,14 @@
   }
 
   function pickBoardIdFromGlobals() {
-    const cands = [
+    const c = [
       window.BOARD_ID,
       window.board_id,
       window.PUNBB && window.PUNBB.board_id,
       window.FORUM && window.FORUM.board_id,
       document.body && document.body.dataset && document.body.dataset.boardId,
     ];
-    for (const v of cands) {
+    for (const v of c) {
       const n = Number(v);
       if (Number.isFinite(n) && n > 0) return n;
     }
@@ -52,8 +52,9 @@
       const g = pickBoardIdFromGlobals();
       if (g) return g;
       try {
-        const u = `/api.php?method=board.get&format=json`;
-        const r = await fetch(u, { credentials: 'same-origin' });
+        const r = await fetch('/api.php?method=board.get&format=json', {
+          credentials: 'same-origin',
+        });
         if (!r.ok) return null;
         const j = await r.json();
         const id =
@@ -68,7 +69,7 @@
   }
 
   function detectCheckFromGlobals() {
-    const cands = [
+    const c = [
       window.coreCheck,
       window.RUSFF_CHECK,
       window.rusffCheck,
@@ -76,24 +77,22 @@
       window.RusffCore && window.RusffCore.check,
       window.AWARDS && window.AWARDS.check,
     ];
-    for (const c of cands) {
-      if (c && typeof c === 'object' && c.sign) return c;
+    for (const x of c) {
+      if (x && typeof x === 'object' && x.sign) return x;
     }
     try {
-      const scripts = Array.from(document.scripts).slice(-10);
+      const scripts = Array.from(document.scripts).slice(-20);
       for (const s of scripts) {
         const t = s.textContent || '';
         if (!/sign"\s*:\s*"/.test(t)) continue;
         const m = t.match(/check"\s*:\s*\{([\s\S]+?)\}/);
-        const raw = m ? m[0] : null;
-        if (!raw) continue;
-        let jsonish = raw.replace(/check"\s*:\s*/, '');
+        if (!m) continue;
+        let jsonish = m[0].replace(/check"\s*:\s*/, '');
         jsonish = jsonish.replace(
           /(['"])?([a-zA-Z0-9_]+)(['"])?\s*:/g,
           '"$2":',
         );
-        jsonish = jsonish.replace(/'/g, '"');
-        jsonish = jsonish.replace(/,\s*}/g, '}');
+        jsonish = jsonish.replace(/'/g, '"').replace(/,\s*}/g, '}');
         const obj = JSON.parse(jsonish);
         if (obj && obj.sign) return obj;
       }
@@ -103,7 +102,7 @@
 
   async function fetchAwardsViaJsonRpc(uid) {
     const boardId = await resolveBoardId();
-    if (!uid || !boardId) return { ok: false, reason: 'no-board-or-uid' };
+    if (!uid || !boardId) return { ok: false };
     const check = detectCheckFromGlobals();
     const params = {
       board_id: boardId,
@@ -120,8 +119,8 @@
         host: location.hostname,
         user_lastvisit: check.user_lastvisit ?? undefined,
         user_unique_id: check.user_unique_id ?? undefined,
-        sign: check.sign,
         user_avatar: check.user_avatar ?? undefined,
+        sign: check.sign,
       };
     }
     const payload = {
@@ -137,88 +136,26 @@
         credentials: 'omit',
         body: JSON.stringify(payload),
       });
-      if (!res.ok) return { ok: false, reason: `http-${res.status}` };
+      if (!res.ok) return { ok: false };
       const json = await res.json();
       const list = json && (json.result || json.results);
-      if (!Array.isArray(list)) return { ok: false, reason: 'bad-json' };
+      if (!Array.isArray(list)) return { ok: false };
       const entry = list.find((u) => String(u?.user_id) === String(uid));
       const awards =
         (entry && Array.isArray(entry.awards) && entry.awards) || [];
       return { ok: true, awards };
-    } catch (e) {
-      return { ok: false, reason: 'network' };
+    } catch (_) {
+      return { ok: false };
     }
-  }
-
-  async function decodeResponseText(res) {
-    const ct = res.headers.get('content-type') || '';
-    const m = ct.match(/charset=([^;]+)/i);
-    const enc = (m ? m[1] : 'utf-8').trim().toLowerCase();
-    const buf = await res.arrayBuffer();
-    const dec = new TextDecoder(enc);
-    return dec.decode(buf);
-  }
-
-  function extractAwardsFromHtml(html) {
-    const doc = parseHTML(html);
-    const set = new Set();
-    doc.querySelectorAll('a[href] img[src]').forEach((img) => {
-      const a = img.parentElement;
-      const href =
-        (a.getAttribute('href') || '') + ' ' + (img.getAttribute('src') || '');
-      if (/forumstatic\.ru|\/files\//i.test(href)) set.add(a);
-    });
-    if (!set.size) {
-      doc.querySelectorAll('img[src]').forEach((img) => {
-        const src = img.getAttribute('src') || '';
-        if (/forumstatic\.ru|\/files\//i.test(src)) set.add(img);
-      });
-    }
-    const out = [];
-    set.forEach((el) => {
-      const img = el.tagName === 'IMG' ? el : el.querySelector('img');
-      if (!img) return;
-      const title = (
-        el.getAttribute('title') ||
-        img.getAttribute('title') ||
-        img.getAttribute('alt') ||
-        ''
-      ).trim();
-      out.push({
-        item: {
-          href: img.src || '',
-          name: title || 'Награда',
-          width: img.width ? String(img.width) : undefined,
-          height: img.height ? String(img.height) : undefined,
-        },
-        desc: title,
-      });
-    });
-    return out;
-  }
-
-  async function fetchAwardsViaHtml(uid) {
-    const res = await fetch(`/mod/awards/?uid=${encodeURIComponent(uid)}`, {
-      credentials: 'same-origin',
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const html = await decodeResponseText(res);
-    return extractAwardsFromHtml(html);
   }
 
   async function getAwards(uid) {
-    const key = String(uid);
-    const cached = awardsCache.get(key);
-    if (cached) return cached;
-    let awards = [];
+    const k = String(uid);
+    const c = awardsCache.get(k);
+    if (c) return c;
     const rpc = await fetchAwardsViaJsonRpc(uid);
-    if (rpc.ok) awards = rpc.awards;
-    if (!awards.length) {
-      try {
-        awards = await fetchAwardsViaHtml(uid);
-      } catch (_) {}
-    }
-    awardsCache.set(key, awards);
+    const awards = rpc.ok ? rpc.awards : [];
+    awardsCache.set(k, awards);
     return awards;
   }
 
