@@ -247,10 +247,10 @@
     }
 
     if (
-      sectionsConfig.id ||
-      sectionsConfig.title ||
-      sectionsConfig.items ||
-      sectionsConfig.mount
+      'id' in sectionsConfig ||
+      'title' in sectionsConfig ||
+      'items' in sectionsConfig ||
+      'mount' in sectionsConfig
     ) {
       return [norm(sectionsConfig)];
     }
@@ -431,10 +431,7 @@
   function init() {
     if (initialized) return api;
     helpers = window.helpers;
-    if (!helpers) {
-      setTimeout(init, 25);
-      return;
-    }
+    if (!helpers) return;
     ({ createEl } = helpers);
     config = helpers.getConfig('settingsMenu', {
       texts: { open: 'Меню', close: 'Закрыть меню' },

@@ -107,6 +107,8 @@
       .join('|');
     const re3 = new RegExp(`(${monthPattern})\\s*(\\d{4})`, 'i');
     const re4 = /(\d{1,2})\.(\d{4})-(\d{1,2})\.(\d{4})/;
+    const re5 = new RegExp(`(\\d{1,2})\\s*(${monthPattern})\\s*(\\d{4})`, 'i');
+    const re6 = new RegExp(`(${monthPattern})\\s*(\\d{1,2})\\s*(\\d{4})`, 'i');
 
     let m = subject.match(re4);
     if (m) {
@@ -148,7 +150,22 @@
       const month = getMonthNum(m[2]);
       if (month) return { y: getFullYear(m[1]), m: month, d: 0 };
     }
-    m = subject.replace(/,/g, '').match(re3);
+    const subj = subject.replace(/,/g, '');
+    m = subj.match(re5);
+    if (m) {
+      const day = +m[1];
+      const month = getMonthNum(m[2]);
+      if (day >= 1 && day <= 31 && month)
+        return { y: getFullYear(m[3]), m: month, d: day };
+    }
+    m = subj.match(re6);
+    if (m) {
+      const day = +m[2];
+      const month = getMonthNum(m[1]);
+      if (day >= 1 && day <= 31 && month)
+        return { y: getFullYear(m[3]), m: month, d: day };
+    }
+    m = subj.match(re3);
     if (m) {
       return { y: getFullYear(m[2]), m: getMonthNum(m[1]), d: 0 };
     }
@@ -205,7 +222,7 @@
   async function getTopics(fIds) {
     if (!fIds.length) return [];
     const topics = [];
-    const batchSize = 5;
+    const batchSize = cfg.topicsBatchSize;
     const queue = [0];
     const retries = new Map();
     while (queue.length) {
@@ -247,7 +264,7 @@
   async function getPosts(tIds) {
     if (!tIds.length) return [];
     const posts = [];
-    const limit = 5;
+    const limit = cfg.postsConcurrency;
     const queue = [...tIds];
     const retries = new Map();
 
@@ -388,6 +405,8 @@
       debug: false,
       topicsPerReq: 100,
       postsPerReq: 100,
+      topicsBatchSize: 5,
+      postsConcurrency: 5,
       backend: { endpoint: '/api.php' },
     });
 
