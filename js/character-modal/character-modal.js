@@ -41,22 +41,40 @@
 
   function extractAwardsFromHtml(html) {
     const doc = parseHTML(html);
-    const anchors = Array.from(doc.querySelectorAll('a[href] > img')).map(
-      (img) => img.parentElement,
-    );
-    return anchors.map((a) => {
-      const img = a.querySelector('img');
-      const title = (a.title || img?.title || '').trim();
-      return {
+    const candidates = new Set();
+    doc.querySelectorAll('a[href] img[src]').forEach((img) => {
+      const a = img.parentElement;
+      const href =
+        (a.getAttribute('href') || '') + ' ' + (img.getAttribute('src') || '');
+      if (/forumstatic\.ru|\/files\//i.test(href)) candidates.add(a);
+    });
+    if (!candidates.size) {
+      doc.querySelectorAll('img[src]').forEach((img) => {
+        const src = img.getAttribute('src') || '';
+        if (/forumstatic\.ru|\/files\//i.test(src)) candidates.add(img);
+      });
+    }
+    const out = [];
+    candidates.forEach((el) => {
+      const img = el.tagName === 'IMG' ? el : el.querySelector('img');
+      if (!img) return;
+      const title = (
+        el.getAttribute('title') ||
+        img.getAttribute('title') ||
+        img.getAttribute('alt') ||
+        ''
+      ).trim();
+      out.push({
         item: {
-          href: img?.src || '',
-          name: title || img?.alt || 'Награда',
-          width: img?.width ? String(img.width) : undefined,
-          height: img?.height ? String(img.height) : undefined,
+          href: img.src || '',
+          name: title || 'Награда',
+          width: img.width ? String(img.width) : undefined,
+          height: img.height ? String(img.height) : undefined,
         },
         desc: title,
-      };
+      });
     });
+    return out;
   }
 
   async function fetchAwardsHtml(uid) {
@@ -123,9 +141,7 @@
   async function addAwardsTab(container, link) {
     const { awardsTab } = config;
     if (!awardsTab?.enabled) return;
-
     const content = insertAwardsTabSkeleton(container);
-
     const uid = findUserIdForLink(link);
     if (!uid) {
       content.append(
@@ -136,13 +152,11 @@
       );
       return;
     }
-
     const loading = createEl('div', {
       text: 'Загрузка наград…',
       style: 'opacity:.8; padding:.5em 0;',
     });
     content.append(loading);
-
     try {
       const awards = await getAwards(uid);
       content.textContent = '';
@@ -156,7 +170,7 @@
           }),
         );
       }
-    } catch (e) {
+    } catch (_) {
       content.textContent = '';
       content.append(
         createEl('div', {
@@ -172,7 +186,6 @@
       const link = e.target.closest('.modal-link');
       if (!link) return;
       e.preventDefault();
-
       const pageId = link.id;
       if (!pageId) return;
 
@@ -183,7 +196,7 @@
           text: config.loadingText,
         }),
       );
-      const { close } = window.helpers.modal.openModal(box);
+      window.helpers.modal.openModal(box);
 
       try {
         const res = await helpers.request(`${config.ajaxFolder}${pageId}`);
@@ -210,7 +223,7 @@
           addAwardsTab(box, link);
           initTabs(box, tabParams);
         }
-      } catch (err) {
+      } catch (_) {
         box.textContent = '';
         box.append(
           createEl('div', {
