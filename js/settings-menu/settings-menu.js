@@ -404,6 +404,7 @@
     const list = getSection(id);
     if (list) {
       cb(list);
+      updateFocusableCache();
     } else {
       if (!sectionCallbacks[id]) sectionCallbacks[id] = [];
       sectionCallbacks[id].push(cb);

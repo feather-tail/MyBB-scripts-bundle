@@ -301,7 +301,7 @@
         },
         addon: {
           display: null,
-          date: { y: 0, m: 0, d: 0 },
+          date: null,
           isSerial: false,
           serialFirst: 0,
           quest: false,
@@ -352,13 +352,11 @@
         t.date = ad;
         t.flags.fullDate = ad.d !== 0;
       } else {
-        if (ad && !ad.y) t.flags.noDate = true;
+        if (ad) t.flags.noDate = true;
         const dt = parseDate(t.subject);
         t.date = dt;
         t.flags.fullDate = dt.d !== 0;
         t.flags.dateSubst = Boolean(dt.fallback);
-        if (dt.fallback && cfg.debug)
-          console.warn('Cannot parse date:', t.subject);
       }
     });
 
