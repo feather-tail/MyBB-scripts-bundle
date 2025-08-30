@@ -409,10 +409,18 @@
       postsConcurrency: 5,
       backend: { endpoint: '/api.php' },
     });
+    const active = Array.isArray(cfg.forums?.active) ? cfg.forums.active : [];
+    const done = Array.isArray(cfg.forums?.done) ? cfg.forums.done : [];
+    if (
+      cfg.debug &&
+      (!Array.isArray(cfg.forums?.active) || !Array.isArray(cfg.forums?.done))
+    ) {
+      console.warn('forum-chronology: invalid forums config', cfg.forums);
+    }
 
     const pairs = [
-      ...cfg.forums.done.map((fid) => [fid, false]),
-      ...cfg.forums.active.map((fid) => [fid, true]),
+      ...done.map((fid) => [fid, false]),
+      ...active.map((fid) => [fid, true]),
     ];
     const unique = new Map();
     for (const [fid, isActive] of pairs) {

@@ -16,6 +16,7 @@
   let pendingMounts;
   const pendingSections = [];
   const pendingItems = [];
+  const pendingSectionCallbacks = [];
   const earlyNotifies = new Set();
   let api;
 
@@ -118,11 +119,18 @@
       if (item.children?.length) {
         if (
           item.onClick === false ||
-          (item.onClick && item.onClick(e) === false)
+          (typeof item.onClick === 'function' && item.onClick(e) === false)
         ) {
           e.preventDefault();
           e.stopPropagation();
           return;
+        }
+        if (
+          item.onClick !== undefined &&
+          item.onClick !== false &&
+          typeof item.onClick !== 'function'
+        ) {
+          console.warn('settings-menu: onClick is not a function', item);
         }
         e.preventDefault();
         e.stopPropagation();
@@ -130,11 +138,18 @@
       } else {
         if (
           item.onClick === false ||
-          (item.onClick && item.onClick(e) === false)
+          (typeof item.onClick === 'function' && item.onClick(e) === false)
         ) {
           e.preventDefault();
           e.stopPropagation();
           return;
+        }
+        if (
+          item.onClick !== undefined &&
+          item.onClick !== false &&
+          typeof item.onClick !== 'function'
+        ) {
+          console.warn('settings-menu: onClick is not a function', item);
         }
         if (item.href) closeMenu();
       }
@@ -402,8 +417,8 @@
 
   function registerSection(id, cb) {
     if (!initialized) {
-      init();
-      if (!initialized) return;
+      pendingSectionCallbacks.push({ id, cb });
+      return;
     }
     const list = getSection(id);
     if (list) {
@@ -462,6 +477,12 @@
     if (earlyNotifies.size) {
       earlyNotifies.forEach((name) => notifyScriptLoaded(name));
       earlyNotifies.clear();
+    }
+
+    if (pendingSectionCallbacks.length) {
+      pendingSectionCallbacks
+        .splice(0)
+        .forEach(({ id, cb }) => registerSection(id, cb));
     }
 
     if (helpers.register) {
