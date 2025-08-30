@@ -13,6 +13,7 @@
   let focusableCache;
   let sectionsById;
   let sectionCallbacks;
+  let pendingMounts;
   const earlyNotifies = new Set();
   let api;
 
