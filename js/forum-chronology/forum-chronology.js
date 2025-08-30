@@ -198,34 +198,40 @@
     if (!fIds.length) return [];
     const topics = [];
     const batchSize = 5;
-    let skip = 0;
-    let hasMore = true;
-    while (hasMore) {
-      const batch = [];
-      for (let i = 0; i < batchSize; i++) {
+    const queue = [0];
+    const retries = new Map();
+    while (queue.length) {
+      const offsets = queue.splice(0, batchSize);
+      const batch = offsets.map((offset) => {
         const params =
           `method=topic.get&forum_id=${fIds.join(',')}` +
-          `&fields=id,subject,first_post&limit=${cfg.topicsPerReq}&skip=${skip}`;
-        const req = requestJson(params)
+          `&fields=id,subject,first_post&limit=${cfg.topicsPerReq}&skip=${offset}`;
+        return requestJson(params)
           .then((data) => {
-            if (data?.response?.length) {
+            if (!data) return { ok: false, offset };
+            if (data.response?.length) {
               topics.push(...data.response);
-              return {
-                ok: true,
-                full: data.response.length === cfg.topicsPerReq,
-              };
+              if (data.response.length === cfg.topicsPerReq)
+                queue.push(offset + cfg.topicsPerReq);
+              return { ok: true, offset };
             }
-            return { ok: true, full: false };
+            return { ok: true, offset };
           })
           .catch((e) => {
             if (cfg.debug) console.error(e);
-            return { ok: false, full: false };
+            return { ok: false, offset };
           });
-        batch.push(req);
-        skip += cfg.topicsPerReq;
-      }
+      });
       const results = await Promise.all(batch);
-      hasMore = results.some((r) => r.ok && r.full);
+      for (const r of results) {
+        if (!r.ok) {
+          const cnt = retries.get(r.offset) || 0;
+          if (cnt < 3) {
+            retries.set(r.offset, cnt + 1);
+            queue.push(r.offset);
+          }
+        }
+      }
     }
     return topics;
   }
@@ -314,14 +320,14 @@
       const nick = (
         (p.message.match(/\[nick\]([\s\S]*?)\[\/nick\]/i) || [])[1] || ''
       ).trim();
-      if (!t.users.has(p.user_id))
-        if (!t.users.has(p.user_id))
-          t.users.set(
-            p.user_id,
-            [p.user_id, p.username, nick].filter(
-              (v) => v !== null && v !== undefined && v !== '',
-            ),
-          );
+      if (!t.users.has(p.user_id)) {
+        t.users.set(
+          p.user_id,
+          [p.user_id, p.username, nick].filter(
+            (v) => v !== null && v !== undefined && v !== '',
+          ),
+        );
+      }
 
       const correctFirst = t.first_post && t.first_post < p.id;
       if (p.id === t.first_post || !correctFirst) {

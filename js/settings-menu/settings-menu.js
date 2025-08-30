@@ -397,7 +397,10 @@
   }
 
   function registerSection(id, cb) {
-    if (!initialized) init();
+    if (!initialized) {
+      init();
+      if (!initialized) return;
+    }
     const list = getSection(id);
     if (list) {
       cb(list);
