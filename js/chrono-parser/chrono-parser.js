@@ -2,13 +2,13 @@
   'use strict';
 
   const helpers = window.helpers;
-  const config = helpers.getConfig('chronoParser', {
-    forumsWithGames: { active: [1, 24], done: [19] },
-    currentYear: 2010,
-    topicsPerRequest: 100,
-    postsPerRequest: 100,
-    apiBase: '/api.php',
-  });
+  const config = helpers.getConfig('chronoParser') || {};
+  const forumsWithGames = config.forumsWithGames || { active: [], done: [] };
+  const currentYearSetting =
+    Number(config.currentYear) || new Date().getFullYear();
+  const topicsPerRequest = Number(config.topicsPerRequest) || 100;
+  const postsPerRequest = Number(config.postsPerRequest) || 100;
+  const apiBase = config.apiBase || '/api.php';
 
   const monthMap = {
     январь: 1,
@@ -67,7 +67,7 @@
     const yearNum = Number(year);
     if (Number.isNaN(yearNum)) return 0;
     if (yearNum > 999) return yearNum;
-    const currentYear = Number(config.currentYear);
+    const currentYear = currentYearSetting;
     const currentCentury = Math.floor(currentYear / 100);
     let fullYear;
     if (yearNum <= 99) {
@@ -89,12 +89,16 @@
     return fullYear;
   }
 
-  function parseDate(subject) {
-    const dateRegex = /(\d{1,2})[.\/ -]?(\d{1,2})[.\/ -]?(\d{2,4})/;
-    const yearMonthRegex = /(\d{2,4})[.\/ -]?([a-zA-Zа-яА-Я]+)/i;
-    const yearRegex = /(\d{1,})/;
-    const complexDateRegex = /(\d{1,2})\.(\d{3,})-(\d{1,2})\.(\d{3,})/i;
+  const dateRegex = /(\d{1,2})[.\/ -]?(\d{1,2})[.\/ -]?(\d{2,4})/;
+  const yearMonthRegex = /(\d{2,4})[.\/ -]?([a-zA-Zа-яА-Я]+)/i;
+  const yearRegex = /(\d{1,})/;
+  const complexDateRegex = /(\d{1,2})\.(\d{3,})-(\d{1,2})\.(\d{3,})/i;
+  const wordMonthRegex = new RegExp(
+    `(${Object.keys(monthMap).join('|')})\\s*(\\d{4})`,
+    'i',
+  );
 
+  function parseDate(subject) {
     let match = subject.match(dateRegex);
     if (match) {
       const day = parseInt(match[1], 10);
@@ -113,10 +117,6 @@
     }
 
     const noCommaSubject = subject.replace(/,/g, '');
-    const wordMonthRegex = new RegExp(
-      `(${Object.keys(monthMap).join('|')})\\s*(\\d{4})`,
-      'i',
-    );
     const wordMonthMatch = noCommaSubject.match(wordMonthRegex);
     if (wordMonthMatch) {
       const monthStr = wordMonthMatch[1];
@@ -207,8 +207,8 @@
 
   async function getTopics(forumIds) {
     const url =
-      `${config.apiBase}?method=topic.get&forum_id=${forumIds.join(',')}` +
-      `&fields=id,subject,first_post&limit=${config.topicsPerRequest}`;
+      `${apiBase}?method=topic.get&forum_id=${forumIds.join(',')}` +
+      `&fields=id,subject,first_post&limit=${topicsPerRequest}`;
     const data = await fetchData(url);
     return data?.response || [];
   }
@@ -219,14 +219,14 @@
     const allPosts = [];
     while (true) {
       const url =
-        `${config.apiBase}?method=post.get&topic_id=${topicIds.join(',')}` +
-        `&fields=id,user_id,username,message,topic_id&limit=${config.postsPerRequest}` +
+        `${apiBase}?method=post.get&topic_id=${topicIds.join(',')}` +
+        `&fields=id,user_id,username,message,topic_id&limit=${postsPerRequest}` +
         `&skip=${skip}`;
       const data = await fetchData(url);
       if (!data?.response) break;
       allPosts.push(...data.response);
-      if (data.response.length < config.postsPerRequest) break;
-      skip += config.postsPerRequest;
+      if (data.response.length < postsPerRequest) break;
+      skip += postsPerRequest;
     }
     return allPosts;
   }
@@ -252,16 +252,15 @@
       },
     }));
 
+    const topicMap = new Map(processedTopics.map((topic) => [topic.id, topic]));
+
     for (const post of posts) {
-      const topicIndex = processedTopics.findIndex(
-        (t) => t.id === post.topic_id,
-      );
-      if (topicIndex === -1) {
+      const topic = topicMap.get(post.topic_id);
+      if (!topic) {
         console.error('Тема не найдена для поста:', post);
         continue;
       }
 
-      const topic = processedTopics[topicIndex];
       topic.posts_count++;
 
       const userData = [post.user_id, post.username];
@@ -277,8 +276,7 @@
         if (!correctFirstPost) {
           topic.first_post = post.id;
         }
-        if (!topic.addon.description)
-          processedTopics[topicIndex].addon.description = post.message;
+        if (!topic.addon.description) topic.addon.description = post.message;
       }
       topic.flags.descr = topic.first_post !== 0;
     }
@@ -295,11 +293,20 @@
   }
 
   async function run() {
-    const promises = Object.values(config.forumsWithGames)
-      .flat()
-      .map((forumId) =>
-        processForum(forumId, config.forumsWithGames.active.includes(forumId)),
-      );
+    const activeForums = Array.isArray(forumsWithGames.active)
+      ? forumsWithGames.active
+      : [];
+    const doneForums = Array.isArray(forumsWithGames.done)
+      ? forumsWithGames.done
+      : [];
+    const allForums = [...activeForums, ...doneForums];
+    if (!allForums.length) {
+      console.warn('chronoParser: no forums configured');
+      return;
+    }
+    const promises = allForums.map((forumId) =>
+      processForum(forumId, activeForums.includes(forumId)),
+    );
     const results = await Promise.all(promises);
     console.log(results.flat().filter((t) => t.date));
   }
