@@ -45,7 +45,10 @@
   }
 
   function setMenuState(forceState) {
-    if (!initialized) init();
+    if (!initialized) {
+      init();
+      if (!initialized) return;
+    }
     toggleMenu(typeof forceState === 'boolean' ? forceState : true);
   }
 
@@ -116,6 +119,7 @@
           (item.onClick && item.onClick(e) === false)
         ) {
           e.preventDefault();
+          e.stopPropagation();
           return;
         }
         e.preventDefault();
@@ -356,7 +360,10 @@
   }
 
   function addSection(cfg) {
-    if (!initialized) init();
+    if (!initialized) {
+      init();
+      if (!initialized) return;
+    }
     const sections = parseSections(cfg);
     let firstList;
     const frag = document.createDocumentFragment();
@@ -378,7 +385,10 @@
   }
 
   function addItems(id, items) {
-    if (!initialized) init();
+    if (!initialized) {
+      init();
+      if (!initialized) return;
+    }
     const list = getSection(id);
     if (!list) return;
     (items || []).forEach((item) => list.append(renderItem(item)));
@@ -412,6 +422,10 @@
   function init() {
     if (initialized) return api;
     helpers = window.helpers;
+    if (!helpers) {
+      setTimeout(init, 25);
+      return;
+    }
     ({ createEl } = helpers);
     config = helpers.getConfig('settingsMenu', {
       texts: { open: 'Меню', close: 'Закрыть меню' },

@@ -74,7 +74,12 @@
 
   const getMonthNum = (s) => monthMap[s.toLowerCase()] || 0;
 
+  function ensureCfg() {
+    if (!cfg) throw new Error('forum-chronology: cfg is not set');
+  }
+
   function getFullYear(year) {
+    ensureCfg();
     const n = Number(year);
     if (!n) return 0;
     if (n >= 100) return n;
@@ -89,6 +94,7 @@
   }
 
   function parseDate(subject) {
+    ensureCfg();
     if (!subject)
       return { y: getFullYear(cfg.currentYear), m: 0, d: 0, fallback: true };
     const re1 = /(\d{1,2})[.\/ -](\d{1,2})[.\/ -](\d{2,4})/;
@@ -204,16 +210,22 @@
           .then((data) => {
             if (data?.response?.length) {
               topics.push(...data.response);
-              return data.response.length === cfg.topicsPerReq;
+              return {
+                ok: true,
+                full: data.response.length === cfg.topicsPerReq,
+              };
             }
-            return false;
+            return { ok: true, full: false };
           })
-          .catch((e) => (cfg.debug && console.error(e), false));
+          .catch((e) => {
+            if (cfg.debug) console.error(e);
+            return { ok: false, full: false };
+          });
         batch.push(req);
         skip += cfg.topicsPerReq;
       }
       const results = await Promise.all(batch);
-      hasMore = results.every((v) => v);
+      hasMore = results.some((r) => r.ok && r.full);
     }
     return topics;
   }
@@ -299,14 +311,17 @@
       if (!t) continue;
 
       t.postsCount++;
-      const nick = (p.message.match(/\[nick\](.*?)\[\/nick\]/) || [])[1];
+      const nick = (
+        (p.message.match(/\[nick\]([\s\S]*?)\[\/nick\]/i) || [])[1] || ''
+      ).trim();
       if (!t.users.has(p.user_id))
-        t.users.set(
-          p.user_id,
-          [p.user_id, p.username, nick].filter(
-            (v) => v !== null && v !== undefined && v !== '',
-          ),
-        );
+        if (!t.users.has(p.user_id))
+          t.users.set(
+            p.user_id,
+            [p.user_id, p.username, nick].filter(
+              (v) => v !== null && v !== undefined && v !== '',
+            ),
+          );
 
       const correctFirst = t.first_post && t.first_post < p.id;
       if (p.id === t.first_post || !correctFirst) {
@@ -389,6 +404,8 @@
     module.exports = {
       parseDate,
       __setCfg: (c) => (cfg = c),
+      __setHelpers: (h) => (helpers = h),
+      __testGetTopics: getTopics,
     };
   }
 
