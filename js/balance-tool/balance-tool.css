@@ -1,0 +1,73 @@
+:root {
+  --bt-font: 13px/1.4 system-ui, -apple-system, Segoe UI, Roboto, Arial,
+    sans-serif;
+  --bt-bg: #fafafa;
+  --bt-border: #d0d0d0;
+  --bt-muted: #666;
+  --bt-error: #b00020;
+  --bt-ok: #0a7f2e;
+}
+.balance-tool {
+  margin-top: 0.5rem;
+  font: var(--bt-font);
+}
+.balance-tool__open,
+.balance-tool__run {
+  padding: 0.35rem 0.6rem;
+  border: 1px solid var(--bt-border);
+  background: #f7f7f7;
+  border-radius: 0.35rem;
+  cursor: pointer;
+}
+.balance-tool__open {
+  margin-right: 0.5rem;
+}
+.balance-tool__panel {
+  margin-top: 0.5rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--bt-border);
+  border-radius: 0.4rem;
+  background: var(--bt-bg);
+}
+.balance-tool__row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin: 0.3rem 0;
+}
+.balance-tool__label {
+  color: var(--bt-muted);
+  min-width: 8.5rem;
+}
+.balance-tool__select,
+.balance-tool__amount {
+  max-width: 240px;
+}
+.balance-tool__status-area {
+  margin-top: 0.5rem;
+}
+.balance-tool__error {
+  color: var(--bt-error);
+  font-weight: 600;
+}
+.balance-tool__report {
+  margin-top: 0.5rem;
+  border-left: 3px solid #d9d9d9;
+  padding: 0.5rem 0.6rem;
+  background: #fff;
+}
+.balance-tool__kv {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.25rem 0.75rem;
+}
+.balance-tool__kv dt {
+  color: var(--bt-muted);
+}
+.balance-tool__kv dd {
+  margin: 0;
+}
+.balance-tool.is-busy {
+  opacity: 0.7;
+  pointer-events: none;
+}
