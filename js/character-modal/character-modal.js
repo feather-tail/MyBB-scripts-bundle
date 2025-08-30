@@ -1,98 +1,6 @@
 (() => {
   'use strict';
 
-  const AWARDS_EVENT = 'awards:cache-updated';
-  const awardsCache = (window.__awardsCache ||= {
-    byUser: new Map(),
-    lastUpdated: 0,
-  });
-
-  function emitAwardsUpdated() {
-    awardsCache.lastUpdated = Date.now();
-    document.dispatchEvent(new CustomEvent(AWARDS_EVENT));
-  }
-
-  function storeAwards(json) {
-    try {
-      const list = (json && (json.result || json.results)) || [];
-      let changed = false;
-      for (const u of list) {
-        const uid = String(u?.user_id ?? '');
-        if (!uid) continue;
-        const arr = Array.isArray(u.awards) ? u.awards : [];
-        awardsCache.byUser.set(uid, arr);
-        changed = true;
-      }
-      if (changed) emitAwardsUpdated();
-    } catch (_) {
-      /*  */
-    }
-  }
-
-  (function patchAwardsInterception() {
-    if (window.__awardsInterceptionPatched) return;
-    window.__awardsInterceptionPatched = true;
-
-    const isAwardsReq = (url, bodyStr) => {
-      if (!url) return false;
-      const urlHit = /core\.rusff\.me\/rusff\.php/.test(url);
-      const methodHit =
-        bodyStr && /"method"\s*:\s*"awards\/index"/.test(bodyStr);
-      return urlHit && methodHit;
-    };
-
-    // fetch
-    if (typeof window.fetch === 'function') {
-      const origFetch = window.fetch.bind(window);
-      window.fetch = function (input, init = {}) {
-        const url = typeof input === 'string' ? input : input?.url;
-        const bodyStr =
-          typeof init?.body === 'string'
-            ? init.body
-            : init?.body && init.body.toString();
-        const p = origFetch(input, init);
-        if (isAwardsReq(url, bodyStr)) {
-          p.then((res) => {
-            try {
-              const clone = res.clone();
-              clone
-                .json()
-                .then(storeAwards)
-                .catch(() => {});
-            } catch (_) {}
-          }).catch(() => {});
-        }
-        return p;
-      };
-    }
-
-    // XHR
-    if (window.XMLHttpRequest) {
-      const XO = XMLHttpRequest.prototype;
-      const origOpen = XO.open;
-      const origSend = XO.send;
-
-      XO.open = function (method, url) {
-        this.__aw_url = url;
-        return origOpen.apply(this, arguments);
-      };
-
-      XO.send = function (body) {
-        const bodyStr =
-          typeof body === 'string' ? body : body && body.toString();
-        this.addEventListener('load', function () {
-          try {
-            if (isAwardsReq(this.__aw_url, bodyStr)) {
-              const json = JSON.parse(this.responseText);
-              storeAwards(json);
-            }
-          } catch (_) {}
-        });
-        return origSend.apply(this, arguments);
-      };
-    }
-  })();
-
   const helpers = window.helpers;
   const { createEl, parseHTML, initTabs } = helpers;
 
@@ -100,6 +8,8 @@
     loadingText: 'Загрузка...',
     errorText: 'Ошибка загрузки данных.',
   });
+
+  const awardsCache = (window.__awardsCacheDirect ||= new Map());
 
   function findUserIdForLink(link) {
     const post = link.closest?.('.post');
@@ -120,30 +30,139 @@
     return null;
   }
 
-  function getAwardsFromCache(uid) {
-    if (!uid) return [];
-    return awardsCache.byUser.get(String(uid)) || [];
+  function detectBoardId() {
+    const cand = [
+      window.BOARD_ID,
+      window.board_id,
+      window.PUNBB && window.PUNBB.board_id,
+      window.FORUM && window.FORUM.board_id,
+      document.body && document.body.dataset && document.body.dataset.boardId,
+    ];
+    for (const v of cand) {
+      const n = Number(v);
+      if (Number.isFinite(n) && n > 0) return n;
+    }
+    return null;
   }
 
-  function waitForAwards(uid, timeoutMs = 3000) {
-    return new Promise((resolve) => {
-      const existing = getAwardsFromCache(uid);
-      if (existing.length) return resolve(existing);
+  function detectRusffCheck() {
+    const cand = [
+      window.coreCheck,
+      window.RUSFF_CHECK,
+      window.rusffCheck,
+      window.RusffCore && window.RusffCore.check,
+      window.RUSFF && window.RUSFF.check,
+    ];
+    for (const c of cand) {
+      if (c && typeof c === 'object' && 'sign' in c) return c;
+    }
+    return null;
+  }
 
-      const onUpdate = () => {
-        const now = getAwardsFromCache(uid);
-        if (now.length) {
-          document.removeEventListener(AWARDS_EVENT, onUpdate);
-          resolve(now);
-        }
+  async function fetchAwardsViaJsonRpc(uid) {
+    const boardId = detectBoardId();
+    if (!uid || !boardId) {
+      return { ok: false, reason: 'no-uid-or-board' };
+    }
+
+    const check = detectRusffCheck();
+    const params = {
+      board_id: boardId,
+      users_ids: [String(uid)],
+      sort: 'user',
+    };
+    if (check) {
+      params.check = {
+        board_id: boardId,
+        user_id: check.user_id ?? undefined,
+        partner_id: check.partner_id ?? undefined,
+        group_id: check.group_id ?? undefined,
+        user_login: check.user_login ?? undefined,
+        host: location.hostname,
+        user_lastvisit: check.user_lastvisit ?? undefined,
+        user_unique_id: check.user_unique_id ?? undefined,
+        sign: check.sign,
       };
-      document.addEventListener(AWARDS_EVENT, onUpdate);
+    }
 
-      setTimeout(() => {
-        document.removeEventListener(AWARDS_EVENT, onUpdate);
-        resolve(getAwardsFromCache(uid));
-      }, timeoutMs);
-    });
+    const payload = {
+      jsonrpc: '2.0',
+      method: 'awards/index',
+      id: Date.now(),
+      params,
+    };
+
+    try {
+      const res = await fetch('https://core.rusff.me/rusff.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'omit',
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        return { ok: false, reason: `http-${res.status}` };
+      }
+      const json = await res.json();
+      const list = json && (json.result || json.results);
+      if (!Array.isArray(list)) {
+        return { ok: false, reason: 'bad-json' };
+      }
+      const entry = list.find((u) => String(u?.user_id) === String(uid));
+      const awards =
+        (entry && Array.isArray(entry.awards) && entry.awards) || [];
+      return { ok: true, awards };
+    } catch (e) {
+      return { ok: false, reason: 'network', error: e };
+    }
+  }
+
+  async function fetchAwardsViaHtml(uid) {
+    try {
+      const res = await fetch(`/mod/awards/?uid=${encodeURIComponent(uid)}`, {
+        credentials: 'same-origin',
+      });
+      if (!res.ok) return { ok: false, reason: `http-${res.status}` };
+      const html = await res.text();
+      const doc = parseHTML(html);
+      const anchors = Array.from(doc.querySelectorAll('a[href] > img')).map(
+        (img) => img.parentElement,
+      );
+      const awards = anchors.map((a) => {
+        const img = a.querySelector('img');
+        const title = (a.title || img?.title || '').trim();
+        return {
+          item: {
+            href: img?.src || '',
+            name: title || img?.alt || 'Награда',
+            width: img?.width ? String(img.width) : undefined,
+            height: img?.height ? String(img.height) : undefined,
+          },
+          desc: title,
+        };
+      });
+      return { ok: true, awards };
+    } catch (e) {
+      return { ok: false, reason: 'network', error: e };
+    }
+  }
+
+  async function getAwards(uid) {
+    const cached = awardsCache.get(String(uid));
+    if (cached) return cached;
+
+    const rpc = await fetchAwardsViaJsonRpc(uid);
+    if (rpc.ok) {
+      awardsCache.set(String(uid), rpc.awards);
+      return rpc.awards;
+    }
+
+    const html = await fetchAwardsViaHtml(uid);
+    if (html.ok) {
+      awardsCache.set(String(uid), html.awards);
+      return html.awards;
+    }
+
+    return [];
   }
 
   function buildAwardNodes(awardsArr) {
@@ -190,41 +209,42 @@
     return content;
   }
 
-  async function fillAwardsFromResponse(contentEl, uid) {
-    let awards = getAwardsFromCache(uid);
-    if (!awards.length) {
-      contentEl.textContent = 'Загрузка наград…';
-      awards = await waitForAwards(uid, 3000);
+  async function addAwardsTab(container, link) {
+    const { awardsTab } = config;
+    if (!awardsTab?.enabled) return;
+
+    const content = insertAwardsTabSkeleton(container);
+
+    const uid = findUserIdForLink(link);
+    if (!uid) {
+      content.append(
+        createEl('div', {
+          style: 'opacity:.7; padding:.75em 0;',
+          text: 'Невозможно определить пользователя.',
+        }),
+      );
+      return;
     }
 
-    contentEl.textContent = '';
+    const loading = createEl('div', {
+      text: 'Загрузка наград…',
+      style: 'opacity:.8;padding:.5em 0;',
+    });
+    content.append(loading);
+
+    const awards = await getAwards(uid);
+
+    content.textContent = '';
     if (awards.length) {
-      contentEl.append(buildAwardNodes(awards));
+      content.append(buildAwardNodes(awards));
     } else {
-      contentEl.append(
+      content.append(
         createEl('div', {
           style: 'opacity:.7; padding:.75em 0;',
           text: 'Награды не найдены.',
         }),
       );
     }
-  }
-
-  async function addAwardsTab(container, link) {
-    const { awardsTab } = config;
-    if (!awardsTab?.enabled) return;
-
-    const content = insertAwardsTabSkeleton(container);
-    const uid = findUserIdForLink(link);
-    await fillAwardsFromResponse(content, uid);
-    const onUpdate = () => {
-      const fresh = getAwardsFromCache(uid);
-      if (fresh.length) {
-        content.textContent = '';
-        content.append(buildAwardNodes(fresh));
-      }
-    };
-    document.addEventListener(AWARDS_EVENT, onUpdate);
   }
 
   function init() {
