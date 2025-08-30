@@ -7,6 +7,31 @@
     errorText: 'Ошибка загрузки данных.',
   });
 
+  function addAwardsTab(container, link) {
+    const { awardsTab, classes } = config;
+    if (!awardsTab?.enabled) return;
+    let awards = Array.from(container.querySelectorAll(awardsTab.selector));
+    if (!awards.length && link) {
+      const root = link.closest('.character');
+      if (root) awards = Array.from(root.querySelectorAll(awardsTab.selector));
+    }
+    if (!awards.length) return;
+    const tab = createEl('div', {
+      className: classes.tab,
+      text: awardsTab.title,
+    });
+    const content = createEl('div', {
+      className: `${classes.tabContent} character-modal__awards`,
+    });
+    if (awardsTab.perRow) {
+      content.style.gridTemplateColumns = `repeat(${awardsTab.perRow}, 1fr)`;
+    }
+    awards.forEach((award) => content.append(award.cloneNode(true)));
+    const tabs = container.querySelector(`.${classes.tabs}`);
+    tabs?.append(tab);
+    container.append(content);
+  }
+
   function init() {
     document.body.addEventListener('click', async (e) => {
       const link = e.target.closest('.modal-link');
@@ -37,9 +62,11 @@
         };
         if (character) {
           box.append(character);
+          addAwardsTab(character, link);
           initTabs(character, tabParams);
         } else {
           box.append(...Array.from(doc.body.childNodes));
+          addAwardsTab(box, link);
           initTabs(box, tabParams);
         }
       } catch (err) {
