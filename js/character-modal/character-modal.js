@@ -9,37 +9,107 @@
     errorText: 'Ошибка загрузки данных.',
   });
 
-  const awardsCache = (window.__awardsCacheCore ||= new Map());
-  const inflight = (window.__awardsInflight ||= new Map());
-  let __boardIdPromise;
+  const AWARDS_EVENT = 'awards:cache-updated';
 
-  function getAttrUid(node) {
-    if (!node) return null;
-    const n =
-      node.getAttribute?.('data-uid') ||
-      node.dataset?.uid ||
-      node.getAttribute?.('data-id') ||
-      node.dataset?.id;
-    const m = n && String(n).match(/^\d+$/) ? n : null;
-    return m ? String(m) : null;
+  const awardsCache = (window.__awardsCache ||= {
+    byUser: new Map(),
+    lastUpdated: 0,
+  });
+
+  function emitAwardsUpdated() {
+    awardsCache.lastUpdated = Date.now();
+    document.dispatchEvent(new CustomEvent(AWARDS_EVENT));
   }
 
-  function findUidNear(node) {
-    let el = node;
-    while (el && el !== document.body) {
-      const byAttr = getAttrUid(el);
-      if (byAttr) return byAttr;
-      el = el.parentElement;
+  function storeAwards(json) {
+    try {
+      const list = (json && (json.result || json.results)) || [];
+      let changed = false;
+      list.forEach((u) => {
+        const uid = String(u?.user_id ?? '');
+        if (!uid) return;
+        const arr = Array.isArray(u.awards) ? u.awards : [];
+        awardsCache.byUser.set(uid, arr);
+        changed = true;
+      });
+      if (changed) emitAwardsUpdated();
+    } catch (_) {
+      /*  */
     }
-    const post = node.closest?.('.post');
+  }
+
+  function patchAwardsInterception() {
+    if (window.__awardsInterceptionPatched) return;
+    window.__awardsInterceptionPatched = true;
+
+    const isAwardsReq = (url, bodyStr) => {
+      if (!url) return false;
+      const urlHit = /core\.rusff\.me\/rusff\.php/.test(url);
+      const methodHit =
+        bodyStr && /"method"\s*:\s*"awards\/index"/.test(bodyStr);
+      return urlHit && methodHit;
+    };
+
+    if (typeof window.fetch === 'function') {
+      const origFetch = window.fetch.bind(window);
+      window.fetch = function (input, init = {}) {
+        const url = typeof input === 'string' ? input : input?.url;
+        const bodyStr =
+          typeof init?.body === 'string'
+            ? init.body
+            : init?.body && init.body.toString();
+        const p = origFetch(input, init);
+        if (isAwardsReq(url, bodyStr)) {
+          p.then((res) => {
+            try {
+              const clone = res.clone();
+              clone
+                .json()
+                .then(storeAwards)
+                .catch(() => {});
+            } catch (_) {}
+          }).catch(() => {});
+        }
+        return p;
+      };
+    }
+
+    if (window.XMLHttpRequest) {
+      const XO = XMLHttpRequest.prototype;
+      const origOpen = XO.open;
+      const origSend = XO.send;
+
+      XO.open = function (method, url) {
+        this.__aw_url = url;
+        return origOpen.apply(this, arguments);
+      };
+
+      XO.send = function (body) {
+        const bodyStr =
+          typeof body === 'string' ? body : body && body.toString();
+        this.addEventListener('load', function () {
+          try {
+            if (isAwardsReq(this.__aw_url, bodyStr)) {
+              const json = JSON.parse(this.responseText);
+              storeAwards(json);
+            }
+          } catch (_) {}
+        });
+        return origSend.apply(this, arguments);
+      };
+    }
+  }
+
+  function findUserIdForLink(link) {
+    const post = link.closest?.('.post');
     if (post) {
-      const byPa = post.querySelector('.pa-awards[data-id]');
-      if (byPa?.dataset?.id) return String(byPa.dataset.id);
-      const prof = post.querySelector('a[href*="profile.php?id="]');
-      if (prof) {
-        const m = (prof.href || '').match(/[?&]id=(\d+)/);
+      const a = post.querySelector('a[href*="profile.php?id="]');
+      if (a) {
+        const m = (a.href || '').match(/[?&]id=(\d+)/);
         if (m) return m[1];
       }
+      const awardsLi = post.querySelector('.pa-awards[data-id]');
+      if (awardsLi?.dataset?.id) return awardsLi.dataset.id;
     }
     const nav =
       document.querySelector('#navprofile a[href*="profile.php?id="]') ||
@@ -48,154 +118,101 @@
       const m = (nav.href || '').match(/[?&]id=(\d+)/);
       if (m) return m[1];
     }
+    const any = document.querySelector('.pa-awards[data-id]');
+    if (any?.dataset?.id) return any.dataset.id;
+
     return null;
   }
 
-  function pickBoardIdFromGlobals() {
-    const c = [
-      window.BOARD_ID,
-      window.board_id,
-      window.PUNBB && window.PUNBB.board_id,
-      window.FORUM && window.FORUM.board_id,
-      document.body && document.body.dataset && document.body.dataset.boardId,
-    ];
-    for (const v of c) {
-      const n = Number(v);
-      if (Number.isFinite(n) && n > 0) return n;
-    }
-    return null;
-  }
-
-  async function resolveBoardId() {
-    if (__boardIdPromise) return __boardIdPromise;
-    __boardIdPromise = (async () => {
-      const g = pickBoardIdFromGlobals();
-      if (g) return g;
-      try {
-        const r = await fetch('/api.php?method=board.get&format=json', {
-          credentials: 'same-origin',
-        });
-        if (!r.ok) return null;
-        const j = await r.json();
-        const id =
-          j?.result?.board?.id ?? j?.board?.id ?? j?.result?.id ?? j?.id;
-        const n = Number(id);
-        return Number.isFinite(n) && n > 0 ? n : null;
-      } catch (_) {
-        return null;
-      }
-    })();
-    return __boardIdPromise;
-  }
-
-  function detectCheckFromGlobals() {
-    const c = [
-      window.coreCheck,
-      window.RUSFF_CHECK,
-      window.rusffCheck,
-      window.RUSFF && window.RUSFF.check,
-      window.RusffCore && window.RusffCore.check,
-      window.AWARDS && window.AWARDS.check,
-    ];
-    for (const x of c) {
-      if (x && typeof x === 'object' && x.sign) return x;
-    }
-    try {
-      const scripts = Array.from(document.scripts).slice(-16);
-      for (const s of scripts) {
-        const t = s.textContent || '';
-        if (!/sign"\s*:\s*"/.test(t)) continue;
-        const m = t.match(/check"\s*:\s*\{([\s\S]+?)\}/);
-        if (!m) continue;
-        let jsonish = m[0].replace(/check"\s*:\s*/, '');
-        jsonish = jsonish.replace(
-          /(['"])?([a-zA-Z0-9_]+)(['"])?\s*:/g,
-          '"$2":',
-        );
-        jsonish = jsonish.replace(/'/g, '"');
-        jsonish = jsonish.replace(/,\s*}/g, '}');
-        const obj = JSON.parse(jsonish);
-        if (obj && obj.sign) return obj;
-      }
-    } catch (_) {}
-    return null;
-  }
-
-  async function fetchAwardsCore(uid) {
-    const boardId = await resolveBoardId();
-    if (!uid || !boardId) return [];
-    const check = detectCheckFromGlobals();
-    const params = {
-      board_id: boardId,
-      users_ids: [String(uid)],
-      sort: 'user',
-    };
-    if (check) {
-      params.check = {
-        board_id: boardId,
-        user_id: check.user_id ?? undefined,
-        partner_id: check.partner_id ?? undefined,
-        group_id: check.group_id ?? undefined,
-        user_login: check.user_login ?? undefined,
-        host: location.hostname,
-        user_lastvisit: check.user_lastvisit ?? undefined,
-        user_unique_id: check.user_unique_id ?? undefined,
-        user_avatar: check.user_avatar ?? undefined,
-        sign: check.sign,
+  function normalizeDomAwards(anchorNodes) {
+    return anchorNodes.map((a) => {
+      const img = a.querySelector ? a.querySelector('img') : null;
+      const title = (a.title || img?.title || '').trim();
+      return {
+        item: {
+          href: img?.src || '',
+          name: title || img?.alt || 'Награда',
+          width: img?.width ? String(img.width) : undefined,
+          height: img?.height ? String(img.height) : undefined,
+        },
+        desc: title,
       };
-    }
-    const payload = {
-      jsonrpc: '2.0',
-      method: 'awards/index',
-      id: Date.now(),
-      params,
-    };
-    const res = await fetch('https://core.rusff.me/rusff.php', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-      },
-      credentials: 'omit',
-      body: JSON.stringify(payload),
     });
-    if (!res.ok) return [];
-    const json = await res.json();
-    const list = json && (json.result || json.results);
-    if (!Array.isArray(list)) return [];
-    const entry = list.find((u) => String(u?.user_id) === String(uid));
-    return (entry && Array.isArray(entry.awards) && entry.awards) || [];
   }
 
-  function ensureFetch(uid) {
-    const k = String(uid);
-    if (awardsCache.has(k)) return Promise.resolve(awardsCache.get(k));
-    if (inflight.has(k)) return inflight.get(k);
-    const p = fetchAwardsCore(k)
-      .then((aw) => {
-        awardsCache.set(k, aw);
-        inflight.delete(k);
-        return aw;
-      })
-      .catch(() => {
-        inflight.delete(k);
-        return [];
+  function queryAwardsInDocument(uid, scopeEl) {
+    if (uid) {
+      const selByUid = `.pa-awards[data-id="${uid}"] .mini_awards a`;
+      const nodes = Array.from(document.querySelectorAll(selByUid));
+      if (nodes.length) return normalizeDomAwards(nodes);
+    }
+    if (scopeEl) {
+      const post = scopeEl.closest?.('.post');
+      if (post) {
+        const inPost = Array.from(
+          post.querySelectorAll('.pa-awards .mini_awards a'),
+        );
+        if (inPost.length) return normalizeDomAwards(inPost);
+      }
+    }
+    const generic = Array.from(
+      document.querySelectorAll('.pa-awards .mini_awards a'),
+    );
+    if (generic.length) return normalizeDomAwards(generic);
+
+    return [];
+  }
+
+  async function collectAwardsForUserId(uid, linkEl) {
+    if (!uid) return [];
+
+    const cached = awardsCache.byUser.get(String(uid));
+    if (cached && cached.length) return cached;
+
+    const domNow = queryAwardsInDocument(uid, linkEl);
+    if (domNow.length) return domNow;
+
+    const fromCachePromise = new Promise((resolve) => {
+      const onUpdate = () => {
+        document.removeEventListener(AWARDS_EVENT, onUpdate);
+        resolve(awardsCache.byUser.get(String(uid)) || []);
+      };
+      document.addEventListener(AWARDS_EVENT, onUpdate, { once: true });
+      setTimeout(() => {
+        document.removeEventListener(AWARDS_EVENT, onUpdate);
+        resolve([]);
+      }, 2000);
+    });
+
+    const fromDomPromise = new Promise((resolve) => {
+      const sel = uid
+        ? `.pa-awards[data-id="${uid}"] .mini_awards a`
+        : '.pa-awards .mini_awards a';
+
+      const obs = new MutationObserver(() => {
+        const found = Array.from(document.querySelectorAll(sel));
+        if (found.length) {
+          obs.disconnect();
+          resolve(normalizeDomAwards(found));
+        }
       });
-    inflight.set(k, p);
-    return p;
+
+      obs.observe(document.body, { childList: true, subtree: true });
+      setTimeout(() => {
+        obs.disconnect();
+        resolve([]);
+      }, 2000);
+    });
+
+    const winner = await Promise.race([fromCachePromise, fromDomPromise]);
+    return winner || [];
   }
 
-  async function getAwards(uid) {
-    const k = String(uid);
-    if (awardsCache.has(k)) return awardsCache.get(k);
-    return ensureFetch(k);
-  }
-
-  function buildAwardNodes(arr) {
+  function buildAwardNodes(awardsArr) {
     const frag = document.createDocumentFragment();
-    for (const a of arr) {
+    awardsArr.forEach((a) => {
       const imgSrc = a?.item?.href || '';
-      if (!imgSrc) continue;
+      if (!imgSrc) return;
       const title = (a.desc || a.item?.name || '').trim();
       const aEl = createEl('a', {
         href: imgSrc,
@@ -203,14 +220,14 @@
         rel: 'noopener noreferrer',
       });
       const img = createEl('img', { src: imgSrc, alt: title || 'award' });
+      if (title) aEl.title = title;
       img.style.maxWidth = '40px';
       img.style.maxHeight = '40px';
       img.style.width = 'auto';
       img.style.height = 'auto';
-      if (title) aEl.title = title;
       aEl.append(img);
       frag.append(aEl);
-    }
+    });
     return frag;
   }
 
@@ -235,28 +252,17 @@
     return content;
   }
 
-  async function addAwardsTab(container, link, preUid) {
+  async function addAwardsTab(container, link) {
     const { awardsTab } = config;
     if (!awardsTab?.enabled) return;
+
     const content = insertAwardsTabSkeleton(container);
-    const uid = preUid || findUidNear(link);
-    if (!uid) {
-      content.append(
-        createEl('div', {
-          style: 'opacity:.7; padding:.75em 0;',
-          text: 'Невозможно определить пользователя.',
-        }),
-      );
-      return;
-    }
-    const loading = createEl('div', {
-      text: 'Загрузка наград…',
-      style: 'opacity:.8; padding:.5em 0;',
-    });
-    content.append(loading);
-    const awards = await getAwards(uid);
+
+    const uid = findUserIdForLink(link);
+    const awards = await collectAwardsForUserId(uid, link);
+
     content.textContent = '';
-    if (awards.length) {
+    if (awards && awards.length) {
       content.append(buildAwardNodes(awards));
     } else {
       content.append(
@@ -269,13 +275,12 @@
   }
 
   function init() {
+    patchAwardsInterception();
+
     document.body.addEventListener('click', async (e) => {
       const link = e.target.closest('.modal-link');
       if (!link) return;
       e.preventDefault();
-
-      const preUid = findUidNear(link);
-      if (preUid) ensureFetch(preUid);
 
       const pageId = link.id;
       if (!pageId) return;
@@ -287,7 +292,7 @@
           text: config.loadingText,
         }),
       );
-      window.helpers.modal.openModal(box);
+      const { close } = window.helpers.modal.openModal(box);
 
       try {
         const res = await helpers.request(`${config.ajaxFolder}${pageId}`);
@@ -307,14 +312,14 @@
 
         if (character) {
           box.append(character);
-          addAwardsTab(character, link, preUid);
+          addAwardsTab(character, link);
           initTabs(character, tabParams);
         } else {
           box.append(...Array.from(doc.body.childNodes));
-          addAwardsTab(box, link, preUid);
+          addAwardsTab(box, link);
           initTabs(box, tabParams);
         }
-      } catch (_) {
+      } catch (err) {
         box.textContent = '';
         box.append(
           createEl('div', {
