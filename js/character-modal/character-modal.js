@@ -30,139 +30,50 @@
     return null;
   }
 
-  function detectBoardId() {
-    const cand = [
-      window.BOARD_ID,
-      window.board_id,
-      window.PUNBB && window.PUNBB.board_id,
-      window.FORUM && window.FORUM.board_id,
-      document.body && document.body.dataset && document.body.dataset.boardId,
-    ];
-    for (const v of cand) {
-      const n = Number(v);
-      if (Number.isFinite(n) && n > 0) return n;
-    }
-    return null;
+  async function decodeResponseText(res) {
+    const ct = res.headers.get('content-type') || '';
+    const m = ct.match(/charset=([^;]+)/i);
+    const enc = (m ? m[1] : 'utf-8').trim().toLowerCase();
+    const buf = await res.arrayBuffer();
+    const dec = new TextDecoder(enc);
+    return dec.decode(buf);
   }
 
-  function detectRusffCheck() {
-    const cand = [
-      window.coreCheck,
-      window.RUSFF_CHECK,
-      window.rusffCheck,
-      window.RusffCore && window.RusffCore.check,
-      window.RUSFF && window.RUSFF.check,
-    ];
-    for (const c of cand) {
-      if (c && typeof c === 'object' && 'sign' in c) return c;
-    }
-    return null;
-  }
-
-  async function fetchAwardsViaJsonRpc(uid) {
-    const boardId = detectBoardId();
-    if (!uid || !boardId) {
-      return { ok: false, reason: 'no-uid-or-board' };
-    }
-
-    const check = detectRusffCheck();
-    const params = {
-      board_id: boardId,
-      users_ids: [String(uid)],
-      sort: 'user',
-    };
-    if (check) {
-      params.check = {
-        board_id: boardId,
-        user_id: check.user_id ?? undefined,
-        partner_id: check.partner_id ?? undefined,
-        group_id: check.group_id ?? undefined,
-        user_login: check.user_login ?? undefined,
-        host: location.hostname,
-        user_lastvisit: check.user_lastvisit ?? undefined,
-        user_unique_id: check.user_unique_id ?? undefined,
-        sign: check.sign,
+  function extractAwardsFromHtml(html) {
+    const doc = parseHTML(html);
+    const anchors = Array.from(doc.querySelectorAll('a[href] > img')).map(
+      (img) => img.parentElement,
+    );
+    return anchors.map((a) => {
+      const img = a.querySelector('img');
+      const title = (a.title || img?.title || '').trim();
+      return {
+        item: {
+          href: img?.src || '',
+          name: title || img?.alt || 'Награда',
+          width: img?.width ? String(img.width) : undefined,
+          height: img?.height ? String(img.height) : undefined,
+        },
+        desc: title,
       };
-    }
-
-    const payload = {
-      jsonrpc: '2.0',
-      method: 'awards/index',
-      id: Date.now(),
-      params,
-    };
-
-    try {
-      const res = await fetch('https://core.rusff.me/rusff.php', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'omit',
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) {
-        return { ok: false, reason: `http-${res.status}` };
-      }
-      const json = await res.json();
-      const list = json && (json.result || json.results);
-      if (!Array.isArray(list)) {
-        return { ok: false, reason: 'bad-json' };
-      }
-      const entry = list.find((u) => String(u?.user_id) === String(uid));
-      const awards =
-        (entry && Array.isArray(entry.awards) && entry.awards) || [];
-      return { ok: true, awards };
-    } catch (e) {
-      return { ok: false, reason: 'network', error: e };
-    }
+    });
   }
 
-  async function fetchAwardsViaHtml(uid) {
-    try {
-      const res = await fetch(`/mod/awards/?uid=${encodeURIComponent(uid)}`, {
-        credentials: 'same-origin',
-      });
-      if (!res.ok) return { ok: false, reason: `http-${res.status}` };
-      const html = await res.text();
-      const doc = parseHTML(html);
-      const anchors = Array.from(doc.querySelectorAll('a[href] > img')).map(
-        (img) => img.parentElement,
-      );
-      const awards = anchors.map((a) => {
-        const img = a.querySelector('img');
-        const title = (a.title || img?.title || '').trim();
-        return {
-          item: {
-            href: img?.src || '',
-            name: title || img?.alt || 'Награда',
-            width: img?.width ? String(img.width) : undefined,
-            height: img?.height ? String(img.height) : undefined,
-          },
-          desc: title,
-        };
-      });
-      return { ok: true, awards };
-    } catch (e) {
-      return { ok: false, reason: 'network', error: e };
-    }
+  async function fetchAwardsHtml(uid) {
+    const res = await fetch(`/mod/awards/?uid=${encodeURIComponent(uid)}`, {
+      credentials: 'same-origin',
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const html = await decodeResponseText(res);
+    return extractAwardsFromHtml(html);
   }
 
   async function getAwards(uid) {
     const cached = awardsCache.get(String(uid));
     if (cached) return cached;
-
-    const rpc = await fetchAwardsViaJsonRpc(uid);
-    if (rpc.ok) {
-      awardsCache.set(String(uid), rpc.awards);
-      return rpc.awards;
-    }
-
-    const html = await fetchAwardsViaHtml(uid);
-    if (html.ok) {
-      awardsCache.set(String(uid), html.awards);
-      return html.awards;
-    }
-
-    return [];
+    const awards = await fetchAwardsHtml(uid);
+    awardsCache.set(String(uid), awards);
+    return awards;
   }
 
   function buildAwardNodes(awardsArr) {
@@ -228,20 +139,29 @@
 
     const loading = createEl('div', {
       text: 'Загрузка наград…',
-      style: 'opacity:.8;padding:.5em 0;',
+      style: 'opacity:.8; padding:.5em 0;',
     });
     content.append(loading);
 
-    const awards = await getAwards(uid);
-
-    content.textContent = '';
-    if (awards.length) {
-      content.append(buildAwardNodes(awards));
-    } else {
+    try {
+      const awards = await getAwards(uid);
+      content.textContent = '';
+      if (awards.length) {
+        content.append(buildAwardNodes(awards));
+      } else {
+        content.append(
+          createEl('div', {
+            style: 'opacity:.7; padding:.75em 0;',
+            text: 'Награды не найдены.',
+          }),
+        );
+      }
+    } catch (e) {
+      content.textContent = '';
       content.append(
         createEl('div', {
-          style: 'opacity:.7; padding:.75em 0;',
-          text: 'Награды не найдены.',
+          style: 'opacity:.9; color:#b00; padding:.75em 0;',
+          text: 'Не удалось загрузить награды.',
         }),
       );
     }
