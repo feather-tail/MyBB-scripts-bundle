@@ -14,6 +14,8 @@
   let sectionsById;
   let sectionCallbacks;
   let pendingMounts;
+  const pendingSections = [];
+  const pendingItems = [];
   const earlyNotifies = new Set();
   let api;
 
@@ -361,8 +363,9 @@
 
   function addSection(cfg) {
     if (!initialized) {
+      pendingSections.push(cfg);
       init();
-      if (!initialized) return;
+      return;
     }
     const sections = parseSections(cfg);
     let firstList;
@@ -386,8 +389,9 @@
 
   function addItems(id, items) {
     if (!initialized) {
+      pendingItems.push({ id, items });
       init();
-      if (!initialized) return;
+      return;
     }
     const list = getSection(id);
     if (!list) return;
@@ -421,6 +425,7 @@
       cbs.forEach((cb) => cb());
       delete pendingMounts[name];
     }
+    updateFocusableCache();
   }
 
   function init() {
@@ -449,6 +454,13 @@
 
     buildMenu();
     initialized = true;
+
+    if (pendingSections.length) {
+      pendingSections.splice(0).forEach((cfg) => addSection(cfg));
+    }
+    if (pendingItems.length) {
+      pendingItems.splice(0).forEach(({ id, items }) => addItems(id, items));
+    }
 
     if (earlyNotifies.size) {
       earlyNotifies.forEach((name) => notifyScriptLoaded(name));

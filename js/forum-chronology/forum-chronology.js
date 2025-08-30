@@ -99,7 +99,10 @@
       return { y: getFullYear(cfg.currentYear), m: 0, d: 0, fallback: true };
     const re1 = /(\d{1,2})[.\/ -](\d{1,2})[.\/ -](\d{2,4})/;
     const re2 = /(\d{2,4})[.\/ -]?([a-zа-я]+)/i;
-    const monthPattern = Object.keys(monthMap)
+    const monthNames = Object.keys(monthMap).sort(
+      (a, b) => b.length - a.length,
+    );
+    const monthPattern = monthNames
       .map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
       .join('|');
     const re3 = new RegExp(`(${monthPattern})\\s*(\\d{4})`, 'i');
@@ -133,7 +136,12 @@
 
     m = subject.match(re1);
     if (m) {
-      return { y: getFullYear(m[3]), m: +m[2], d: +m[1] };
+      const day = +m[1];
+      const month = +m[2];
+      if (day >= 1 && day <= 31 && month >= 1 && month <= 12) {
+        return { y: getFullYear(m[3]), m: month, d: day };
+      }
+      return { y: getFullYear(cfg.currentYear), m: 0, d: 0, fallback: true };
     }
     m = subject.match(re2);
     if (m) {
@@ -240,7 +248,8 @@
     if (!tIds.length) return [];
     const posts = [];
     const limit = 5;
-    let index = 0;
+    const queue = [...tIds];
+    const retries = new Map();
 
     const fetchTopic = async (tId) => {
       const topicPosts = [];
@@ -252,24 +261,32 @@
           `&limit=${cfg.postsPerReq}&skip=${skip}`;
         try {
           const data = await requestJson(params);
-          if (!data?.response?.length) break;
+          if (!data?.response) return false;
+          if (!data.response.length) break;
           topicPosts.push(...data.response);
           if (data.response.length < cfg.postsPerReq) break;
           skip += cfg.postsPerReq;
         } catch (e) {
           if (cfg.debug) console.error(e);
-          break;
+          return false;
         }
       }
       posts.push(...topicPosts);
+      return true;
     };
 
     const worker = async () => {
       while (true) {
-        const cur = index++;
-        if (cur >= tIds.length) break;
-        const tId = tIds[cur];
-        await fetchTopic(tId);
+        const tId = queue.shift();
+        if (tId === undefined) break;
+        const ok = await fetchTopic(tId);
+        if (!ok) {
+          const cnt = retries.get(tId) || 0;
+          if (cnt < 3) {
+            retries.set(tId, cnt + 1);
+            queue.push(tId);
+          }
+        }
       }
     };
 
