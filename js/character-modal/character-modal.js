@@ -1,16 +1,7 @@
 (() => {
   'use strict';
 
-  const helpers = window.helpers;
-  const { createEl, parseHTML, initTabs } = helpers;
-
-  const config = helpers.getConfig('characterModal', {
-    loadingText: 'Загрузка...',
-    errorText: 'Ошибка загрузки данных.',
-  });
-
   const AWARDS_EVENT = 'awards:cache-updated';
-
   const awardsCache = (window.__awardsCache ||= {
     byUser: new Map(),
     lastUpdated: 0,
@@ -25,20 +16,20 @@
     try {
       const list = (json && (json.result || json.results)) || [];
       let changed = false;
-      list.forEach((u) => {
+      for (const u of list) {
         const uid = String(u?.user_id ?? '');
-        if (!uid) return;
+        if (!uid) continue;
         const arr = Array.isArray(u.awards) ? u.awards : [];
         awardsCache.byUser.set(uid, arr);
         changed = true;
-      });
+      }
       if (changed) emitAwardsUpdated();
     } catch (_) {
       /*  */
     }
   }
 
-  function patchAwardsInterception() {
+  (function patchAwardsInterception() {
     if (window.__awardsInterceptionPatched) return;
     window.__awardsInterceptionPatched = true;
 
@@ -50,6 +41,7 @@
       return urlHit && methodHit;
     };
 
+    // fetch
     if (typeof window.fetch === 'function') {
       const origFetch = window.fetch.bind(window);
       window.fetch = function (input, init = {}) {
@@ -99,7 +91,15 @@
         return origSend.apply(this, arguments);
       };
     }
-  }
+  })();
+
+  const helpers = window.helpers;
+  const { createEl, parseHTML, initTabs } = helpers;
+
+  const config = helpers.getConfig('characterModal', {
+    loadingText: 'Загрузка...',
+    errorText: 'Ошибка загрузки данных.',
+  });
 
   function findUserIdForLink(link) {
     const post = link.closest?.('.post');
@@ -109,8 +109,6 @@
         const m = (a.href || '').match(/[?&]id=(\d+)/);
         if (m) return m[1];
       }
-      const awardsLi = post.querySelector('.pa-awards[data-id]');
-      if (awardsLi?.dataset?.id) return awardsLi.dataset.id;
     }
     const nav =
       document.querySelector('#navprofile a[href*="profile.php?id="]') ||
@@ -119,101 +117,40 @@
       const m = (nav.href || '').match(/[?&]id=(\d+)/);
       if (m) return m[1];
     }
-    const any = document.querySelector('.pa-awards[data-id]');
-    if (any?.dataset?.id) return any.dataset.id;
-
     return null;
   }
 
-  function normalizeDomAwards(anchorNodes) {
-    return anchorNodes.map((a) => {
-      const img = a.querySelector ? a.querySelector('img') : null;
-      const title = (a.title || img?.title || '').trim();
-      return {
-        item: {
-          href: img?.src || '',
-          name: title || img?.alt || 'Награда',
-          width: img?.width ? String(img.width) : undefined,
-          height: img?.height ? String(img.height) : undefined,
-        },
-        desc: title,
-      };
-    });
-  }
-
-  function queryAwardsInDocument(uid, scopeEl) {
-    if (uid) {
-      const selByUid = `.pa-awards[data-id="${uid}"] .mini_awards a`;
-      const nodes = Array.from(document.querySelectorAll(selByUid));
-      if (nodes.length) return normalizeDomAwards(nodes);
-    }
-    if (scopeEl) {
-      const post = scopeEl.closest?.('.post');
-      if (post) {
-        const inPost = Array.from(
-          post.querySelectorAll('.pa-awards .mini_awards a'),
-        );
-        if (inPost.length) return normalizeDomAwards(inPost);
-      }
-    }
-    const generic = Array.from(
-      document.querySelectorAll('.pa-awards .mini_awards a'),
-    );
-    if (generic.length) return normalizeDomAwards(generic);
-
-    return [];
-  }
-
-  async function collectAwardsForUserId(uid, linkEl) {
+  function getAwardsFromCache(uid) {
     if (!uid) return [];
+    return awardsCache.byUser.get(String(uid)) || [];
+  }
 
-    const cached = awardsCache.byUser.get(String(uid));
-    if (cached && cached.length) return cached;
+  function waitForAwards(uid, timeoutMs = 3000) {
+    return new Promise((resolve) => {
+      const existing = getAwardsFromCache(uid);
+      if (existing.length) return resolve(existing);
 
-    const domNow = queryAwardsInDocument(uid, linkEl);
-    if (domNow.length) return domNow;
-
-    const fromCachePromise = new Promise((resolve) => {
       const onUpdate = () => {
-        document.removeEventListener(AWARDS_EVENT, onUpdate);
-        resolve(awardsCache.byUser.get(String(uid)) || []);
-      };
-      document.addEventListener(AWARDS_EVENT, onUpdate, { once: true });
-      setTimeout(() => {
-        document.removeEventListener(AWARDS_EVENT, onUpdate);
-        resolve([]);
-      }, 2000);
-    });
-
-    const fromDomPromise = new Promise((resolve) => {
-      const sel = uid
-        ? `.pa-awards[data-id="${uid}"] .mini_awards a`
-        : '.pa-awards .mini_awards a';
-
-      const obs = new MutationObserver(() => {
-        const found = Array.from(document.querySelectorAll(sel));
-        if (found.length) {
-          obs.disconnect();
-          resolve(normalizeDomAwards(found));
+        const now = getAwardsFromCache(uid);
+        if (now.length) {
+          document.removeEventListener(AWARDS_EVENT, onUpdate);
+          resolve(now);
         }
-      });
+      };
+      document.addEventListener(AWARDS_EVENT, onUpdate);
 
-      obs.observe(document.body, { childList: true, subtree: true });
       setTimeout(() => {
-        obs.disconnect();
-        resolve([]);
-      }, 2000);
+        document.removeEventListener(AWARDS_EVENT, onUpdate);
+        resolve(getAwardsFromCache(uid));
+      }, timeoutMs);
     });
-
-    const winner = await Promise.race([fromCachePromise, fromDomPromise]);
-    return winner || [];
   }
 
   function buildAwardNodes(awardsArr) {
     const frag = document.createDocumentFragment();
-    awardsArr.forEach((a) => {
+    for (const a of awardsArr) {
       const imgSrc = a?.item?.href || '';
-      if (!imgSrc) return;
+      if (!imgSrc) continue;
       const title = (a.desc || a.item?.name || '').trim();
       const aEl = createEl('a', {
         href: imgSrc,
@@ -221,14 +158,14 @@
         rel: 'noopener noreferrer',
       });
       const img = createEl('img', { src: imgSrc, alt: title || 'award' });
-      if (title) aEl.title = title;
       img.style.maxWidth = '40px';
       img.style.maxHeight = '40px';
       img.style.width = 'auto';
       img.style.height = 'auto';
+      if (title) aEl.title = title;
       aEl.append(img);
       frag.append(aEl);
-    });
+    }
     return frag;
   }
 
@@ -253,20 +190,18 @@
     return content;
   }
 
-  async function addAwardsTab(container, link) {
-    const { awardsTab } = config;
-    if (!awardsTab?.enabled) return;
+  async function fillAwardsFromResponse(contentEl, uid) {
+    let awards = getAwardsFromCache(uid);
+    if (!awards.length) {
+      contentEl.textContent = 'Загрузка наград…';
+      awards = await waitForAwards(uid, 3000);
+    }
 
-    const content = insertAwardsTabSkeleton(container);
-
-    const uid = findUserIdForLink(link);
-    const awards = await collectAwardsForUserId(uid, link);
-
-    content.textContent = '';
-    if (awards && awards.length) {
-      content.append(buildAwardNodes(awards));
+    contentEl.textContent = '';
+    if (awards.length) {
+      contentEl.append(buildAwardNodes(awards));
     } else {
-      content.append(
+      contentEl.append(
         createEl('div', {
           style: 'opacity:.7; padding:.75em 0;',
           text: 'Награды не найдены.',
@@ -275,9 +210,24 @@
     }
   }
 
-  function init() {
-    patchAwardsInterception();
+  async function addAwardsTab(container, link) {
+    const { awardsTab } = config;
+    if (!awardsTab?.enabled) return;
 
+    const content = insertAwardsTabSkeleton(container);
+    const uid = findUserIdForLink(link);
+    await fillAwardsFromResponse(content, uid);
+    const onUpdate = () => {
+      const fresh = getAwardsFromCache(uid);
+      if (fresh.length) {
+        content.textContent = '';
+        content.append(buildAwardNodes(fresh));
+      }
+    };
+    document.addEventListener(AWARDS_EVENT, onUpdate);
+  }
+
+  function init() {
     document.body.addEventListener('click', async (e) => {
       const link = e.target.closest('.modal-link');
       if (!link) return;
