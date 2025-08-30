@@ -5,7 +5,6 @@
   const config = helpers.getConfig('chronoParser', {
     forumsWithGames: { active: [1, 24], done: [19] },
     currentYear: 2010,
-    debugMode: true,
     topicsPerRequest: 100,
     postsPerRequest: 100,
     apiBase: '/api.php',
@@ -198,7 +197,6 @@
   }
 
   async function fetchData(url) {
-    if (config.debugMode) console.log(`Fetching: ${url}`);
     try {
       return await helpers.request(url, { responseType: 'json' });
     } catch (error) {
@@ -243,6 +241,7 @@
       posts_count: 0,
       users: [],
       flags: { active: activeFlag, done: !activeFlag, full_date: false },
+      date: null,
       addon: {
         display: null,
         date: { y: 0, m: 0, d: 0 },
@@ -272,15 +271,11 @@
 
       const correctFirstPost =
         topic.first_post !== 0 && topic.first_post < post.id;
-      if (!correctFirstPost && config.debugMode)
-        console.log('Bad first post for tid=' + topicIndex);
       if (post.id === topic.first_post || !correctFirstPost) {
         const addons = parseAddons(post.message);
         if (addons) topic.addon = { ...topic.addon, ...addons };
         if (!correctFirstPost) {
           topic.first_post = post.id;
-          if (config.debugMode)
-            console.log('New first post ' + post.id + ' for tid=' + topicIndex);
         }
         if (!topic.addon.description)
           processedTopics[topicIndex].addon.description = post.message;
@@ -293,8 +288,6 @@
       if (parsedDate) {
         topic.date = parsedDate;
         topic.flags.full_date = parsedDate.d !== 0;
-      } else if (config.debugMode) {
-        console.warn('Не удалось разобрать дату в теме:', topic.subject);
       }
     }
 
@@ -308,7 +301,7 @@
         processForum(forumId, config.forumsWithGames.active.includes(forumId)),
       );
     const results = await Promise.all(promises);
-    console.log(results.flat());
+    console.log(results.flat().filter((t) => t.date));
   }
 
   function init() {
