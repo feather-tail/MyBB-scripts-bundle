@@ -101,7 +101,9 @@
       const day = parseInt(match[1], 10);
       const month = parseInt(match[2], 10);
       const year = parseInt(match[3], 10);
-      return { y: getFullYear(year), m: month, d: day };
+      if (month <= 12 && day <= 31) {
+        return { y: getFullYear(year), m: month, d: day };
+      }
     }
 
     match = subject.match(yearMonthRegex);
@@ -280,7 +282,8 @@
           if (config.debugMode)
             console.log('New first post ' + post.id + ' for tid=' + topicIndex);
         }
-        if (!topic.addon.description) topic.description = post.message;
+        if (!topic.addon.description)
+          processedTopics[topicIndex].addon.description = post.message;
       }
       topic.flags.descr = topic.first_post !== 0;
     }
