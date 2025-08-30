@@ -9,7 +9,7 @@
     errorText: 'Ошибка загрузки данных.',
   });
 
-  const awardsCache = (window.__awardsCacheJSONRPC ||= new Map());
+  const awardsCache = (window.__awardsCacheCore ||= new Map());
   let __boardIdPromise;
 
   function findUserIdForLink(link) {
@@ -58,7 +58,7 @@
         if (!r.ok) return null;
         const j = await r.json();
         const id =
-          j?.result?.board?.id || j?.board?.id || j?.result?.id || j?.id;
+          j?.result?.board?.id ?? j?.board?.id ?? j?.result?.id ?? j?.id;
         const n = Number(id);
         return Number.isFinite(n) && n > 0 ? n : null;
       } catch (_) {
@@ -81,7 +81,7 @@
       if (x && typeof x === 'object' && x.sign) return x;
     }
     try {
-      const scripts = Array.from(document.scripts).slice(-20);
+      const scripts = Array.from(document.scripts).slice(-12);
       for (const s of scripts) {
         const t = s.textContent || '';
         if (!/sign"\s*:\s*"/.test(t)) continue;
@@ -92,7 +92,8 @@
           /(['"])?([a-zA-Z0-9_]+)(['"])?\s*:/g,
           '"$2":',
         );
-        jsonish = jsonish.replace(/'/g, '"').replace(/,\s*}/g, '}');
+        jsonish = jsonish.replace(/'/g, '"');
+        jsonish = jsonish.replace(/,\s*}/g, '}');
         const obj = JSON.parse(jsonish);
         if (obj && obj.sign) return obj;
       }
@@ -100,9 +101,9 @@
     return null;
   }
 
-  async function fetchAwardsViaJsonRpc(uid) {
+  async function fetchAwardsCore(uid) {
     const boardId = await resolveBoardId();
-    if (!uid || !boardId) return { ok: false };
+    if (!uid || !boardId) return { ok: false, awards: [] };
     const check = detectCheckFromGlobals();
     const params = {
       board_id: boardId,
@@ -136,32 +137,31 @@
         credentials: 'omit',
         body: JSON.stringify(payload),
       });
-      if (!res.ok) return { ok: false };
+      if (!res.ok) return { ok: false, awards: [] };
       const json = await res.json();
       const list = json && (json.result || json.results);
-      if (!Array.isArray(list)) return { ok: false };
+      if (!Array.isArray(list)) return { ok: false, awards: [] };
       const entry = list.find((u) => String(u?.user_id) === String(uid));
       const awards =
         (entry && Array.isArray(entry.awards) && entry.awards) || [];
       return { ok: true, awards };
     } catch (_) {
-      return { ok: false };
+      return { ok: false, awards: [] };
     }
   }
 
   async function getAwards(uid) {
     const k = String(uid);
-    const c = awardsCache.get(k);
-    if (c) return c;
-    const rpc = await fetchAwardsViaJsonRpc(uid);
-    const awards = rpc.ok ? rpc.awards : [];
-    awardsCache.set(k, awards);
-    return awards;
+    const cached = awardsCache.get(k);
+    if (cached) return cached;
+    const r = await fetchAwardsCore(uid);
+    awardsCache.set(k, r.awards);
+    return r.awards;
   }
 
-  function buildAwardNodes(awardsArr) {
+  function buildAwardNodes(arr) {
     const frag = document.createDocumentFragment();
-    for (const a of awardsArr) {
+    for (const a of arr) {
       const imgSrc = a?.item?.href || '';
       if (!imgSrc) continue;
       const title = (a.desc || a.item?.name || '').trim();
