@@ -10,6 +10,7 @@
   });
 
   const awardsCache = (window.__awardsCacheDirect ||= new Map());
+  let __boardIdPromise;
 
   function findUserIdForLink(link) {
     const post = link.closest?.('.post');
@@ -30,6 +31,125 @@
     return null;
   }
 
+  function pickBoardIdFromGlobals() {
+    const cands = [
+      window.BOARD_ID,
+      window.board_id,
+      window.PUNBB && window.PUNBB.board_id,
+      window.FORUM && window.FORUM.board_id,
+      document.body && document.body.dataset && document.body.dataset.boardId,
+    ];
+    for (const v of cands) {
+      const n = Number(v);
+      if (Number.isFinite(n) && n > 0) return n;
+    }
+    return null;
+  }
+
+  async function resolveBoardId() {
+    if (__boardIdPromise) return __boardIdPromise;
+    __boardIdPromise = (async () => {
+      const g = pickBoardIdFromGlobals();
+      if (g) return g;
+      try {
+        const u = `/api.php?method=board.get&format=json`;
+        const r = await fetch(u, { credentials: 'same-origin' });
+        if (!r.ok) return null;
+        const j = await r.json();
+        const id =
+          j?.result?.board?.id || j?.board?.id || j?.result?.id || j?.id;
+        const n = Number(id);
+        return Number.isFinite(n) && n > 0 ? n : null;
+      } catch (_) {
+        return null;
+      }
+    })();
+    return __boardIdPromise;
+  }
+
+  function detectCheckFromGlobals() {
+    const cands = [
+      window.coreCheck,
+      window.RUSFF_CHECK,
+      window.rusffCheck,
+      window.RUSFF && window.RUSFF.check,
+      window.RusffCore && window.RusffCore.check,
+      window.AWARDS && window.AWARDS.check,
+    ];
+    for (const c of cands) {
+      if (c && typeof c === 'object' && c.sign) return c;
+    }
+    try {
+      const scripts = Array.from(document.scripts).slice(-10);
+      for (const s of scripts) {
+        const t = s.textContent || '';
+        if (!/sign"\s*:\s*"/.test(t)) continue;
+        const m = t.match(/check"\s*:\s*\{([\s\S]+?)\}/);
+        const raw = m ? m[0] : null;
+        if (!raw) continue;
+        let jsonish = raw.replace(/check"\s*:\s*/, '');
+        jsonish = jsonish.replace(
+          /(['"])?([a-zA-Z0-9_]+)(['"])?\s*:/g,
+          '"$2":',
+        );
+        jsonish = jsonish.replace(/'/g, '"');
+        jsonish = jsonish.replace(/,\s*}/g, '}');
+        const obj = JSON.parse(jsonish);
+        if (obj && obj.sign) return obj;
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  async function fetchAwardsViaJsonRpc(uid) {
+    const boardId = await resolveBoardId();
+    if (!uid || !boardId) return { ok: false, reason: 'no-board-or-uid' };
+    const check = detectCheckFromGlobals();
+    const params = {
+      board_id: boardId,
+      users_ids: [String(uid)],
+      sort: 'user',
+    };
+    if (check) {
+      params.check = {
+        board_id: boardId,
+        user_id: check.user_id ?? undefined,
+        partner_id: check.partner_id ?? undefined,
+        group_id: check.group_id ?? undefined,
+        user_login: check.user_login ?? undefined,
+        host: location.hostname,
+        user_lastvisit: check.user_lastvisit ?? undefined,
+        user_unique_id: check.user_unique_id ?? undefined,
+        sign: check.sign,
+        user_avatar: check.user_avatar ?? undefined,
+      };
+    }
+    const payload = {
+      jsonrpc: '2.0',
+      method: 'awards/index',
+      id: Date.now(),
+      params,
+    };
+    try {
+      const res = await fetch('https://core.rusff.me/rusff.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'omit',
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) return { ok: false, reason: `http-${res.status}` };
+      const json = await res.json();
+      const list = json && (json.result || json.results);
+      if (!Array.isArray(list)) return { ok: false, reason: 'bad-json' };
+      const entry = list.find((u) => String(u?.user_id) === String(uid));
+      const awards =
+        (entry && Array.isArray(entry.awards) && entry.awards) || [];
+      return { ok: true, awards };
+    } catch (e) {
+      return { ok: false, reason: 'network' };
+    }
+  }
+
   async function decodeResponseText(res) {
     const ct = res.headers.get('content-type') || '';
     const m = ct.match(/charset=([^;]+)/i);
@@ -41,21 +161,21 @@
 
   function extractAwardsFromHtml(html) {
     const doc = parseHTML(html);
-    const candidates = new Set();
+    const set = new Set();
     doc.querySelectorAll('a[href] img[src]').forEach((img) => {
       const a = img.parentElement;
       const href =
         (a.getAttribute('href') || '') + ' ' + (img.getAttribute('src') || '');
-      if (/forumstatic\.ru|\/files\//i.test(href)) candidates.add(a);
+      if (/forumstatic\.ru|\/files\//i.test(href)) set.add(a);
     });
-    if (!candidates.size) {
+    if (!set.size) {
       doc.querySelectorAll('img[src]').forEach((img) => {
         const src = img.getAttribute('src') || '';
-        if (/forumstatic\.ru|\/files\//i.test(src)) candidates.add(img);
+        if (/forumstatic\.ru|\/files\//i.test(src)) set.add(img);
       });
     }
     const out = [];
-    candidates.forEach((el) => {
+    set.forEach((el) => {
       const img = el.tagName === 'IMG' ? el : el.querySelector('img');
       if (!img) return;
       const title = (
@@ -77,7 +197,7 @@
     return out;
   }
 
-  async function fetchAwardsHtml(uid) {
+  async function fetchAwardsViaHtml(uid) {
     const res = await fetch(`/mod/awards/?uid=${encodeURIComponent(uid)}`, {
       credentials: 'same-origin',
     });
@@ -87,10 +207,18 @@
   }
 
   async function getAwards(uid) {
-    const cached = awardsCache.get(String(uid));
+    const key = String(uid);
+    const cached = awardsCache.get(key);
     if (cached) return cached;
-    const awards = await fetchAwardsHtml(uid);
-    awardsCache.set(String(uid), awards);
+    let awards = [];
+    const rpc = await fetchAwardsViaJsonRpc(uid);
+    if (rpc.ok) awards = rpc.awards;
+    if (!awards.length) {
+      try {
+        awards = await fetchAwardsViaHtml(uid);
+      } catch (_) {}
+    }
+    awardsCache.set(key, awards);
     return awards;
   }
 
@@ -157,25 +285,15 @@
       style: 'opacity:.8; padding:.5em 0;',
     });
     content.append(loading);
-    try {
-      const awards = await getAwards(uid);
-      content.textContent = '';
-      if (awards.length) {
-        content.append(buildAwardNodes(awards));
-      } else {
-        content.append(
-          createEl('div', {
-            style: 'opacity:.7; padding:.75em 0;',
-            text: 'Награды не найдены.',
-          }),
-        );
-      }
-    } catch (_) {
-      content.textContent = '';
+    const awards = await getAwards(uid);
+    content.textContent = '';
+    if (awards.length) {
+      content.append(buildAwardNodes(awards));
+    } else {
       content.append(
         createEl('div', {
-          style: 'opacity:.9; color:#b00; padding:.75em 0;',
-          text: 'Не удалось загрузить награды.',
+          style: 'opacity:.7; padding:.75em 0;',
+          text: 'Награды не найдены.',
         }),
       );
     }
