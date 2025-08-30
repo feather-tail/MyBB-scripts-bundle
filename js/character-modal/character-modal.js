@@ -10,14 +10,34 @@
   });
 
   const awardsCache = (window.__awardsCacheCore ||= new Map());
+  const inflight = (window.__awardsInflight ||= new Map());
   let __boardIdPromise;
 
-  function findUserIdForLink(link) {
-    const post = link.closest?.('.post');
+  function getAttrUid(node) {
+    if (!node) return null;
+    const n =
+      node.getAttribute?.('data-uid') ||
+      node.dataset?.uid ||
+      node.getAttribute?.('data-id') ||
+      node.dataset?.id;
+    const m = n && String(n).match(/^\d+$/) ? n : null;
+    return m ? String(m) : null;
+  }
+
+  function findUidNear(node) {
+    let el = node;
+    while (el && el !== document.body) {
+      const byAttr = getAttrUid(el);
+      if (byAttr) return byAttr;
+      el = el.parentElement;
+    }
+    const post = node.closest?.('.post');
     if (post) {
-      const a = post.querySelector('a[href*="profile.php?id="]');
-      if (a) {
-        const m = (a.href || '').match(/[?&]id=(\d+)/);
+      const byPa = post.querySelector('.pa-awards[data-id]');
+      if (byPa?.dataset?.id) return String(byPa.dataset.id);
+      const prof = post.querySelector('a[href*="profile.php?id="]');
+      if (prof) {
+        const m = (prof.href || '').match(/[?&]id=(\d+)/);
         if (m) return m[1];
       }
     }
@@ -81,7 +101,7 @@
       if (x && typeof x === 'object' && x.sign) return x;
     }
     try {
-      const scripts = Array.from(document.scripts).slice(-12);
+      const scripts = Array.from(document.scripts).slice(-16);
       for (const s of scripts) {
         const t = s.textContent || '';
         if (!/sign"\s*:\s*"/.test(t)) continue;
@@ -103,7 +123,7 @@
 
   async function fetchAwardsCore(uid) {
     const boardId = await resolveBoardId();
-    if (!uid || !boardId) return { ok: false, awards: [] };
+    if (!uid || !boardId) return [];
     const check = detectCheckFromGlobals();
     const params = {
       board_id: boardId,
@@ -130,33 +150,45 @@
       id: Date.now(),
       params,
     };
-    try {
-      const res = await fetch('https://core.rusff.me/rusff.php', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'omit',
-        body: JSON.stringify(payload),
+    const res = await fetch('https://core.rusff.me/rusff.php', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      credentials: 'omit',
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) return [];
+    const json = await res.json();
+    const list = json && (json.result || json.results);
+    if (!Array.isArray(list)) return [];
+    const entry = list.find((u) => String(u?.user_id) === String(uid));
+    return (entry && Array.isArray(entry.awards) && entry.awards) || [];
+  }
+
+  function ensureFetch(uid) {
+    const k = String(uid);
+    if (awardsCache.has(k)) return Promise.resolve(awardsCache.get(k));
+    if (inflight.has(k)) return inflight.get(k);
+    const p = fetchAwardsCore(k)
+      .then((aw) => {
+        awardsCache.set(k, aw);
+        inflight.delete(k);
+        return aw;
+      })
+      .catch(() => {
+        inflight.delete(k);
+        return [];
       });
-      if (!res.ok) return { ok: false, awards: [] };
-      const json = await res.json();
-      const list = json && (json.result || json.results);
-      if (!Array.isArray(list)) return { ok: false, awards: [] };
-      const entry = list.find((u) => String(u?.user_id) === String(uid));
-      const awards =
-        (entry && Array.isArray(entry.awards) && entry.awards) || [];
-      return { ok: true, awards };
-    } catch (_) {
-      return { ok: false, awards: [] };
-    }
+    inflight.set(k, p);
+    return p;
   }
 
   async function getAwards(uid) {
     const k = String(uid);
-    const cached = awardsCache.get(k);
-    if (cached) return cached;
-    const r = await fetchAwardsCore(uid);
-    awardsCache.set(k, r.awards);
-    return r.awards;
+    if (awardsCache.has(k)) return awardsCache.get(k);
+    return ensureFetch(k);
   }
 
   function buildAwardNodes(arr) {
@@ -203,11 +235,11 @@
     return content;
   }
 
-  async function addAwardsTab(container, link) {
+  async function addAwardsTab(container, link, preUid) {
     const { awardsTab } = config;
     if (!awardsTab?.enabled) return;
     const content = insertAwardsTabSkeleton(container);
-    const uid = findUserIdForLink(link);
+    const uid = preUid || findUidNear(link);
     if (!uid) {
       content.append(
         createEl('div', {
@@ -241,6 +273,10 @@
       const link = e.target.closest('.modal-link');
       if (!link) return;
       e.preventDefault();
+
+      const preUid = findUidNear(link);
+      if (preUid) ensureFetch(preUid);
+
       const pageId = link.id;
       if (!pageId) return;
 
@@ -271,11 +307,11 @@
 
         if (character) {
           box.append(character);
-          addAwardsTab(character, link);
+          addAwardsTab(character, link, preUid);
           initTabs(character, tabParams);
         } else {
           box.append(...Array.from(doc.body.childNodes));
-          addAwardsTab(box, link);
+          addAwardsTab(box, link, preUid);
           initTabs(box, tabParams);
         }
       } catch (_) {
