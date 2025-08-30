@@ -33,7 +33,9 @@
         changed = true;
       });
       if (changed) emitAwardsUpdated();
-    } catch (_) {}
+    } catch (_) {
+      /*  */
+    }
   }
 
   function patchAwardsInterception() {
@@ -56,7 +58,6 @@
           typeof init?.body === 'string'
             ? init.body
             : init?.body && init.body.toString();
-
         const p = origFetch(input, init);
         if (isAwardsReq(url, bodyStr)) {
           p.then((res) => {
@@ -73,6 +74,7 @@
       };
     }
 
+    // XHR
     if (window.XMLHttpRequest) {
       const XO = XMLHttpRequest.prototype;
       const origOpen = XO.open;
@@ -100,34 +102,37 @@
   }
 
   function findUserIdForLink(link) {
-    const post = link.closest('.post');
+    const post = link.closest?.('.post');
     if (post) {
       const a = post.querySelector('a[href*="profile.php?id="]');
       if (a) {
         const m = (a.href || '').match(/[?&]id=(\d+)/);
         if (m) return m[1];
       }
+      const awardsLi = post.querySelector('.pa-awards[data-id]');
+      if (awardsLi?.dataset?.id) return awardsLi.dataset.id;
     }
     const nav =
       document.querySelector('#navprofile a[href*="profile.php?id="]') ||
-      document.querySelector('a#navprofile[href*="profile.php?id="]') ||
-      document.querySelector('#navprofile');
+      document.querySelector('a#navprofile[href*="profile.php?id="]');
     if (nav) {
-      const href = nav.href || nav.getAttribute('href') || '';
-      const m = href.match(/[?&]id=(\d+)/);
+      const m = (nav.href || '').match(/[?&]id=(\d+)/);
       if (m) return m[1];
     }
+    const any = document.querySelector('.pa-awards[data-id]');
+    if (any?.dataset?.id) return any.dataset.id;
+
     return null;
   }
 
-  function normalizeDomAwards(nodes) {
-    return nodes.map((a) => {
+  function normalizeDomAwards(anchorNodes) {
+    return anchorNodes.map((a) => {
       const img = a.querySelector ? a.querySelector('img') : null;
       const title = (a.title || img?.title || '').trim();
       return {
         item: {
           href: img?.src || '',
-          name: title || 'Награда',
+          name: title || img?.alt || 'Награда',
           width: img?.width ? String(img.width) : undefined,
           height: img?.height ? String(img.height) : undefined,
         },
@@ -136,14 +141,37 @@
     });
   }
 
-  async function collectAwardsForUserId(uid, domContext) {
+  function queryAwardsInDocument(uid, scopeEl) {
+    if (uid) {
+      const selByUid = `.pa-awards[data-id="${uid}"] .mini_awards a`;
+      const nodes = Array.from(document.querySelectorAll(selByUid));
+      if (nodes.length) return normalizeDomAwards(nodes);
+    }
+    if (scopeEl) {
+      const post = scopeEl.closest?.('.post');
+      if (post) {
+        const inPost = Array.from(
+          post.querySelectorAll('.pa-awards .mini_awards a'),
+        );
+        if (inPost.length) return normalizeDomAwards(inPost);
+      }
+    }
+    const generic = Array.from(
+      document.querySelectorAll('.pa-awards .mini_awards a'),
+    );
+    if (generic.length) return normalizeDomAwards(generic);
+
+    return [];
+  }
+
+  async function collectAwardsForUserId(uid, linkEl) {
     if (!uid) return [];
 
     const cached = awardsCache.byUser.get(String(uid));
     if (cached && cached.length) return cached;
 
-    const sel = config.awardsTab?.selector;
-    const root = domContext || document;
+    const domNow = queryAwardsInDocument(uid, linkEl);
+    if (domNow.length) return domNow;
 
     const fromCachePromise = new Promise((resolve) => {
       const onUpdate = () => {
@@ -158,21 +186,19 @@
     });
 
     const fromDomPromise = new Promise((resolve) => {
-      if (!sel) return resolve([]);
-      const ready = Array.from(root.querySelectorAll(sel));
-      if (ready.length) return resolve(normalizeDomAwards(ready));
+      const sel = uid
+        ? `.pa-awards[data-id="${uid}"] .mini_awards a`
+        : '.pa-awards .mini_awards a';
 
       const obs = new MutationObserver(() => {
-        const found = Array.from(root.querySelectorAll(sel));
+        const found = Array.from(document.querySelectorAll(sel));
         if (found.length) {
           obs.disconnect();
           resolve(normalizeDomAwards(found));
         }
       });
-      obs.observe(root === document ? document.body : root, {
-        childList: true,
-        subtree: true,
-      });
+
+      obs.observe(document.body, { childList: true, subtree: true });
       setTimeout(() => {
         obs.disconnect();
         resolve([]);
@@ -194,11 +220,12 @@
         target: '_blank',
         rel: 'noopener noreferrer',
       });
-      const img = createEl('img', {
-        src: imgSrc,
-        alt: title || 'award',
-      });
+      const img = createEl('img', { src: imgSrc, alt: title || 'award' });
       if (title) aEl.title = title;
+      img.style.maxWidth = '40px';
+      img.style.maxHeight = '40px';
+      img.style.width = 'auto';
+      img.style.height = 'auto';
       aEl.append(img);
       frag.append(aEl);
     });
@@ -229,10 +256,13 @@
   async function addAwardsTab(container, link) {
     const { awardsTab } = config;
     if (!awardsTab?.enabled) return;
-    const content = insertAwardsTabSkeleton(container);
-    const uid = findUserIdForLink(link);
-    const awards = await collectAwardsForUserId(uid, container);
 
+    const content = insertAwardsTabSkeleton(container);
+
+    const uid = findUserIdForLink(link);
+    const awards = await collectAwardsForUserId(uid, link);
+
+    content.textContent = '';
     if (awards && awards.length) {
       content.append(buildAwardNodes(awards));
     } else {
