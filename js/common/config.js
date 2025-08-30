@@ -242,7 +242,7 @@
       ajaxFolder: 'pages/',
       charset: 'windows-1251',
       awardsTab: {
-        enabled: false,
+        enabled: true,
         title: 'Награды',
         selector: '.pa-awards .mini_awards a',
         perRow: 5,
