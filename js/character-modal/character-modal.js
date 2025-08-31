@@ -44,8 +44,6 @@
         if (character) {
           box.append(character);
           initTabs(character, tabParams);
-        } else {
-          box.append(...Array.from(doc.body.childNodes));
 
           if (config.awards?.enabled) {
             const userId =
@@ -67,17 +65,17 @@
               let isError = false;
               try {
                 const data = await helpers.request(awardsUrl, {
-                  method: 'POST',
+                  method: config.awards.method || 'POST',
                   headers: { 'Content-Type': 'application/json' },
-                  data: JSON.stringify({
-                    jsonrpc: '2.0',
-                    id: Date.now(),
-                    method: config.awards.method || 'awards.get',
-                    params: { user_id: userId },
-                  }),
+                  data: JSON.stringify({ user_id: userId }),
                   responseType: 'json',
                 });
-                list = data?.result?.awards || data?.result || [];
+                list =
+                  data?.result?.awards ||
+                  data?.result ||
+                  data?.awards ||
+                  data ||
+                  [];
               } catch (e) {
                 isError = true;
               }
@@ -107,9 +105,11 @@
 
               tabs.append(tab);
               character.append(content);
+              initTabs(character, tabParams);
             }
           }
-
+        } else {
+          box.append(...Array.from(doc.body.childNodes));
           initTabs(box, tabParams);
         }
       } catch (err) {
