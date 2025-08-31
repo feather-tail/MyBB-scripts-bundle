@@ -64,18 +64,37 @@
               let list = [];
               let isError = false;
               try {
+                const payload = {
+                  id: config.awards.requestId || '1',
+                  jsonrpc: '2.0',
+                  method: config.awards.rpcMethod || 'awards/index',
+                  params: {
+                    users_ids: [userId],
+                    check: {
+                      board_id: config.awards.boardId || window.BoardID,
+                      user_id: window.UserID,
+                      group_id: window.GroupID,
+                      user_lastvisit: window.UserLastVisit,
+                      sign: window.ForumAPITicket,
+                    },
+                    board_id: config.awards.boardId || window.BoardID,
+                    user_id: userId,
+                    sort: 'user',
+                  },
+                };
                 const data = await helpers.request(awardsUrl, {
                   method: config.awards.method || 'POST',
                   headers: { 'Content-Type': 'application/json' },
-                  data: JSON.stringify({ user_id: userId }),
+                  data: JSON.stringify(payload),
                   responseType: 'json',
                 });
-                list =
-                  data?.result?.awards ||
-                  data?.result ||
-                  data?.awards ||
-                  data ||
-                  [];
+                const res = data?.result;
+                const userAwards =
+                  (res &&
+                    typeof res === 'object' &&
+                    (res[userId] || Object.values(res)[0])) ||
+                  null;
+                list = userAwards?.awards || [];
               } catch (e) {
                 isError = true;
               }
