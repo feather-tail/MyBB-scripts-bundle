@@ -46,24 +46,46 @@
           initTabs(character, tabParams);
 
           if (config.awards?.enabled) {
+            // 1) Источник userId: data-атрибуты -> глобали окна (как в «старом» коде)
             const userId =
               link.dataset.userId ||
               character.dataset.userId ||
               character.querySelector('[data-user-id]')?.dataset.userId ||
+              window.UserID ||
               '';
-            const tabs = character.querySelector('.modal__tabs');
-            const awardsUrl = config.awards.url || config.awards.apiUrl;
-            if (userId && tabs && awardsUrl) {
-              const tab = createEl('div', {
-                className: config.classes.tab,
-                text: config.awards.tabTitle,
+
+            // 2) Таб-бар ищем по конфигу (не хардкодим класс)
+            const tabs = character.querySelector(`.${config.classes.tabs}`);
+
+            // 3) URL API
+            const awardsUrl =
+              config.awards.url ||
+              config.awards.apiUrl ||
+              'https://core.rusff.me/rusff.php';
+
+            // 4) Если есть userId и URL — шлём запрос, даже если табов сейчас нет
+            if (userId && awardsUrl) {
+              // (необязательно) лог: увидим в DevTools сам факт попытки запроса
+              console.debug('[characterModal:awards] sending request', {
+                awardsUrl,
+                userId,
               });
+
+              // Подготовим UI только если таб-бар есть
+              const tab =
+                tabs &&
+                createEl('div', {
+                  className: config.classes.tab,
+                  text: config.awards.tabTitle || 'Награды',
+                });
               const content = createEl('div', {
                 className: config.classes.tabContent,
               });
+
               let list = [];
               let isError = false;
               try {
+                // 5) Полезная нагрузка точно соответствует «старому» рабочему варианту
                 const payload = {
                   id: config.awards.requestId || '1',
                   jsonrpc: '2.0',
@@ -82,12 +104,17 @@
                     sort: 'user',
                   },
                 };
+
+                // 6) Отправка JSON (аналог $.post(url, JSON.stringify(request), ..., 'json'))
                 const data = await helpers.request(awardsUrl, {
                   method: config.awards.method || 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   data: JSON.stringify(payload),
                   responseType: 'json',
+                  timeout: config.requestTimeoutMs || 15000,
                 });
+
+                // Распарсим результат «как в старом»
                 const res = data?.result;
                 const userAwards =
                   (res &&
@@ -97,34 +124,54 @@
                 list = userAwards?.awards || [];
               } catch (e) {
                 isError = true;
+                console.warn('[characterModal:awards] request failed', e);
               }
 
-              if (Array.isArray(list) && list.length) {
-                list.forEach((a) => {
-                  const linkEl = createEl('a', {
-                    href: a.url || '#',
-                    target: '_blank',
+              // 7) Рисуем вкладку только если есть таб-бар
+              if (tabs) {
+                if (Array.isArray(list) && list.length) {
+                  list.forEach((a) => {
+                    const linkEl = createEl('a', {
+                      href: a.url || a.item?.href || '#',
+                      target: '_blank',
+                    });
+                    if (a.icon) {
+                      linkEl.append(
+                        createEl('img', {
+                          src: a.icon,
+                          alt: a.title || a.item?.name || '',
+                        }),
+                      );
+                    } else {
+                      linkEl.textContent = a.title || a.item?.name || '';
+                    }
+                    content.append(linkEl);
                   });
-                  if (a.icon)
-                    linkEl.append(
-                      createEl('img', { src: a.icon, alt: a.title || '' }),
-                    );
-                  else linkEl.textContent = a.title || a.name || '';
-                  content.append(linkEl);
-                });
-              } else {
-                content.append(
-                  createEl('div', {
-                    text: isError
-                      ? config.awards.errorText || config.errorText
-                      : config.awards.emptyText,
-                  }),
-                );
-              }
+                } else {
+                  content.append(
+                    createEl('div', {
+                      text: isError
+                        ? config.awards.errorText ||
+                          config.errorText ||
+                          'Не удалось загрузить награды.'
+                        : config.awards.emptyText || 'Наград нет.',
+                    }),
+                  );
+                }
 
-              tabs.append(tab);
-              character.append(content);
-              initTabs(character, tabParams);
+                tabs.append(tab);
+                character.append(content);
+                initTabs(character, {
+                  tabSelector: `.${config.classes.tab}`,
+                  contentSelector: `.${config.classes.tabContent}`,
+                  activeClass: config.classes.active,
+                });
+              }
+            } else {
+              console.warn(
+                '[characterModal:awards] skipped — no userId or awardsUrl',
+                { userId, awardsUrl },
+              );
             }
           }
         } else {
