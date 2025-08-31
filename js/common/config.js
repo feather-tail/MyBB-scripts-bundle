@@ -241,12 +241,6 @@
       delays: { open: 20, close: 220 },
       ajaxFolder: 'pages/',
       charset: 'windows-1251',
-      awardsTab: {
-        enabled: true,
-        title: 'Награды',
-        selector: '.pa-awards .mini_awards a',
-        perRow: 5,
-      },
     },
     chronoParser: {
       forumsWithGames: { active: [1, 24], done: [19] },
