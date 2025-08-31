@@ -5,6 +5,12 @@
   const config = helpers.getConfig('characterModal', {
     loadingText: 'Загрузка...',
     errorText: 'Ошибка загрузки данных.',
+    awards: {
+      enabled: false,
+      tabTitle: 'Награды',
+      emptyText: 'Наград нет.',
+      errorText: 'Не удалось загрузить награды.',
+    },
   });
 
   function init() {
@@ -40,6 +46,70 @@
           initTabs(character, tabParams);
         } else {
           box.append(...Array.from(doc.body.childNodes));
+
+          if (config.awards?.enabled) {
+            const userId =
+              link.dataset.userId ||
+              character.dataset.userId ||
+              character.querySelector('[data-user-id]')?.dataset.userId ||
+              '';
+            const tabs = character.querySelector('.modal__tabs');
+            const awardsUrl = config.awards.url || config.awards.apiUrl;
+            if (userId && tabs && awardsUrl) {
+              const tab = createEl('div', {
+                className: config.classes.tab,
+                text: config.awards.tabTitle,
+              });
+              const content = createEl('div', {
+                className: config.classes.tabContent,
+              });
+              let list = [];
+              let isError = false;
+              try {
+                const data = await helpers.request(awardsUrl, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  data: JSON.stringify({
+                    jsonrpc: '2.0',
+                    id: Date.now(),
+                    method: config.awards.method || 'awards.get',
+                    params: { user_id: userId },
+                  }),
+                  responseType: 'json',
+                });
+                list = data?.result?.awards || data?.result || [];
+              } catch (e) {
+                isError = true;
+              }
+
+              if (Array.isArray(list) && list.length) {
+                list.forEach((a) => {
+                  const linkEl = createEl('a', {
+                    href: a.url || '#',
+                    target: '_blank',
+                  });
+                  if (a.icon)
+                    linkEl.append(
+                      createEl('img', { src: a.icon, alt: a.title || '' }),
+                    );
+                  else linkEl.textContent = a.title || a.name || '';
+                  content.append(linkEl);
+                });
+              } else {
+                content.append(
+                  createEl('div', {
+                    text: isError
+                      ? config.awards.errorText || config.errorText
+                      : config.awards.emptyText,
+                  }),
+                );
+              }
+
+              tabs.append(tab);
+              character.append(content);
+            }
+          }
+
           initTabs(box, tabParams);
         }
       } catch (err) {
