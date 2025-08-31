@@ -242,7 +242,7 @@
       ajaxFolder: 'pages/',
       charset: 'windows-1251',
       awards: {
-        enabled: false,
+        enabled: true,
         apiUrl: 'http://core.rusff.me/rusff.php',
         tabTitle: 'Награды',
       },
