@@ -243,7 +243,7 @@
       charset: 'windows-1251',
       awards: {
         enabled: true,
-        apiUrl: 'http://core.rusff.me/rusff.php',
+        apiUrl: 'https://core.rusff.me/rusff.php',
         method: 'POST',
         rpcMethod: 'awards/index',
         requestId: '1',
