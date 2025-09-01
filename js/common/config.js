@@ -241,6 +241,8 @@
       delays: { open: 20, close: 220 },
       ajaxFolder: 'pages/',
       charset: 'windows-1251',
+      showAwards: true,
+      awardsApi: 'https://core.rusff.me/rusff.php',
     },
     chronoParser: {
       forumsWithGames: { active: [1, 24], done: [19] },

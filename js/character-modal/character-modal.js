@@ -1,11 +1,115 @@
 (() => {
   'use strict';
   const helpers = window.helpers;
-  const { createEl, parseHTML, initTabs } = helpers;
+  const { createEl, parseHTML, initTabs, getUserId, getGroupId } = helpers;
   const config = helpers.getConfig('characterModal', {
     loadingText: 'Загрузка...',
     errorText: 'Ошибка загрузки данных.',
+    showAwards: true,
+    awardsTabTitle: 'Награды',
+    awardsErrorText: 'Ошибка загрузки наград.',
+    awardsEmptyText: 'Наград не найдено.',
+    awardsApi: 'https://core.rusff.me/rusff.php',
   });
+
+  const awardsCache = new Map();
+
+  const fetchAwards = async (uid) => {
+    if (awardsCache.has(uid)) return awardsCache.get(uid);
+    const params = {
+      board_id: Number(window.BoardID) || 0,
+      user_id: getUserId(),
+      sort: 'user',
+      users_ids: [String(uid)],
+      check: {
+        board_id: Number(window.BoardID) || 0,
+        user_id: getUserId(),
+        partner_id: Number(window.PartnerID) || 0,
+        group_id: getGroupId(),
+        user_login: String(window.UserLogin || ''),
+        user_avatar: '',
+        user_lastvisit: Number(window.UserLastVisit) || 0,
+        user_unique_id: String(window.UserUniqueID || ''),
+        host: location.host,
+        sign: String(window.ForumAPITicket || ''),
+      },
+    };
+    const body = { jsonrpc: '2.0', id: 1, method: 'awards/index', params };
+    const p = fetch(config.awardsApi, {
+      method: 'POST',
+      mode: 'cors',
+      credentials: 'omit',
+      headers: {
+        'content-type': 'application/json',
+        accept: 'application/json, text/javascript, */*; q=0.01',
+        'x-requested-with': 'XMLHttpRequest',
+      },
+      body: JSON.stringify(body),
+    })
+      .then((r) => {
+        if (!r.ok) throw new Error('network');
+        return r.json();
+      })
+      .then((j) => j?.result || [])
+      .then((rows) => {
+        const u = rows.find((r) => r.user_id === String(uid));
+        const res = [];
+        if (u && Array.isArray(u.awards)) {
+          for (const a of u.awards) {
+            res.push({
+              id: a.award_id,
+              name: a.item?.name,
+              desc: a.desc,
+              img: a.item?.href,
+            });
+          }
+        }
+        return res;
+      });
+    awardsCache.set(uid, p);
+    return p;
+  };
+
+  const addAwardsTab = (root, uid) => {
+    const tabs = root.querySelector(`.${config.classes.tabs}`);
+    const contents = root.querySelectorAll(`.${config.classes.tabContent}`);
+    if (!tabs || !contents.length) return;
+    const tab = createEl('div', {
+      className: config.classes.tab,
+      text: config.awardsTabTitle,
+    });
+    tabs.append(tab);
+    const content = createEl('div', {
+      className: config.classes.tabContent,
+      text: config.loadingText,
+    });
+    contents[0].parentNode.append(content);
+    fetchAwards(uid)
+      .then((awards) => {
+        if (!awards.length) {
+          content.textContent = config.awardsEmptyText;
+          return;
+        }
+        const list = createEl('div', { className: 'modal__awards' });
+        awards.forEach((a) => {
+          const item = createEl('div', { className: 'modal__award' });
+          if (a.img)
+            item.append(
+              createEl('img', {
+                src: a.img,
+                alt: a.name || '',
+              }),
+            );
+          item.append(createEl('span', { text: a.desc || a.name || '' }));
+          list.append(item);
+        });
+        content.textContent = '';
+        content.append(list);
+      })
+      .catch(() => {
+        content.textContent = config.awardsErrorText;
+      });
+  };
 
   function init() {
     document.body.addEventListener('click', async (e) => {
@@ -29,6 +133,11 @@
         const html = decoder.decode(buf);
         const doc = parseHTML(html);
         const character = doc.querySelector('.character');
+        let targetUid =
+          link.dataset.userId ||
+          link.dataset.uid ||
+          character?.dataset.userId ||
+          doc.querySelector('[data-user-id]')?.dataset.userId;
         box.textContent = '';
         const tabParams = {
           tabSelector: `.${config.classes.tab}`,
@@ -37,9 +146,12 @@
         };
         if (character) {
           box.append(character);
+          if (config.showAwards && targetUid)
+            addAwardsTab(character, targetUid);
           initTabs(character, tabParams);
         } else {
           box.append(...Array.from(doc.body.childNodes));
+          if (config.showAwards && targetUid) addAwardsTab(box, targetUid);
           initTabs(box, tabParams);
         }
       } catch (err) {
