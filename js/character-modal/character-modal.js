@@ -13,8 +13,50 @@
   });
 
   const awardsCache = new Map();
+  const rpcCache = new Map();
+  const rpcInflight = new Map();
 
-  const fetchAwards = async (uid) => {
+  const stableStringify = (v) => {
+    if (v && typeof v === 'object') {
+      if (Array.isArray(v)) return `[${v.map(stableStringify).join(',')}]`;
+      return `{${Object.keys(v)
+        .sort()
+        .map((k) => `${JSON.stringify(k)}:${stableStringify(v[k])}`)
+        .join(',')}}`;
+    }
+    return JSON.stringify(v);
+  };
+
+  const rpc = (method, params) => {
+    const body = { jsonrpc: '2.0', id: 1, method, params };
+    const key = `${method}|${stableStringify(params)}`;
+    if (rpcCache.has(key)) return Promise.resolve(rpcCache.get(key));
+    if (rpcInflight.has(key)) return rpcInflight.get(key);
+
+    const p = fetch(config.awardsApi, {
+      method: 'POST',
+      mode: 'cors',
+      credentials: 'omit',
+      headers: {
+        'content-type': 'application/json',
+        accept: 'application/json, text/javascript, */*; q=0.01',
+        'x-requested-with': 'XMLHttpRequest',
+      },
+      body: JSON.stringify(body),
+    })
+      .then((r) => {
+        if (!r.ok) throw new Error('network');
+        return r.json();
+      })
+      .then((j) => j?.result ?? null)
+      .finally(() => rpcInflight.delete(key));
+
+    rpcInflight.set(key, p);
+    p.then((res) => rpcCache.set(key, res));
+    return p;
+  };
+
+  const fetchAwards = (uid) => {
     if (awardsCache.has(uid)) return awardsCache.get(uid);
     const params = {
       board_id: Number(window.BoardID) || 0,
@@ -34,38 +76,21 @@
         sign: String(window.ForumAPITicket || ''),
       },
     };
-    const body = { jsonrpc: '2.0', id: 1, method: 'awards/index', params };
-    const p = fetch(config.awardsApi, {
-      method: 'POST',
-      mode: 'cors',
-      credentials: 'omit',
-      headers: {
-        'content-type': 'application/json',
-        accept: 'application/json, text/javascript, */*; q=0.01',
-        'x-requested-with': 'XMLHttpRequest',
-      },
-      body: JSON.stringify(body),
-    })
-      .then((r) => {
-        if (!r.ok) throw new Error('network');
-        return r.json();
-      })
-      .then((j) => j?.result || [])
-      .then((rows) => {
-        const u = rows.find((r) => r.user_id === String(uid));
-        const res = [];
-        if (u && Array.isArray(u.awards)) {
-          for (const a of u.awards) {
-            res.push({
-              id: a.award_id,
-              name: a.item?.name,
-              desc: a.desc,
-              img: a.item?.href,
-            });
-          }
+    const p = rpc('awards/index', params).then((rows = []) => {
+      const u = rows.find((r) => r.user_id === String(uid));
+      const res = [];
+      if (u && Array.isArray(u.awards)) {
+        for (const a of u.awards) {
+          res.push({
+            id: a.award_id,
+            name: a.item?.name,
+            desc: a.desc,
+            img: a.item?.href,
+          });
         }
-        return res;
-      });
+      }
+      return res;
+    });
     awardsCache.set(uid, p);
     return p;
   };
