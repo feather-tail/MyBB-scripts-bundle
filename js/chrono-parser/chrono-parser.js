@@ -13,7 +13,6 @@
   );
   const postsPerRequest = Math.min(Number(config.postsPerRequest) || 100, 100);
   const apiBase = config.apiBase || '/api.php';
-
   const preferSubjectDate =
     'preferSubjectDate' in config ? !!config.preferSubjectDate : true;
   const fetchDescriptionAll =
@@ -89,6 +88,7 @@
     'iu',
   );
   const yearOnlyRx = /(\d{4})/;
+  const nickRegex = /\[nick\](.*?)\[\/nick\]/;
 
   function parseDate(subject) {
     const normalized = String(subject || '')
@@ -132,7 +132,6 @@
     serial: /\[chronoserial\](.*?)\[\/chronoserial\]/,
     quest: /\[chronoquest\](.*?)\[\/chronoquest\]/,
   };
-  const nickRegex = /\[nick\](.*?)\[\/nick\]/;
 
   function parseAddons(message) {
     const addons = {};
@@ -166,7 +165,6 @@
             try {
               addons.quest = JSON.parse(raw);
             } catch {
-              console.warn('Не удалось разобрать [chronoquest] как JSON:', raw);
               addons.quest = raw;
             }
           } else {
@@ -248,6 +246,39 @@
     return map;
   }
 
+  async function getUsersForTopics(topicIds) {
+    const results = new Map();
+    const concurrency = 4;
+    const executing = new Set();
+
+    const runOne = async (tid) => {
+      const url =
+        `${apiBase}?method=post.get&topic_id=${tid}` +
+        `&fields=user_id,username,topic_id,id&sort_by=id&sort_dir=asc&limit=${postsPerRequest}`;
+      const data = await fetchData(url);
+      const arr = Array.isArray(data?.response) ? data.response : [];
+      const seen = new Set();
+      const users = [];
+      for (const p of arr) {
+        const uid = String(p.user_id);
+        if (!seen.has(uid)) {
+          seen.add(uid);
+          users.push([uid, p.username]);
+        }
+      }
+      results.set(Number(tid), users);
+    };
+
+    for (const tid of topicIds) {
+      const p = runOne(tid).finally(() => executing.delete(p));
+      executing.add(p);
+      if (executing.size >= concurrency) await Promise.race(executing);
+    }
+    await Promise.all(executing);
+
+    return results;
+  }
+
   function makeTopicSkeleton(topic, activeFlag) {
     return {
       ...topic,
@@ -303,6 +334,7 @@
     }
 
     const firstPostsMap = await getFirstPostsByIds(firstIds);
+    const topicUsersMap = await getUsersForTopics(forumTopics.map((t) => t.id));
 
     const processed = forumTopics.map((t) => {
       const dto = makeTopicSkeleton(t, activeFlag);
@@ -313,16 +345,13 @@
         dto.flags.full_date = Number(parsedDate.d) !== 0;
       }
 
+      const users = topicUsersMap.get(dto.id);
+      if (Array.isArray(users)) dto.users = users;
+
       if (firstPostsMap.has(dto.id)) {
         const fp = firstPostsMap.get(dto.id);
-        const nickMatch = fp.message?.match(nickRegex);
-        const authorRow = [fp.user_id, fp.username];
-        if (nickMatch) authorRow.push(nickMatch[1].trim());
-        dto.users = [authorRow];
-
         const addons = parseAddons(fp.message || '');
         if (addons) dto.addon = { ...dto.addon, ...addons };
-
         dto.addon.description ||= fp.message || '';
         dto.flags.descr = true;
 
@@ -332,6 +361,18 @@
         ) {
           dto.date = { ...dto.addon.date };
           dto.flags.full_date = Number(dto.date.d) !== 0;
+        }
+
+        const nickMatch = fp.message?.match(nickRegex);
+        if (nickMatch) {
+          const nick = nickMatch[1].trim();
+          const uid = String(fp.user_id);
+          const i = dto.users.findIndex((u) => String(u[0]) === uid);
+          if (i >= 0 && dto.users[i].length === 2) {
+            dto.users[i].push(nick);
+          } else if (i === -1) {
+            dto.users.push([uid, fp.username, nick]);
+          }
         }
       } else {
         dto.flags.descr = Number(dto.first_post) !== 0 && fetchDescriptionAll;
@@ -357,7 +398,6 @@
     }
 
     const activeSet = new Set(activeForums);
-
     const rawTopics = await getTopics(allForums);
 
     const topicsByForum = new Map();
@@ -372,7 +412,6 @@
     );
 
     const results = await Promise.all(promises);
-
     console.log(results.flat().filter((t) => t.date));
   }
 
