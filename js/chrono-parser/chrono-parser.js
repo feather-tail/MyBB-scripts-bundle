@@ -255,12 +255,11 @@
     return allPosts;
   }
 
-  async function processForum(forumId, activeFlag, topics) {
-    const topics = await getTopics([forumId]);
-    const topicIds = topics.map((topic) => topic.id);
+  async function processForum(forumId, activeFlag, forumTopics) {
+    const topicIds = forumTopics.map((topic) => topic.id);
     const posts = await getPosts(topicIds);
 
-    const processedTopics = topics.map((topic) => ({
+    const processedTopics = forumTopics.map((topic) => ({
       ...topic,
       posts_count: 0,
       users: new Map(),
