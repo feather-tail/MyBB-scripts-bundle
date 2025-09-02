@@ -250,6 +250,8 @@
       topicsPerRequest: 100,
       postsPerRequest: 100,
       apiBase: '/api.php',
+      preferSubjectDate: true,
+      fetchDescriptionAll: false,
     },
     cleanQuote: {
       selectors: {

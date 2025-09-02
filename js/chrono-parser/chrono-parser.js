@@ -3,14 +3,23 @@
 
   const helpers = window.helpers;
   const config = helpers.getConfig('chronoParser') || {};
+
   const forumsWithGames = config.forumsWithGames || { active: [], done: [] };
   const currentYearSetting =
     Number(config.currentYear) || new Date().getFullYear();
-  const topicsPerRequest = Number(config.topicsPerRequest) || 100;
+  const topicsPerRequest = Math.min(
+    Number(config.topicsPerRequest) || 100,
+    100,
+  );
   const postsPerRequest = Math.min(Number(config.postsPerRequest) || 100, 100);
   const apiBase = config.apiBase || '/api.php';
-  const decodeTextarea = document.createElement('textarea');
 
+  const preferSubjectDate =
+    'preferSubjectDate' in config ? !!config.preferSubjectDate : true;
+  const fetchDescriptionAll =
+    'fetchDescriptionAll' in config ? !!config.fetchDescriptionAll : false;
+
+  const decodeTextarea = document.createElement('textarea');
   const decodeHtml = (str) => {
     decodeTextarea.innerHTML = String(str ?? '');
     return decodeTextarea.value;
@@ -18,102 +27,101 @@
 
   const monthMap = {
     январь: 1,
+    января: 1,
     февраль: 2,
+    февраля: 2,
     март: 3,
+    марта: 3,
     апрель: 4,
+    апреля: 4,
     май: 5,
+    мая: 5,
+    июнь: 6,
+    июня: 6,
     июль: 7,
+    июля: 7,
     август: 8,
+    августа: 8,
     сентябрь: 9,
+    сентября: 9,
     октябрь: 10,
+    октября: 10,
     ноябрь: 11,
+    ноября: 11,
     декабрь: 12,
+    декабря: 12,
   };
-  const getMonthNumber = (monthStr) =>
-    monthMap[String(monthStr || '').toLowerCase()] || 0;
+  const getMonthNumber = (s) => monthMap[String(s || '').toLowerCase()] || 0;
 
   function getFullYear(year) {
-    const yearType = typeof year;
-    if (yearType !== 'number' && yearType !== 'string') return 0;
-    const yearNum = Number(year);
-    if (Number.isNaN(yearNum)) return 0;
-    if (yearNum > 999) return yearNum;
+    const t = typeof year;
+    if (t !== 'number' && t !== 'string') return 0;
+    const n = Number(year);
+    if (Number.isNaN(n)) return 0;
+    if (n > 999) return n;
 
     const currentYear = currentYearSetting;
     const currentCentury = Math.floor(currentYear / 100);
-    let fullYear;
 
-    if (yearNum <= 99) {
-      let potentialYear = currentCentury * 100 + yearNum;
-      if (potentialYear > currentYear) potentialYear -= 100;
-      fullYear = potentialYear;
-    } else {
-      const yearStr = String(yearNum).padStart(3, '0');
-      const currentYearPrefix = String(currentCentury).padStart(2, '0');
-      const potentialYear = Number(currentYearPrefix + yearStr.substring(1, 3));
-      fullYear =
-        potentialYear > currentYear
-          ? Number(
-              String(currentCentury - 1).padStart(2, '0') +
-                yearStr.substring(1, 3),
-            )
-          : potentialYear;
+    if (n <= 99) {
+      let candidate = currentCentury * 100 + n;
+      if (candidate > currentYear) candidate -= 100;
+      return candidate;
     }
-    return fullYear;
+    const ystr = String(n).padStart(3, '0');
+    const pref = String(currentCentury).padStart(2, '0');
+    const candidate = Number(pref + ystr.substring(1, 3));
+    return candidate > currentYear
+      ? Number(
+          String(currentCentury - 1).padStart(2, '0') + ystr.substring(1, 3),
+        )
+      : candidate;
   }
 
   const dateRegex = /(\d{1,2})[.\/ -]?(\d{1,2})[.\/ -]?(\d{2,4})/;
-  const yearMonthRegex = /(\d{2,4})[.\/ -]?([a-zA-Zа-яА-Я]+)/i;
-  const yearRegex = /(\d{1,})/;
-  const complexDateRegex = /(\d{1,2})\.(\d{3,})-(\d{1,2})\.(\d{3,})/i;
-  const wordMonthRegex = new RegExp(
-    `(${Object.keys(monthMap).join('|')})\\s*(\\d{4})`,
-    'i',
+  const monthsPattern = Object.keys(monthMap).join('|');
+  const wordDayMonthYearRx = new RegExp(
+    `\\b(\\d{1,2})\\s+(${monthsPattern})\\s+(\\d{4})(?:\\s*г(?:\\.|ода)?)?\\b`,
+    'iu',
   );
-  const nickRegex = /\[nick\](.*?)\[\/nick\]/;
+  const wordMonthYearRx = new RegExp(
+    `\\b(${monthsPattern})\\s+(\\d{4})(?:\\s*г(?:\\.|ода)?)?\\b`,
+    'iu',
+  );
+  const yearOnlyRx = /(\d{4})/;
 
   function parseDate(subject) {
-    const normalized = subject.toLowerCase();
+    const normalized = String(subject || '')
+      .toLowerCase()
+      .replace(/,/g, ' ');
 
-    let match = normalized.match(dateRegex);
-    if (match) {
-      const day = parseInt(match[1], 10);
-      const month = parseInt(match[2], 10);
-      const year = parseInt(match[3], 10);
-      if (month <= 12 && day <= 31) {
+    let m = normalized.match(dateRegex);
+    if (m) {
+      const day = parseInt(m[1], 10);
+      const month = parseInt(m[2], 10);
+      const year = parseInt(m[3], 10);
+      if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
         return { y: getFullYear(year), m: month, d: day };
       }
     }
 
-    match = normalized.match(yearMonthRegex);
-    if (match) {
-      const year = parseInt(match[1], 10);
-      const month = getMonthNumber(match[2]);
+    m = normalized.match(wordDayMonthYearRx);
+    if (m) {
+      const day = parseInt(m[1], 10);
+      const month = getMonthNumber(m[2]);
+      const year = parseInt(m[3], 10);
+      if (month) return { y: getFullYear(year), m: month, d: day };
+    }
+
+    m = normalized.match(wordMonthYearRx);
+    if (m) {
+      const month = getMonthNumber(m[1]);
+      const year = parseInt(m[2], 10);
       if (month) return { y: getFullYear(year), m: month, d: 0 };
     }
 
-    const normalizedNoComma = normalized.replace(/,/g, '');
-    const wordMonthMatch = normalizedNoComma.match(wordMonthRegex);
-    if (wordMonthMatch) {
-      const monthStr = wordMonthMatch[1];
-      const yearStr = wordMonthMatch[2];
-      const month = getMonthNumber(monthStr);
-      const year = parseInt(yearStr, 10);
-      if (year && month) return { y: getFullYear(year), m: month, d: 0 };
-    }
-
-    const yearOnlyMatch = normalized.match(yearRegex);
-    if (yearOnlyMatch) {
-      const year = parseInt(yearOnlyMatch[1], 10);
-      return { y: getFullYear(year), m: 0, d: 0 };
-    }
-
-    match = normalized.match(complexDateRegex);
-    if (match) {
-      const month = parseInt(match[1], 10);
-      const year = parseInt(match[2], 10);
-      return { y: getFullYear(year), m: month, d: 0 };
-    }
+    const yg = normalized.match(yearOnlyRx);
+    if (yg) return { y: getFullYear(yg[1]), m: 0, d: 0 };
 
     return null;
   }
@@ -124,20 +132,23 @@
     serial: /\[chronoserial\](.*?)\[\/chronoserial\]/,
     quest: /\[chronoquest\](.*?)\[\/chronoquest\]/,
   };
+  const nickRegex = /\[nick\](.*?)\[\/nick\]/;
 
   function parseAddons(message) {
     const addons = {};
     let hasMatch = false;
-    for (const addonName in addonParsers) {
-      const match = message.match(addonParsers[addonName]);
+
+    for (const name in addonParsers) {
+      const match = message.match(addonParsers[name]);
       if (!match) continue;
-      switch (addonName) {
+
+      switch (name) {
         case 'display':
-          addons[addonName] = match[1];
+          addons.display = match[1];
           hasMatch = true;
           break;
         case 'date':
-          addons[addonName] = {
+          addons.date = {
             y: parseInt(match[1], 10),
             m: parseInt(match[2], 10),
             d: parseInt(match[3], 10),
@@ -145,28 +156,28 @@
           hasMatch = true;
           break;
         case 'serial':
-          addons[addonName] = {
-            is_serial: true,
-            serial_first: parseInt(match[1], 10),
-          };
+          addons.is_serial = true;
+          addons.serial_first = parseInt(match[1], 10);
           hasMatch = true;
           break;
-        case 'quest':
-          try {
-            addons[addonName] = JSON.parse(match[1].trim());
-          } catch {
-            console.warn(
-              'Не удалось разобрать значение [chronoquest]:',
-              match[1].trim(),
-            );
-            addons[addonName] = match[1].trim();
+        case 'quest': {
+          const raw = match[1].trim();
+          if (/^[\[{]/.test(raw)) {
+            try {
+              addons.quest = JSON.parse(raw);
+            } catch {
+              console.warn('Не удалось разобрать [chronoquest] как JSON:', raw);
+              addons.quest = raw;
+            }
+          } else {
+            addons.quest = raw;
           }
           hasMatch = true;
           break;
+        }
         default:
-          addons[addonName] = match[1];
+          addons[name] = match[1];
           hasMatch = true;
-          break;
       }
     }
     return hasMatch ? addons : false;
@@ -187,48 +198,57 @@
       `&fields=id,subject,forum_id,first_post,init_post&limit=${topicsPerRequest}`;
     const data = await fetchData(url);
     const rows = Array.isArray(data?.response) ? data.response : [];
-    return rows.map((raw) => {
-      const firstPostId = Number(raw.init_id ?? raw.first_post ?? 0) || 0;
-      return {
-        id: Number(raw.id),
-        subject: decodeHtml(raw.subject ?? ''),
-        forum_id: String(raw.forum_id),
-        first_post: firstPostId,
-      };
-    });
+    return rows.map((raw) => ({
+      id: Number(raw.id),
+      subject: decodeHtml(raw.subject ?? ''),
+      forum_id: String(raw.forum_id),
+      first_post: Number(raw.init_id ?? raw.first_post ?? 0) || 0,
+    }));
   }
 
   async function getFirstPostsByIds(postIds) {
+    if (!postIds.length) return new Map();
+
+    const limit = Math.min(postsPerRequest, 100);
     const chunks = [];
-    for (let i = 0; i < postIds.length; i += postsPerRequest) {
-      chunks.push(postIds.slice(i, i + postsPerRequest));
+    for (let i = 0; i < postIds.length; i += limit) {
+      chunks.push(postIds.slice(i, i + limit));
     }
 
-    const results = [];
-    for (const chunk of chunks) {
+    const out = [];
+    const concurrency = 4;
+    const executing = new Set();
+
+    const runChunk = async (chunk) => {
       const url =
         `${apiBase}?method=post.get&post_id=${chunk.join(',')}` +
-        `&fields=id,user_id,username,message,topic_id&limit=${postsPerRequest}`;
+        `&fields=id,user_id,username,message,topic_id&limit=${chunk.length}`;
       const data = await fetchData(url);
       const arr = Array.isArray(data?.response) ? data.response : [];
-      results.push(...arr);
+      out.push(...arr);
+    };
+
+    for (const chunk of chunks) {
+      const p = runChunk(chunk).finally(() => executing.delete(p));
+      executing.add(p);
+      if (executing.size >= concurrency) await Promise.race(executing);
     }
+    await Promise.all(executing);
 
     const map = new Map();
-    for (const p of results) {
-      const item = {
+    for (const p of out) {
+      map.set(Number(p.topic_id), {
         id: Number(p.id),
         topic_id: Number(p.topic_id),
         user_id: String(p.user_id),
         username: p.username,
         message: p.message,
-      };
-      map.set(item.topic_id, item);
+      });
     }
     return map;
   }
 
-  function blankTopic(topic, activeFlag) {
+  function makeTopicSkeleton(topic, activeFlag) {
     return {
       ...topic,
       posts_count: 0,
@@ -252,27 +272,32 @@
   }
 
   async function processForum(forumId, activeFlag, forumTopics) {
-    const firstIds = forumTopics
+    const topicsNeedingPost = forumTopics.filter((t) => {
+      if (fetchDescriptionAll) return true;
+      const hasSubjectDate = !!parseDate(t.subject);
+      return !preferSubjectDate || !hasSubjectDate;
+    });
+
+    const firstIds = topicsNeedingPost
       .map((t) => Number(t.first_post) || 0)
       .filter((id) => id > 0);
 
-    const missing = forumTopics.filter((t) => !t.first_post).map((t) => t.id);
-    if (missing.length) {
-      for (let i = 0; i < missing.length; i += 100) {
-        const slice = missing.slice(i, i + 100);
-        const url =
-          `${apiBase}?method=topic.get&topic_id=${slice.join(',')}` +
-          `&fields=id,init_post&limit=${slice.length}`;
-        const data = await fetchData(url);
-        const arr = Array.isArray(data?.response) ? data.response : [];
-        for (const r of arr) {
-          const tid = Number(r.id);
-          const fid = Number(r.init_id ?? 0);
-          const topic = forumTopics.find((t) => t.id === tid);
-          if (topic && fid) {
-            topic.first_post = fid;
-            firstIds.push(fid);
-          }
+    const missingTopics = topicsNeedingPost
+      .filter((t) => !t.first_post)
+      .map((t) => t.id);
+    if (missingTopics.length) {
+      const url =
+        `${apiBase}?method=topic.get&topic_id=${missingTopics.join(',')}` +
+        `&fields=id,init_post&limit=${missingTopics.length}`;
+      const data = await fetchData(url);
+      const arr = Array.isArray(data?.response) ? data.response : [];
+      for (const r of arr) {
+        const tid = Number(r.id);
+        const fid = Number(r.init_id ?? 0);
+        const target = forumTopics.find((t) => t.id === tid);
+        if (target && fid) {
+          target.first_post = fid;
+          firstIds.push(fid);
         }
       }
     }
@@ -280,7 +305,7 @@
     const firstPostsMap = await getFirstPostsByIds(firstIds);
 
     const processed = forumTopics.map((t) => {
-      const dto = blankTopic(t, activeFlag);
+      const dto = makeTopicSkeleton(t, activeFlag);
 
       const parsedDate = parseDate(dto.subject);
       if (parsedDate) {
@@ -288,18 +313,17 @@
         dto.flags.full_date = Number(parsedDate.d) !== 0;
       }
 
-      const firstPost = firstPostsMap.get(dto.id);
-      if (firstPost) {
-        const nickMatch = firstPost.message?.match(nickRegex);
-        const authorRow = [firstPost.user_id, firstPost.username];
+      if (firstPostsMap.has(dto.id)) {
+        const fp = firstPostsMap.get(dto.id);
+        const nickMatch = fp.message?.match(nickRegex);
+        const authorRow = [fp.user_id, fp.username];
         if (nickMatch) authorRow.push(nickMatch[1].trim());
         dto.users = [authorRow];
 
-        const addons = parseAddons(firstPost.message || '');
+        const addons = parseAddons(fp.message || '');
         if (addons) dto.addon = { ...dto.addon, ...addons };
 
-        dto.addon.description ||= firstPost.message || '';
-
+        dto.addon.description ||= fp.message || '';
         dto.flags.descr = true;
 
         if (
@@ -310,7 +334,7 @@
           dto.flags.full_date = Number(dto.date.d) !== 0;
         }
       } else {
-        dto.flags.descr = Number(dto.first_post) !== 0;
+        dto.flags.descr = Number(dto.first_post) !== 0 && fetchDescriptionAll;
       }
 
       return dto;
@@ -348,6 +372,7 @@
     );
 
     const results = await Promise.all(promises);
+
     console.log(results.flat().filter((t) => t.date));
   }
 
