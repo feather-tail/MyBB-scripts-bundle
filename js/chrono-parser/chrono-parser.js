@@ -18,51 +18,17 @@
 
   const monthMap = {
     январь: 1,
-    янв: 1,
-    january: 1,
-    jan: 1,
     февраль: 2,
-    февр: 2,
-    february: 2,
-    feb: 2,
     март: 3,
-    мар: 3,
-    march: 3,
-    mar: 3,
     апрель: 4,
-    апр: 4,
-    april: 4,
-    apr: 4,
     май: 5,
-    may: 5,
     июнь: 6,
-    июн: 6,
-    june: 6,
-    jun: 6,
     июль: 7,
-    июл: 7,
-    july: 7,
-    jul: 7,
     август: 8,
-    авг: 8,
-    august: 8,
-    aug: 8,
     сентябрь: 9,
-    сент: 9,
-    september: 9,
-    sep: 9,
     октябрь: 10,
-    окт: 10,
-    october: 10,
-    oct: 10,
     ноябрь: 11,
-    ноя: 11,
-    november: 11,
-    nov: 11,
     декабрь: 12,
-    дек: 12,
-    december: 12,
-    dec: 12,
   };
   const getMonthNumber = (monthStr) =>
     monthMap[String(monthStr || '').toLowerCase()] || 0;
@@ -240,46 +206,20 @@
       return null;
     }
 
-    const firstData = await fetchWithRetry(`${baseUrl}&skip=0`);
-    const firstBatch = Array.isArray(firstData?.response)
-      ? normalizePosts(firstData.response)
-      : [];
-    const allPosts = [...firstBatch];
+    const allPosts = [];
+    let skip = 0;
+    const maxPages = 200;
 
-    const totalPosts = Number(firstPage?.total ?? firstPage?.count ?? 0);
-    if (!totalPosts || allPosts.length >= totalPosts) {
-      return normalizePosts(allPosts);
+    while (skip / postsPerRequest < maxPages) {
+      const data = await fetchWithRetry(`${baseUrl}&skip=${skip}`);
+      const batch = Array.isArray(data?.response)
+        ? normalizePosts(data.response)
+        : [];
+      if (!batch.length) break;
+      allPosts.push(...batch);
+      if (batch.length < postsPerRequest) break;
+      skip += postsPerRequest;
     }
-
-    const urls = [];
-    for (
-      let skip = postsPerRequest;
-      skip < totalPosts;
-      skip += postsPerRequest
-    ) {
-      urls.push(`${baseUrl}&skip=${skip}`);
-    }
-
-    const concurrencyLimit = 5;
-    const executing = new Set();
-
-    async function enqueue(url) {
-      const p = fetchWithRetry(url).then((data) => {
-        const raw = Array.isArray(data?.response) ? data.response : [];
-        if (raw.length) allPosts.push(...normalizePosts(raw));
-      });
-      executing.add(p);
-      p.finally(() => executing.delete(p));
-      if (executing.size >= concurrencyLimit) {
-        await Promise.race(executing);
-      }
-    }
-
-    for (const url of urls) {
-      await enqueue(url);
-    }
-
-    await Promise.all(executing);
 
     return allPosts;
   }
