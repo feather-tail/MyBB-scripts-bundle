@@ -1,0 +1,138 @@
+.chrono {
+  display: grid;
+  gap: 24px;
+  color: inherit;
+  font-family: inherit;
+}
+
+.chrono__section {
+  display: grid;
+  gap: 12px;
+}
+
+.chrono__heading {
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.3;
+  font-weight: 700;
+}
+
+.chrono__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.chrono__item {
+  display: grid;
+  grid-template-columns: 120px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.03);
+}
+
+.chrono__date {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  opacity: 0.85;
+}
+
+.chrono__title a {
+  text-decoration: none;
+  border-bottom: 1px dashed currentColor;
+}
+.chrono__title a:hover {
+  border-bottom-style: solid;
+}
+
+.chrono__meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-self: end;
+  flex-wrap: wrap;
+  max-width: 300px;
+  text-align: right;
+}
+
+.chrono__users {
+  opacity: 0.85;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 280px;
+}
+
+.chrono__badge {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  line-height: 1.6;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+.chrono__badge--active {
+  background: #e6fbf1;
+  color: #0f7b4c;
+  border-color: #a9e9c6;
+}
+.chrono__badge--done {
+  background: #f1f1f6;
+  color: #5b5b6b;
+  border-color: #d8d8e5;
+}
+
+.chrono__empty {
+  margin: 8px 0 0;
+  opacity: 0.7;
+}
+
+.chrono__loading {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  padding: 24px 0;
+}
+.chrono__spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid rgba(0, 0, 0, 0.1);
+  border-top-color: rgba(0, 0, 0, 0.5);
+  border-radius: 50%;
+  animation: chrono-spin 0.8s linear infinite;
+}
+@keyframes chrono-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.chrono__loading-text {
+  opacity: 0.8;
+}
+.chrono__error {
+  color: #9b1c1c;
+  background: #fdecec;
+  border: 1px solid #f5c2c2;
+  padding: 10px 12px;
+  border-radius: 6px;
+}
+
+@media (max-width: 640px) {
+  .chrono__item {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+  .chrono__meta {
+    justify-self: start;
+    text-align: left;
+    max-width: none;
+  }
+  .chrono__date {
+    order: -1;
+  }
+}
