@@ -9,11 +9,11 @@
   const topicsPerRequest = Number(config.topicsPerRequest) || 100;
   const postsPerRequest = Number(config.postsPerRequest) || 100;
   const apiBase = config.apiBase || '/api.php';
+  const decodeTextarea = document.createElement('textarea');
 
   const decodeHtml = (str) => {
-    const t = document.createElement('textarea');
-    t.innerHTML = String(str ?? '');
-    return t.value;
+    decodeTextarea.innerHTML = String(str ?? '');
+    return decodeTextarea.value;
   };
 
   const monthMap = {
@@ -108,7 +108,7 @@
   const nickRegex = /\[nick\](.*?)\[\/nick\]/;
 
   function parseDate(subject) {
-    const normalized = decodeHtml(subject).toLowerCase();
+    const normalized = subject.toLowerCase();
 
     let match = normalized.match(dateRegex);
     if (match) {
@@ -232,40 +232,56 @@
       `${apiBase}?method=post.get&topic_id=${topicParam}` +
       `&fields=id,user_id,username,message,topic_id&limit=${postsPerRequest}`;
 
-    const firstPage = await fetchData(`${baseUrl}&skip=0`);
-    const rawFirst = Array.isArray(firstPage?.response)
-      ? firstPage.response
+    async function fetchWithRetry(url, retries = 2) {
+      for (let attempt = 0; attempt <= retries; attempt++) {
+        const data = await fetchData(url);
+        if (data) return data;
+      }
+      return null;
+    }
+
+    const firstData = await fetchWithRetry(`${baseUrl}&skip=0`);
+    const firstBatch = Array.isArray(firstData?.response)
+      ? normalizePosts(firstData.response)
       : [];
-    const allPosts = [...rawFirst];
+    const allPosts = [...firstBatch];
 
     const totalPosts = Number(firstPage?.total ?? firstPage?.count ?? 0);
     if (!totalPosts || allPosts.length >= totalPosts) {
       return normalizePosts(allPosts);
     }
 
-    const promises = [];
+    const urls = [];
     for (
       let skip = postsPerRequest;
       skip < totalPosts;
       skip += postsPerRequest
     ) {
-      const url = `${baseUrl}&skip=${skip}`;
-      const p = helpers
-        .request(url, { responseType: 'json' })
-        .then((data) => (Array.isArray(data?.response) ? data.response : []))
-        .catch((error) => {
-          console.error(`Error fetching ${url}:`, error);
-          return [];
-        });
-      promises.push(p);
+      urls.push(`${baseUrl}&skip=${skip}`);
     }
 
-    if (promises.length) {
-      const results = await Promise.all(promises);
-      results.forEach((batch) => allPosts.push(...batch));
+    const concurrencyLimit = 5;
+    const executing = new Set();
+
+    async function enqueue(url) {
+      const p = fetchWithRetry(url).then((data) => {
+        const raw = Array.isArray(data?.response) ? data.response : [];
+        if (raw.length) allPosts.push(...normalizePosts(raw));
+      });
+      executing.add(p);
+      p.finally(() => executing.delete(p));
+      if (executing.size >= concurrencyLimit) {
+        await Promise.race(executing);
+      }
     }
 
-    return normalizePosts(allPosts);
+    for (const url of urls) {
+      await enqueue(url);
+    }
+
+    await Promise.all(executing);
+
+    return allPosts;
   }
 
   function normalizePosts(items) {
