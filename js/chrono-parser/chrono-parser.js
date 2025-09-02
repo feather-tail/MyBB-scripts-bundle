@@ -14,10 +14,13 @@
   const postsPerRequest = Math.min(Number(config.postsPerRequest) || 100, 100);
   const usersMax = Math.min(Number(config.usersMax) || postsPerRequest, 100);
   const apiBase = config.apiBase || '/api.php';
-  const preferSubjectDate =
-    'preferSubjectDate' in config ? !!config.preferSubjectDate : true;
-  const fetchDescriptionAll =
-    'fetchDescriptionAll' in config ? !!config.fetchDescriptionAll : false;
+
+  const pagePath = config.pagePath || '/pages/chrono';
+  const mountId = config.mountId || 'chrono-root';
+  const headings = {
+    active: config.headingActive || 'Активные эпизоды',
+    done: config.headingDone || 'Завершённые эпизоды',
+  };
 
   const decodeTextarea = document.createElement('textarea');
   const decodeHtml = (str) => {
@@ -394,7 +397,141 @@
     return processed;
   }
 
-  async function run() {
+  function sortByDateDesc(a, b) {
+    const key = (t) =>
+      Number(t.date?.y || 0) * 10000 +
+      Number(t.date?.m || 0) * 100 +
+      Number(t.date?.d || 0);
+    return key(b) - key(a);
+  }
+
+  function buildTopicUrl(id) {
+    return `/viewtopic.php?id=${id}`;
+  }
+
+  function formatDateObj(date) {
+    if (!date) return '';
+    const y = Number(date.y || 0);
+    const m = Number(date.m || 0);
+    const d = Number(date.d || 0);
+    const dd = d ? String(d).padStart(2, '0') : '';
+    const mm = m ? String(m).padStart(2, '0') : '';
+    if (d && m && y) return `${dd}.${mm}.${y}`;
+    if (m && y) return `${mm}.${y}`;
+    if (y) return String(y);
+    return '';
+  }
+
+  function compactUsers(users) {
+    if (!Array.isArray(users) || users.length === 0) return '';
+    const names = users.map((u) => u[2] || u[1]).filter(Boolean);
+    if (names.length <= 2) return names.join(', ');
+    return `${names.slice(0, 2).join(', ')} и ещё ${names.length - 2}`;
+  }
+
+  function renderListSection(root, title, items) {
+    if (!items.length) return;
+    const section = helpers.createEl('section', {
+      className: 'chrono__section',
+    });
+    const h = helpers.createEl('h2', {
+      className: 'chrono__heading',
+      text: title,
+    });
+    const list = helpers.createEl('ul', { className: 'chrono__list' });
+
+    items.forEach((t) => {
+      const li = helpers.createEl('li', { className: 'chrono__item' });
+
+      const date = helpers.createEl('div', {
+        className: 'chrono__date',
+        text: formatDateObj(t.date),
+      });
+
+      const titleWrap = helpers.createEl('div', { className: 'chrono__title' });
+      const a = helpers.createEl('a', { href: buildTopicUrl(t.id) });
+      a.textContent = t.addon.display || t.subject || `Тема #${t.id}`;
+      titleWrap.appendChild(a);
+
+      const meta = helpers.createEl('div', { className: 'chrono__meta' });
+      const who = compactUsers(t.users);
+      if (who) {
+        const span = helpers.createEl('span', {
+          className: 'chrono__users',
+          text: who,
+        });
+        meta.appendChild(span);
+      }
+      const badge = helpers.createEl('span', {
+        className: `chrono__badge ${
+          t.flags.active ? 'chrono__badge--active' : 'chrono__badge--done'
+        }`,
+        text: t.flags.active ? 'активно' : 'завершено',
+      });
+      meta.appendChild(badge);
+
+      li.appendChild(date);
+      li.appendChild(titleWrap);
+      li.appendChild(meta);
+      list.appendChild(li);
+    });
+
+    section.appendChild(h);
+    section.appendChild(list);
+    root.appendChild(section);
+  }
+
+  function renderEpisodes(mount, episodes) {
+    mount.innerHTML = '';
+    const root = helpers.createEl('div', { className: 'chrono' });
+
+    const withDate = episodes.filter((t) => t.date);
+    withDate.sort(sortByDateDesc);
+
+    const active = withDate.filter((t) => t.flags.active);
+    const done = withDate.filter((t) => t.flags.done);
+
+    renderListSection(root, headings.active, active);
+    renderListSection(root, headings.done, done);
+
+    if (!active.length && !done.length) {
+      root.appendChild(
+        helpers.createEl('p', {
+          className: 'chrono__empty',
+          text: 'Эпизоды не найдены.',
+        }),
+      );
+    }
+
+    mount.appendChild(root);
+  }
+
+  function renderLoading(mount) {
+    mount.innerHTML = '';
+    const wrap = helpers.createEl('div', { className: 'chrono__loading' });
+    wrap.appendChild(
+      helpers.createEl('div', {
+        className: 'chrono__spinner',
+        ariaLabel: 'Загрузка…',
+      }),
+    );
+    wrap.appendChild(
+      helpers.createEl('div', {
+        className: 'chrono__loading-text',
+        text: 'Загрузка эпизодов…',
+      }),
+    );
+    mount.appendChild(wrap);
+  }
+
+  function renderError(mount, msg) {
+    mount.innerHTML = '';
+    mount.appendChild(
+      helpers.createEl('div', { className: 'chrono__error', text: msg }),
+    );
+  }
+
+  async function processAll() {
     const activeForums = Array.isArray(forumsWithGames.active)
       ? forumsWithGames.active.map(String)
       : [];
@@ -402,10 +539,7 @@
       ? forumsWithGames.done.map(String)
       : [];
     const allForums = [...activeForums, ...doneForums];
-    if (!allForums.length) {
-      console.warn('chronoParser: no forums configured');
-      return;
-    }
+    if (!allForums.length) return [];
 
     const activeSet = new Set(activeForums);
     const rawTopics = await getTopics(allForums);
@@ -422,7 +556,49 @@
     );
 
     const results = await Promise.all(promises);
-    console.log(results.flat().filter((t) => t.date));
+    return results.flat();
+  }
+
+  function waitForMount(id, timeoutMs = 10000) {
+    return new Promise((resolve) => {
+      const ready = document.getElementById(id);
+      if (ready) return resolve(ready);
+
+      const obs = new MutationObserver(() => {
+        const el = document.getElementById(id);
+        if (el) {
+          obs.disconnect();
+          resolve(el);
+        }
+      });
+      obs.observe(document.documentElement, { childList: true, subtree: true });
+
+      setTimeout(() => {
+        obs.disconnect();
+        resolve(document.getElementById(id) || null);
+      }, timeoutMs);
+    });
+  }
+
+  async function run() {
+    const pathOk =
+      !!location.pathname && location.pathname.startsWith(pagePath);
+    if (!pathOk) return;
+
+    const mount = await waitForMount(mountId, 10000);
+    if (!mount) return;
+
+    renderLoading(mount);
+    try {
+      const episodes = await processAll();
+      renderEpisodes(mount, episodes);
+    } catch (e) {
+      console.error('chronoParser render error:', e);
+      renderError(
+        mount,
+        'Не удалось загрузить эпизоды. Попробуйте обновить страницу.',
+      );
+    }
   }
 
   function init() {

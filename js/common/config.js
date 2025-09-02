@@ -250,8 +250,10 @@
       topicsPerRequest: 100,
       postsPerRequest: 100,
       apiBase: '/api.php',
-      preferSubjectDate: true,
-      fetchDescriptionAll: false,
+      pagePath: '/pages/chrono',
+      mountId: 'chrono-root',
+      headingActive: 'Активные эпизоды',
+      headingDone: 'Завершённые эпизоды',
     },
     cleanQuote: {
       selectors: {
