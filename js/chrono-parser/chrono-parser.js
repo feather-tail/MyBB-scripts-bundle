@@ -12,6 +12,7 @@
     100,
   );
   const postsPerRequest = Math.min(Number(config.postsPerRequest) || 100, 100);
+  const usersMax = Math.min(Number(config.usersMax) || postsPerRequest, 100);
   const apiBase = config.apiBase || '/api.php';
   const preferSubjectDate =
     'preferSubjectDate' in config ? !!config.preferSubjectDate : true;
@@ -87,7 +88,8 @@
     `\\b(${monthsPattern})\\s+(\\d{4})(?:\\s*г(?:\\.|ода)?)?\\b`,
     'iu',
   );
-  const yearOnlyRx = /(\d{4})/;
+  const yearOnlyRx = /(?:^|[^\d])(1\d{3}|20\d{2})(?!\d)/;
+
   const nickRegex = /\[nick\](.*?)\[\/nick\]/;
 
   function parseDate(subject) {
@@ -207,10 +209,11 @@
   async function getFirstPostsByIds(postIds) {
     if (!postIds.length) return new Map();
 
+    const uniqueIds = Array.from(new Set(postIds));
     const limit = Math.min(postsPerRequest, 100);
     const chunks = [];
-    for (let i = 0; i < postIds.length; i += limit) {
-      chunks.push(postIds.slice(i, i + limit));
+    for (let i = 0; i < uniqueIds.length; i += limit) {
+      chunks.push(uniqueIds.slice(i, i + limit));
     }
 
     const out = [];
@@ -254,7 +257,7 @@
     const runOne = async (tid) => {
       const url =
         `${apiBase}?method=post.get&topic_id=${tid}` +
-        `&fields=user_id,username,topic_id,id&sort_by=id&sort_dir=asc&limit=${postsPerRequest}`;
+        `&fields=user_id,username,topic_id,id&sort_by=id&sort_dir=asc&limit=${usersMax}`;
       const data = await fetchData(url);
       const arr = Array.isArray(data?.response) ? data.response : [];
       const seen = new Set();
@@ -309,40 +312,46 @@
       return !preferSubjectDate || !hasSubjectDate;
     });
 
-    const firstIds = topicsNeedingPost
+    const firstIdsRaw = topicsNeedingPost
       .map((t) => Number(t.first_post) || 0)
       .filter((id) => id > 0);
+
+    const firstIdsSet = new Set(firstIdsRaw);
 
     const missingTopics = topicsNeedingPost
       .filter((t) => !t.first_post)
       .map((t) => t.id);
     if (missingTopics.length) {
-      const url =
-        `${apiBase}?method=topic.get&topic_id=${missingTopics.join(',')}` +
-        `&fields=id,init_post&limit=${missingTopics.length}`;
-      const data = await fetchData(url);
-      const arr = Array.isArray(data?.response) ? data.response : [];
-      for (const r of arr) {
-        const tid = Number(r.id);
-        const fid = Number(r.init_id ?? 0);
-        const target = forumTopics.find((t) => t.id === tid);
-        if (target && fid) {
-          target.first_post = fid;
-          firstIds.push(fid);
+      for (let i = 0; i < missingTopics.length; i += 100) {
+        const slice = missingTopics.slice(i, i + 100);
+        const url =
+          `${apiBase}?method=topic.get&topic_id=${slice.join(',')}` +
+          `&fields=id,init_post&limit=${slice.length}`;
+        const data = await fetchData(url);
+        const arr = Array.isArray(data?.response) ? data.response : [];
+        for (const r of arr) {
+          const tid = Number(r.id);
+          const fid = Number(r.init_id ?? 0);
+          const target = forumTopics.find((t) => t.id === tid);
+          if (target && fid) {
+            target.first_post = fid;
+            firstIdsSet.add(fid);
+          }
         }
       }
     }
 
+    const firstIds = Array.from(firstIdsSet);
     const firstPostsMap = await getFirstPostsByIds(firstIds);
     const topicUsersMap = await getUsersForTopics(forumTopics.map((t) => t.id));
 
     const processed = forumTopics.map((t) => {
       const dto = makeTopicSkeleton(t, activeFlag);
 
-      const parsedDate = parseDate(dto.subject);
-      if (parsedDate) {
-        dto.date = parsedDate;
-        dto.flags.full_date = Number(parsedDate.d) !== 0;
+      const subjectDate = parseDate(dto.subject);
+      if (subjectDate) {
+        dto.date = subjectDate;
+        dto.flags.full_date = Number(subjectDate.d) !== 0;
       }
 
       const users = topicUsersMap.get(dto.id);
@@ -353,15 +362,6 @@
         const addons = parseAddons(fp.message || '');
         if (addons) dto.addon = { ...dto.addon, ...addons };
         dto.addon.description ||= fp.message || '';
-        dto.flags.descr = true;
-
-        if (
-          !dto.date &&
-          (dto.addon.date.y || dto.addon.date.m || dto.addon.date.d)
-        ) {
-          dto.date = { ...dto.addon.date };
-          dto.flags.full_date = Number(dto.date.d) !== 0;
-        }
 
         const nickMatch = fp.message?.match(nickRegex);
         if (nickMatch) {
@@ -374,8 +374,22 @@
             dto.users.push([uid, fp.username, nick]);
           }
         }
+
+        if (
+          dto.addon.date &&
+          (dto.addon.date.y || dto.addon.date.m || dto.addon.date.d)
+        ) {
+          if (!dto.date) {
+            dto.date = { ...dto.addon.date };
+          } else if (dto.addon.date.y) {
+            dto.date.y = getFullYear(dto.addon.date.y);
+          }
+        }
+
+        dto.flags.descr = true;
+        dto.flags.full_date = dto.date ? Number(dto.date.d) !== 0 : false;
       } else {
-        dto.flags.descr = Number(dto.first_post) !== 0 && fetchDescriptionAll;
+        dto.flags.descr = Number(dto.first_post) !== 0;
       }
 
       return dto;
