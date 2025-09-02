@@ -10,6 +10,12 @@
   const postsPerRequest = Number(config.postsPerRequest) || 100;
   const apiBase = config.apiBase || '/api.php';
 
+  const decodeHtml = (str) => {
+    const t = document.createElement('textarea');
+    t.innerHTML = String(str ?? '');
+    return t.value;
+  };
+
   const monthMap = {
     январь: 1,
     янв: 1,
@@ -58,8 +64,8 @@
     december: 12,
     dec: 12,
   };
-
-  const getMonthNumber = (monthStr) => monthMap[monthStr.toLowerCase()] || 0;
+  const getMonthNumber = (monthStr) =>
+    monthMap[String(monthStr || '').toLowerCase()] || 0;
 
   function getFullYear(year) {
     const yearType = typeof year;
@@ -67,9 +73,11 @@
     const yearNum = Number(year);
     if (Number.isNaN(yearNum)) return 0;
     if (yearNum > 999) return yearNum;
+
     const currentYear = currentYearSetting;
     const currentCentury = Math.floor(currentYear / 100);
     let fullYear;
+
     if (yearNum <= 99) {
       let potentialYear = currentCentury * 100 + yearNum;
       if (potentialYear > currentYear) potentialYear -= 100;
@@ -100,7 +108,8 @@
   const nickRegex = /\[nick\](.*?)\[\/nick\]/;
 
   function parseDate(subject) {
-    const normalized = subject.toLowerCase();
+    const normalized = decodeHtml(subject).toLowerCase();
+
     let match = normalized.match(dateRegex);
     if (match) {
       const day = parseInt(match[1], 10);
@@ -212,7 +221,7 @@
       `${apiBase}?method=topic.get&forum_id=${forumIds.join(',')}` +
       `&fields=id,subject,first_post,forum_id&limit=${topicsPerRequest}`;
     const data = await fetchData(url);
-    return data?.response || [];
+    return Array.isArray(data?.response) ? data.response : [];
   }
 
   async function getPosts(topicIds) {
@@ -224,12 +233,15 @@
       `&fields=id,user_id,username,message,topic_id&limit=${postsPerRequest}`;
 
     const firstPage = await fetchData(`${baseUrl}&skip=0`);
-    const allPosts = Array.isArray(firstPage?.response)
-      ? [...firstPage.response]
+    const rawFirst = Array.isArray(firstPage?.response)
+      ? firstPage.response
       : [];
+    const allPosts = [...rawFirst];
 
     const totalPosts = Number(firstPage?.total ?? firstPage?.count ?? 0);
-    if (!totalPosts || allPosts.length >= totalPosts) return allPosts;
+    if (!totalPosts || allPosts.length >= totalPosts) {
+      return normalizePosts(allPosts);
+    }
 
     const promises = [];
     for (
@@ -238,32 +250,49 @@
       skip += postsPerRequest
     ) {
       const url = `${baseUrl}&skip=${skip}`;
-      const promise = helpers
+      const p = helpers
         .request(url, { responseType: 'json' })
         .then((data) => (Array.isArray(data?.response) ? data.response : []))
         .catch((error) => {
           console.error(`Error fetching ${url}:`, error);
           return [];
         });
-      promises.push(promise);
+      promises.push(p);
     }
 
     if (promises.length) {
       const results = await Promise.all(promises);
       results.forEach((batch) => allPosts.push(...batch));
     }
-    return allPosts;
+
+    return normalizePosts(allPosts);
+  }
+
+  function normalizePosts(items) {
+    return items.map((p) => ({
+      ...p,
+      id: Number(p.id),
+      topic_id: Number(p.topic_id),
+      user_id: String(p.user_id),
+      username: p.username,
+      message: p.message,
+    }));
   }
 
   async function processForum(forumId, activeFlag, forumTopics) {
-    const topicIds = forumTopics.map((topic) => topic.id);
+    const topicIds = forumTopics.map((t) => t.id);
     const posts = await getPosts(topicIds);
 
     const processedTopics = forumTopics.map((topic) => ({
       ...topic,
       posts_count: 0,
       users: new Map(),
-      flags: { active: activeFlag, done: !activeFlag, full_date: false },
+      flags: {
+        active: activeFlag,
+        done: !activeFlag,
+        full_date: false,
+        descr: false,
+      },
       date: null,
       addon: {
         display: null,
@@ -275,7 +304,7 @@
       },
     }));
 
-    const topicMap = new Map(processedTopics.map((topic) => [topic.id, topic]));
+    const topicMap = new Map(processedTopics.map((t) => [t.id, t]));
 
     for (const post of posts) {
       const topic = topicMap.get(post.topic_id);
@@ -286,33 +315,39 @@
 
       topic.posts_count++;
 
-      if (!topic.users.has(post.user_id)) {
+      const userKey = String(post.user_id);
+      if (!topic.users.has(userKey)) {
         const userData = [post.user_id, post.username];
         const nickMatch = post.message.match(nickRegex);
         if (nickMatch) userData.push(nickMatch[1].trim());
-        topic.users.set(post.user_id, userData);
+        topic.users.set(userKey, userData);
       }
 
-      const correctFirstPost =
-        topic.first_post !== 0 && topic.first_post < post.id;
-      if (post.id === topic.first_post || !correctFirstPost) {
+      const pid = Number(post.id);
+      const firstPost = Number(topic.first_post);
+      const hasFirst = firstPost > 0;
+      const correctFirstPost = hasFirst && firstPost < pid;
+
+      if (pid === firstPost || !correctFirstPost) {
         const addons = parseAddons(post.message);
         if (addons) topic.addon = { ...topic.addon, ...addons };
         if (!correctFirstPost) {
-          topic.first_post = post.id;
+          topic.first_post = pid;
         }
         if (!topic.addon.description) topic.addon.description = post.message;
       }
-      topic.flags.descr = topic.first_post !== 0;
+      topic.flags.descr = Number(topic.first_post) !== 0;
     }
 
     for (const topic of processedTopics) {
       topic.users = Array.from(topic.users.values());
+
       const parsedDate = parseDate(topic.subject);
       const addonDate = topic.addon.date;
+
       if (parsedDate || addonDate.y || addonDate.m || addonDate.d) {
         topic.date = parsedDate || addonDate;
-        topic.flags.full_date = topic.date.d !== 0;
+        topic.flags.full_date = Number(topic.date.d) !== 0;
       }
     }
 
@@ -321,31 +356,38 @@
 
   async function run() {
     const activeForums = Array.isArray(forumsWithGames.active)
-      ? forumsWithGames.active
+      ? forumsWithGames.active.map(String)
       : [];
-    const activeSet = new Set(activeForums);
     const doneForums = Array.isArray(forumsWithGames.done)
-      ? forumsWithGames.done
+      ? forumsWithGames.done.map(String)
       : [];
     const allForums = [...activeForums, ...doneForums];
     if (!allForums.length) {
       console.warn('chronoParser: no forums configured');
       return;
     }
-    const allTopics = await getTopics(allForums);
+
+    const activeSet = new Set(activeForums);
+
+    const rawTopics = await getTopics(allForums);
+
     const topicsByForum = new Map();
-    for (const topic of allTopics) {
-      if (!topicsByForum.has(topic.forum_id))
-        topicsByForum.set(topic.forum_id, []);
-      topicsByForum.get(topic.forum_id).push(topic);
+    for (const raw of rawTopics) {
+      const topic = {
+        id: Number(raw.id),
+        subject: decodeHtml(raw.subject ?? ''),
+        first_post: Number(raw.first_post),
+        forum_id: String(raw.forum_id),
+      };
+      const key = topic.forum_id;
+      if (!topicsByForum.has(key)) topicsByForum.set(key, []);
+      topicsByForum.get(key).push(topic);
     }
-    const promises = allForums.map((forumId) =>
-      processForum(
-        forumId,
-        activeSet.has(forumId),
-        topicsByForum.get(forumId) || [],
-      ),
+
+    const promises = allForums.map((fid) =>
+      processForum(fid, activeSet.has(fid), topicsByForum.get(fid) || []),
     );
+
     const results = await Promise.all(promises);
     console.log(results.flat().filter((t) => t.date));
   }
