@@ -309,9 +309,10 @@
     for (const topic of processedTopics) {
       topic.users = Array.from(topic.users.values());
       const parsedDate = parseDate(topic.subject);
-      if (parsedDate) {
-        topic.date = parsedDate;
-        topic.flags.full_date = parsedDate.d !== 0;
+      const addonDate = topic.addon.date;
+      if (parsedDate || addonDate.y || addonDate.m || addonDate.d) {
+        topic.date = parsedDate || addonDate;
+        topic.flags.full_date = topic.date.d !== 0;
       }
     }
 
