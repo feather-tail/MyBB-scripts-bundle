@@ -210,31 +210,52 @@
   async function getTopics(forumIds) {
     const url =
       `${apiBase}?method=topic.get&forum_id=${forumIds.join(',')}` +
-      `&fields=id,subject,first_post&limit=${topicsPerRequest}`;
+      `&fields=id,subject,first_post,forum_id&limit=${topicsPerRequest}`;
     const data = await fetchData(url);
     return data?.response || [];
   }
 
   async function getPosts(topicIds) {
     if (!topicIds || topicIds.length === 0) return [];
-    let skip = 0;
-    const allPosts = [];
+
     const topicParam = topicIds.join(',');
-    while (true) {
-      const url =
-        `${apiBase}?method=post.get&topic_id=${topicParam}` +
-        `&fields=id,user_id,username,message,topic_id&limit=${postsPerRequest}` +
-        `&skip=${skip}`;
-      const data = await fetchData(url);
-      if (!data?.response) break;
-      allPosts.push(...data.response);
-      if (data.response.length < postsPerRequest) break;
-      skip += postsPerRequest;
+    const baseUrl =
+      `${apiBase}?method=post.get&topic_id=${topicParam}` +
+      `&fields=id,user_id,username,message,topic_id&limit=${postsPerRequest}`;
+
+    const firstPage = await fetchData(`${baseUrl}&skip=0`);
+    const allPosts = Array.isArray(firstPage?.response)
+      ? [...firstPage.response]
+      : [];
+
+    const totalPosts = Number(firstPage?.total ?? firstPage?.count ?? 0);
+    if (!totalPosts || allPosts.length >= totalPosts) return allPosts;
+
+    const promises = [];
+    for (
+      let skip = postsPerRequest;
+      skip < totalPosts;
+      skip += postsPerRequest
+    ) {
+      const url = `${baseUrl}&skip=${skip}`;
+      const promise = helpers
+        .request(url, { responseType: 'json' })
+        .then((data) => (Array.isArray(data?.response) ? data.response : []))
+        .catch((error) => {
+          console.error(`Error fetching ${url}:`, error);
+          return [];
+        });
+      promises.push(promise);
+    }
+
+    if (promises.length) {
+      const results = await Promise.all(promises);
+      results.forEach((batch) => allPosts.push(...batch));
     }
     return allPosts;
   }
 
-  async function processForum(forumId, activeFlag) {
+  async function processForum(forumId, activeFlag, topics) {
     const topics = await getTopics([forumId]);
     const topicIds = topics.map((topic) => topic.id);
     const posts = await getPosts(topicIds);
@@ -260,7 +281,7 @@
     for (const post of posts) {
       const topic = topicMap.get(post.topic_id);
       if (!topic) {
-        console.error('Тема не найдена для поста:', post);
+        console.error(`Тема не найдена для поста в форуме ${forumId}:`, post);
         continue;
       }
 
@@ -268,7 +289,7 @@
 
       if (!topic.users.has(post.user_id)) {
         const userData = [post.user_id, post.username];
-        const nickMatch = post.message.match(/\[nick\](.*?)\[\/nick\]/);
+        const nickMatch = post.message.match(nickRegex);
         if (nickMatch) userData.push(nickMatch[1].trim());
         topic.users.set(post.user_id, userData);
       }
@@ -311,8 +332,19 @@
       console.warn('chronoParser: no forums configured');
       return;
     }
+    const allTopics = await getTopics(allForums);
+    const topicsByForum = new Map();
+    for (const topic of allTopics) {
+      if (!topicsByForum.has(topic.forum_id))
+        topicsByForum.set(topic.forum_id, []);
+      topicsByForum.get(topic.forum_id).push(topic);
+    }
     const promises = allForums.map((forumId) =>
-      processForum(forumId, activeSet.has(forumId)),
+      processForum(
+        forumId,
+        activeSet.has(forumId),
+        topicsByForum.get(forumId) || [],
+      ),
     );
     const results = await Promise.all(promises);
     console.log(results.flat().filter((t) => t.date));
