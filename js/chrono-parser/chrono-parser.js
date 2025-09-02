@@ -305,18 +305,14 @@
     };
   }
 
-  async function processForum(forumId, activeFlag, forumTopics) {
-    const topicsNeedingPost = forumTopics.filter((t) => {
-      if (fetchDescriptionAll) return true;
-      const hasSubjectDate = !!parseDate(t.subject);
-      return !preferSubjectDate || !hasSubjectDate;
-    });
+  async function processForum(activeFlag, forumTopics) {
+    const topicsNeedingPost = forumTopics;
 
-    const firstIdsRaw = topicsNeedingPost
-      .map((t) => Number(t.first_post) || 0)
-      .filter((id) => id > 0);
-
-    const firstIdsSet = new Set(firstIdsRaw);
+    const firstIdsSet = new Set(
+      topicsNeedingPost
+        .map((t) => Number(t.first_post) || 0)
+        .filter((id) => id > 0),
+    );
 
     const missingTopics = topicsNeedingPost
       .filter((t) => !t.first_post)
@@ -422,7 +418,7 @@
     }
 
     const promises = allForums.map((fid) =>
-      processForum(fid, activeSet.has(fid), topicsByForum.get(fid) || []),
+      processForum(activeSet.has(fid), topicsByForum.get(fid) || []),
     );
 
     const results = await Promise.all(promises);
