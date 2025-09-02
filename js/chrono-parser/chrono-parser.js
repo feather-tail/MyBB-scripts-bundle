@@ -97,9 +97,11 @@
     `(${Object.keys(monthMap).join('|')})\\s*(\\d{4})`,
     'i',
   );
+  const nickRegex = /\[nick\](.*?)\[\/nick\]/;
 
   function parseDate(subject) {
-    let match = subject.match(dateRegex);
+    const normalized = subject.toLowerCase();
+    let match = normalized.match(dateRegex);
     if (match) {
       const day = parseInt(match[1], 10);
       const month = parseInt(match[2], 10);
@@ -109,15 +111,15 @@
       }
     }
 
-    match = subject.match(yearMonthRegex);
+    match = normalized.match(yearMonthRegex);
     if (match) {
       const year = parseInt(match[1], 10);
       const month = getMonthNumber(match[2]);
       if (month) return { y: getFullYear(year), m: month, d: 0 };
     }
 
-    const noCommaSubject = subject.replace(/,/g, '');
-    const wordMonthMatch = noCommaSubject.match(wordMonthRegex);
+    const normalizedNoComma = normalized.replace(/,/g, '');
+    const wordMonthMatch = normalizedNoComma.match(wordMonthRegex);
     if (wordMonthMatch) {
       const monthStr = wordMonthMatch[1];
       const yearStr = wordMonthMatch[2];
@@ -126,13 +128,13 @@
       if (year && month) return { y: getFullYear(year), m: month, d: 0 };
     }
 
-    const yearOnlyMatch = subject.match(yearRegex);
+    const yearOnlyMatch = normalized.match(yearRegex);
     if (yearOnlyMatch) {
       const year = parseInt(yearOnlyMatch[1], 10);
       return { y: getFullYear(year), m: 0, d: 0 };
     }
 
-    match = subject.match(complexDateRegex);
+    match = normalized.match(complexDateRegex);
     if (match) {
       const month = parseInt(match[1], 10);
       const year = parseInt(match[2], 10);
@@ -217,9 +219,10 @@
     if (!topicIds || topicIds.length === 0) return [];
     let skip = 0;
     const allPosts = [];
+    const topicParam = topicIds.join(',');
     while (true) {
       const url =
-        `${apiBase}?method=post.get&topic_id=${topicIds.join(',')}` +
+        `${apiBase}?method=post.get&topic_id=${topicParam}` +
         `&fields=id,user_id,username,message,topic_id&limit=${postsPerRequest}` +
         `&skip=${skip}`;
       const data = await fetchData(url);
@@ -239,7 +242,7 @@
     const processedTopics = topics.map((topic) => ({
       ...topic,
       posts_count: 0,
-      users: [],
+      users: new Map(),
       flags: { active: activeFlag, done: !activeFlag, full_date: false },
       date: null,
       addon: {
@@ -263,10 +266,12 @@
 
       topic.posts_count++;
 
-      const userData = [post.user_id, post.username];
-      const nickMatch = post.message.match(/\[nick\](.*?)\[\/nick\]/);
-      if (nickMatch) userData.push(nickMatch[1].trim());
-      topic.users.push(userData);
+      if (!topic.users.has(post.user_id)) {
+        const userData = [post.user_id, post.username];
+        const nickMatch = post.message.match(/\[nick\](.*?)\[\/nick\]/);
+        if (nickMatch) userData.push(nickMatch[1].trim());
+        topic.users.set(post.user_id, userData);
+      }
 
       const correctFirstPost =
         topic.first_post !== 0 && topic.first_post < post.id;
@@ -282,6 +287,7 @@
     }
 
     for (const topic of processedTopics) {
+      topic.users = Array.from(topic.users.values());
       const parsedDate = parseDate(topic.subject);
       if (parsedDate) {
         topic.date = parsedDate;
@@ -296,6 +302,7 @@
     const activeForums = Array.isArray(forumsWithGames.active)
       ? forumsWithGames.active
       : [];
+    const activeSet = new Set(activeForums);
     const doneForums = Array.isArray(forumsWithGames.done)
       ? forumsWithGames.done
       : [];
@@ -305,7 +312,7 @@
       return;
     }
     const promises = allForums.map((forumId) =>
-      processForum(forumId, activeForums.includes(forumId)),
+      processForum(forumId, activeSet.has(forumId)),
     );
     const results = await Promise.all(promises);
     console.log(results.flat().filter((t) => t.date));
