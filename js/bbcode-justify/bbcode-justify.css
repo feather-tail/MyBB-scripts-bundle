@@ -1,0 +1,10 @@
+#button-justify {
+  background: url('http://se.uploads.ru/LVN4z.png') no-repeat center 6px
+    transparent !important;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+#button-justify.inactive {
+  pointer-events: none;
+  opacity: 0.5;
+}

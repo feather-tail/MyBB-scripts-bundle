@@ -1,0 +1,128 @@
+.sticker-pack-modal-container {
+  position: absolute;
+  z-index: 1000;
+  left: 0;
+  top: 0;
+}
+
+.sticker-pack-modal {
+  position: relative;
+  max-height: 350px;
+  min-width: 300px;
+  background: #fff;
+  border-radius: 6px;
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+  display: none;
+}
+.sticker-pack-modal.active {
+  display: block;
+}
+
+.sticker-pack-modal .modal__content {
+  display: none;
+  max-height: 220px;
+  overflow-y: auto;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px;
+  box-sizing: border-box;
+}
+
+.sticker-pack-modal .modal__content.active {
+  display: flex;
+}
+
+.sticker-pack-item {
+  flex: 0 0 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.sticker-pack-item img {
+  max-width: 44px;
+  max-height: 44px;
+  display: block;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.sticker-pack-remove-item {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  color: #b00;
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 50%;
+  font-size: 13px;
+  cursor: pointer;
+  width: 16px;
+  height: 16px;
+  text-align: center;
+  line-height: 16px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sticker-pack-modal .modal__tabs {
+  display: flex;
+  border-bottom: 1px solid #eee;
+  background: #f9f9f9;
+  padding: 0 8px;
+  gap: 8px;
+  min-height: 32px;
+}
+
+.sticker-pack-modal .modal__tab {
+  cursor: pointer;
+  padding: 6px 12px;
+  border-radius: 4px 4px 0 0;
+  margin-top: 2px;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+
+.sticker-pack-modal .modal__tab.active {
+  background: #e8e8e8;
+  font-weight: bold;
+}
+
+.sticker-pack-modal-add {
+  padding: 8px;
+  border-top: 1px solid #eee;
+  display: flex;
+  gap: 8px;
+  background: #f7f7f7;
+}
+
+.sticker-pack-modal-input {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+.sticker-pack-modal-add-btn {
+  padding: 6px 12px;
+  border-radius: 4px;
+  border: 1px solid #bbb;
+  background: #fafafa;
+  cursor: pointer;
+}
+
+@media (max-width: 500px) {
+  .sticker-pack-modal {
+    min-width: 0;
+    width: 96vw !important;
+    max-width: 98vw;
+  }
+  .sticker-pack-modal .modal__content {
+    max-height: 160px;
+  }
+}

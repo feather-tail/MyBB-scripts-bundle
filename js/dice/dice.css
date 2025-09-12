@@ -1,0 +1,32 @@
+.dice-modal {
+  background: #fff;
+  padding: 1.5em;
+  border-radius: 6px;
+  width: 320px;
+  max-width: 90%;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+}
+
+.dice-modal h3 {
+  margin-top: 0;
+  font-size: 1.2em;
+}
+.dice-modal label {
+  display: block;
+  margin: 0.8em 0 0.5em;
+  font-size: 0.95em;
+}
+.dice-modal input[type='text'] {
+  width: 100%;
+  padding: 0.4em;
+  box-sizing: border-box;
+}
+.dice-modal .actions {
+  text-align: right;
+  margin-top: 1em;
+}
+.dice-modal button {
+  padding: 0.5em 1em;
+  margin-left: 0.5em;
+  cursor: pointer;
+}

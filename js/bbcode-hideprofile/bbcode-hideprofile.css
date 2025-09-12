@@ -1,0 +1,11 @@
+.hide-profile .post-author,
+.hide-profile .pl-email,
+.hide-profile .pl-website {
+  display: none !important;
+}
+.hide-profile .post-body,
+.hide-profile .post-links,
+.hide-profile .post-links ul,
+.post.hide-profile h3 > span {
+  margin-left: 0 !important;
+}
