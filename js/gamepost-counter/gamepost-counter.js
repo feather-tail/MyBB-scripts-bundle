@@ -1,12 +1,12 @@
 (() => {
-  'use strict';
+  "use strict";
 
   const helpers = window.helpers;
   const { $, $$, createEl } = helpers;
-  const config = helpers.getConfig('gamepostCounter', {});
-  const STORAGE_KEY = config.storageKey || 'gamepostCounterToggle';
-  const TOGGLE_LABEL = config.toggleLabel || 'Счётчик игровых постов';
-  const SETTINGS_SECTION = config.settingsMenuSection || '';
+  const config = helpers.getConfig("gamepostCounter", {});
+  const STORAGE_KEY = config.storageKey || "gamepostCounterToggle";
+  const TOGGLE_LABEL = config.toggleLabel || "Счётчик игровых постов";
+  const SETTINGS_SECTION = config.settingsMenuSection || "";
   const last = (sel, root = document) => {
     const L = root.querySelectorAll(sel);
     return L.length ? L[L.length - 1] : null;
@@ -22,7 +22,7 @@
   const isEnabled = () => {
     try {
       const v = localStorage.getItem(STORAGE_KEY);
-      return v === null ? true : v !== '0';
+      return v === null ? true : v !== "0";
     } catch {
       return true;
     }
@@ -30,7 +30,7 @@
 
   const saveState = (v) => {
     try {
-      localStorage.setItem(STORAGE_KEY, v ? '1' : '0');
+      localStorage.setItem(STORAGE_KEY, v ? "1" : "0");
     } catch {}
   };
 
@@ -40,9 +40,9 @@
     const obj = {};
     const q = location.search.slice(1);
     if (!q) return obj;
-    for (const kv of q.split('&')) {
+    for (const kv of q.split("&")) {
       if (!kv) continue;
-      const [k, v = ''] = kv.split('=');
+      const [k, v = ""] = kv.split("=");
       obj[decodeURIComponent(k)] = decodeURIComponent(v);
     }
     return obj;
@@ -55,14 +55,14 @@
       if (m) return m[1];
     }
     const m2 = location.search.match(/(?:^|[?&])id=(\d+)/);
-    return (m2 && m2[1]) || '';
+    return (m2 && m2[1]) || "";
   };
 
   const getForumId = () => {
     const fidFromGlobal =
       window.FORUM && window.FORUM.topic && window.FORUM.topic.forum_id
         ? String(window.FORUM.topic.forum_id)
-        : '';
+        : "";
     if (fidFromGlobal) return fidFromGlobal;
 
     const a = last('#pun-crumbs1 a[href*="/viewforum.php?id="]');
@@ -72,27 +72,27 @@
     }
     const postForm = $('form#post[action*="/post.php?"]');
     const m2 = postForm && postForm.action.match(/fid=(\d+)/);
-    return (m2 && m2[1]) || '';
+    return (m2 && m2[1]) || "";
   };
 
   function isCountable({ fid, tid, isFirstPost }) {
     if (!config.includeFirstPost && isFirstPost) return false;
     const r = config.forumsRules.perForum.get(String(fid));
-    const mode = r?.mode || config.forumsRules.defaultMode || 'all';
-    if (mode === 'all') return true;
+    const mode = r?.mode || config.forumsRules.defaultMode || "all";
+    if (mode === "all") return true;
     const topics = r?.topics || new Set();
-    if (mode === 'include') return topics.has(Number(tid));
-    if (mode === 'exclude') return !topics.has(Number(tid));
+    if (mode === "include") return topics.has(Number(tid));
+    if (mode === "exclude") return !topics.has(Number(tid));
     return false;
   }
 
   function sendUpdateFetch(body) {
     return helpers
       .request(`${config.backend.endpoint}?method=update`, {
-        method: 'POST',
+        method: "POST",
         data: JSON.stringify(body),
-        headers: { 'Content-Type': 'application/json' },
-        responseType: 'json',
+        headers: { "Content-Type": "application/json" },
+        responseType: "json",
       })
       .catch(() => null);
   }
@@ -104,7 +104,7 @@
       `&tableKey=${encodeURIComponent(config.backend.tableKey)}` +
       `&userId=${userId}`;
     const data = await helpers
-      .request(u, { responseType: 'json' })
+      .request(u, { responseType: "json" })
       .catch(() => null);
     return data?.ok ? data.user : null;
   }
@@ -116,13 +116,13 @@
       `&tableKey=${encodeURIComponent(config.backend.tableKey)}` +
       `&limit=${config.backend.limit}` +
       `&scope=${config.backend.scope}`;
-    return helpers.request(url, { responseType: 'json' }).catch(() => null);
+    return helpers.request(url, { responseType: "json" }).catch(() => null);
   }
 
   function normalizeCounterLi(li, value) {
     if (!li) return;
-    li.style.removeProperty('display');
-    const nameSpan = li.querySelector('.fld-name') || li.querySelector('span');
+    li.style.removeProperty("display");
+    const nameSpan = li.querySelector(".fld-name") || li.querySelector("span");
     let started = !nameSpan;
     const toRemove = [];
     let existingStrong = null;
@@ -133,7 +133,7 @@
         }
         continue;
       }
-      if (n.nodeType === Node.ELEMENT_NODE && n.tagName === 'STRONG') {
+      if (n.nodeType === Node.ELEMENT_NODE && n.tagName === "STRONG") {
         if (!existingStrong) existingStrong = n;
         else toRemove.push(n);
       } else {
@@ -142,11 +142,11 @@
     }
     toRemove.forEach((n) => li.removeChild(n));
     if (!existingStrong) {
-      existingStrong = document.createElement('strong');
+      existingStrong = document.createElement("strong");
       if (nameSpan)
-        nameSpan.after(document.createTextNode(' '), existingStrong);
+        nameSpan.after(document.createTextNode(" "), existingStrong);
       else {
-        li.textContent = '';
+        li.textContent = "";
         li.appendChild(existingStrong);
       }
     }
@@ -169,40 +169,40 @@
                         r.user_id
                       }" target="_blank">${r.username}</a></td><td>${
                         r.score
-                      }</td></tr>`,
+                      }</td></tr>`
                   )
-                  .join('')
-              : '<tr><td>—</td><td>—</td><td>0</td></tr>'
+                  .join("")
+              : "<tr><td>—</td><td>—</td><td>0</td></tr>"
           }
         </tbody></table>
       </div>`;
     container.innerHTML =
-      block('Текущая неделя', data.week) +
-      block('Прошлая неделя', data.prevWeek) +
-      block('Текущий месяц', data.month) +
-      block('Прошлый месяц', data.prevMonth);
+      block("Текущая неделя", data.week) +
+      block("Прошлая неделя", data.prevWeek) +
+      block("Текущий месяц", data.month) +
+      block("Прошлый месяц", data.prevMonth);
   }
 
   function injectBadgeIntoPost(postEl, value) {
     const li = postEl.querySelector(
-      `.post-author li.pa-fld${config.ui.fieldId}`,
+      `.post-author li.pa-fld${config.ui.fieldId}`
     );
     if (li) normalizeCounterLi(li, value);
   }
   function valueFromUserObj(user, source) {
-    return source === 'total'
+    return source === "total"
       ? user.total || 0
-      : source === 'month'
+      : source === "month"
       ? user.month?.count || 0
       : user.week?.count || 0;
   }
   function updateUserValueInDom(userId, value) {
-    $$('.post[data-user-id]').forEach((post) => {
-      if (Number(post.getAttribute('data-user-id')) === Number(userId)) {
+    $$(".post[data-user-id]").forEach((post) => {
+      if (Number(post.getAttribute("data-user-id")) === Number(userId)) {
         injectBadgeIntoPost(post, String(value));
       }
     });
-    const profBox = $('#viewprofile-next');
+    const profBox = $("#viewprofile-next");
     if (profBox && profBox.className.includes(`id-${userId}`)) {
       const li = document.getElementById(`pa-fld${config.ui.fieldId}`);
       if (li) normalizeCounterLi(li, String(value));
@@ -219,9 +219,9 @@
     const { group, id: myId } = getUser();
     if (!config.viewerGroups.includes(group)) return;
 
-    const posts = $$('.post[data-user-id]');
+    const posts = $$(".post[data-user-id]");
     const allIds = Array.from(
-      new Set(posts.map((p) => Number(p.getAttribute('data-user-id')))),
+      new Set(posts.map((p) => Number(p.getAttribute("data-user-id"))))
     );
     if (!allIds.includes(myId)) allIds.push(myId);
 
@@ -238,12 +238,12 @@
       ids.map(async (id) => {
         const data = await getUserStats(id);
         if (data) cache.set(id, data);
-      }),
+      })
     );
 
-    const source = config.ui.badgeSource || 'week';
+    const source = config.ui.badgeSource || "week";
     for (const post of posts) {
-      const id = Number(post.getAttribute('data-user-id'));
+      const id = Number(post.getAttribute("data-user-id"));
       const user = cache.get(id);
       if (!user) continue;
       injectBadgeIntoPost(post, String(valueFromUserObj(user, source)));
@@ -251,12 +251,12 @@
   }
 
   async function decorateProfilePage() {
-    const root = document.getElementById('pun-profile');
+    const root = document.getElementById("pun-profile");
     if (!root) return;
 
     let uid = Number(parseQuery().id || 0);
     if (!uid) {
-      const box = document.getElementById('viewprofile-next');
+      const box = document.getElementById("viewprofile-next");
       const m = box?.className.match(/\bid-(\d+)\b/);
       if (m) uid = Number(m[1]);
     }
@@ -266,7 +266,7 @@
     if (!data) return;
 
     const source =
-      config.ui.profileBadgeSource || config.ui.badgeSource || 'week';
+      config.ui.profileBadgeSource || config.ui.badgeSource || "week";
     const value = valueFromUserObj(data, source);
     const li = document.getElementById(`pa-fld${config.ui.fieldId}`);
     if (li) normalizeCounterLi(li, value);
@@ -293,21 +293,21 @@
   }
 
   function openModal() {
-    const content = document.createElement('div');
-    content.className = 'gpc-modal__dialog';
-    content.setAttribute('role', 'dialog');
-    content.setAttribute('aria-modal', 'true');
+    const content = document.createElement("div");
+    content.className = "gpc-modal__dialog";
+    content.setAttribute("role", "dialog");
+    content.setAttribute("aria-modal", "true");
 
-    const title = document.createElement('h3');
-    title.id = 'gpc-modal-title';
-    title.className = 'gpc-modal__title';
-    title.textContent = 'Статистика постов';
+    const title = document.createElement("h3");
+    title.id = "gpc-modal-title";
+    title.className = "gpc-modal__title";
+    title.textContent = "Статистика постов";
 
-    const body = document.createElement('div');
-    body.className = 'gpc-modal__body';
+    const body = document.createElement("div");
+    body.className = "gpc-modal__body";
 
-    const wrap = document.createElement('div');
-    wrap.className = 'gpc-tables-wrap';
+    const wrap = document.createElement("div");
+    wrap.className = "gpc-tables-wrap";
     body.appendChild(wrap);
 
     content.append(title, body);
@@ -327,45 +327,45 @@
     if (!allowed) return;
 
     document
-      .querySelectorAll('#form-buttons li.gpc-open-li')
+      .querySelectorAll("#form-buttons li.gpc-open-li")
       .forEach((n) => n.remove());
 
-    const anchorSel = config.ui.launcherAfter || '#button-addition';
+    const anchorSel = config.ui.launcherAfter || "#button-addition";
     const anchor = await waitForElement(anchorSel);
     if (!anchor) return;
-    if (document.getElementById('gpc-open-btn')) return;
+    if (document.getElementById("gpc-open-btn")) return;
 
-    const tdRef = anchor.closest('td') || anchor;
-    if (!tdRef || tdRef.tagName !== 'TD') return;
+    const tdRef = anchor.closest("td") || anchor;
+    if (!tdRef || tdRef.tagName !== "TD") return;
 
-    const td = document.createElement('td');
-    td.className = 'gpc-open-td';
-    td.title = config.ui.launcherText || 'Статистика постов';
+    const td = document.createElement("td");
+    td.className = "gpc-open-td";
+    td.title = config.ui.launcherText || "Статистика постов";
 
-    const btn = document.createElement('button');
-    btn.id = 'gpc-open-btn';
-    btn.type = 'button';
-    btn.className = 'gpc-open-btn';
-    btn.textContent = config.ui.launcherIcon || '?';
-    ['pointerdown', 'mousedown', 'mouseup', 'pointerup'].forEach((t) => {
+    const btn = document.createElement("button");
+    btn.id = "gpc-open-btn";
+    btn.type = "button";
+    btn.className = "gpc-open-btn";
+    btn.textContent = config.ui.launcherIcon || "?";
+    ["pointerdown", "mousedown", "mouseup", "pointerup"].forEach((t) => {
       btn.addEventListener(
         t,
         (e) => {
           e.stopPropagation();
         },
-        true,
+        true
       );
     });
 
     btn.addEventListener(
-      'click',
+      "click",
       (e) => {
         e.preventDefault();
         e.stopPropagation();
         e.stopImmediatePropagation();
         openModal();
       },
-      true,
+      true
     );
 
     td.appendChild(btn);
@@ -373,16 +373,16 @@
   }
 
   function removeCounters() {
-    $$('.gpc-open-td').forEach((n) => n.remove());
-    $$('.post-author li.pa-fld' + config.ui.fieldId).forEach((li) => {
-      li.style.display = 'none';
+    $$(".gpc-open-td").forEach((n) => n.remove());
+    $$(".post-author li.pa-fld" + config.ui.fieldId).forEach((li) => {
+      li.style.display = "none";
     });
-    const profileLi = document.getElementById('pa-fld' + config.ui.fieldId);
-    if (profileLi) profileLi.style.display = 'none';
+    const profileLi = document.getElementById("pa-fld" + config.ui.fieldId);
+    if (profileLi) profileLi.style.display = "none";
   }
 
-  const INTENT_ADD_KEY = 'gpc_add_intent';
-  const INTENT_DEL_KEY = 'gpc_del_intent';
+  const INTENT_ADD_KEY = "gpc_add_intent";
+  const INTENT_DEL_KEY = "gpc_del_intent";
 
   const saveAddIntent = (v) => {
     try {
@@ -441,20 +441,20 @@
     if (!u.id || !u.name) return;
     let fid = intent.fid || getForumId();
     let tid =
-      intent.tid && intent.tid !== '0' ? intent.tid : getTopicId() || '0';
+      intent.tid && intent.tid !== "0" ? intent.tid : getTopicId() || "0";
     const isFirstPost = intent.isFirstPost;
     if (!fid) fid = getForumId();
-    if (!tid) tid = getTopicId() || '0';
+    if (!tid) tid = getTopicId() || "0";
     if (!isCountable({ fid, tid, isFirstPost })) return;
 
     const payload = buildPayload(fid, tid, isFirstPost, {
       userId: u.id,
       username: u.name,
-      action: 'add',
+      action: "add",
     });
     sendUpdateFetch(payload).then((res) => {
       if (res?.ok && res.user) {
-        const val = valueFromUserObj(res.user, config.ui.badgeSource || 'week');
+        const val = valueFromUserObj(res.user, config.ui.badgeSource || "week");
         optimisticUpdate(u.id, val);
       }
     });
@@ -464,8 +464,8 @@
     if (!isEnabled() || !info || info.sent) return;
     const payload = buildPayload(info.fid, info.tid, !!info.isFirstPost, {
       userId: Number(info.uid || 0),
-      username: info.uname || '',
-      action: 'subtract',
+      username: info.uname || "",
+      action: "subtract",
     });
     if (!payload.userId || !payload.username) {
       clearDelIntent();
@@ -475,7 +475,7 @@
     sendUpdateFetch(payload).then(async () => {
       const user = await getUserStats(payload.userId).catch(() => null);
       if (user) {
-        const val = valueFromUserObj(user, config.ui.badgeSource || 'week');
+        const val = valueFromUserObj(user, config.ui.badgeSource || "week");
         optimisticUpdate(payload.userId, val);
       }
       clearDelIntent();
@@ -494,123 +494,125 @@
       String(tidNow) !== String(info.tid)
     )
       return;
-    if (!document.getElementById('p' + info.postId)) sendSubtractOnce(info);
+    if (!document.getElementById("p" + info.postId)) sendSubtractOnce(info);
   }
 
   function hookPostSubmit() {
     const form = $('form#post[action*="/post.php?"]');
     if (!form) return;
     form.addEventListener(
-      'submit',
+      "submit",
       (e) => {
         if (!isEnabled()) return;
         const sb = e.submitter || document.activeElement;
-        if (sb && (sb.classList?.contains('preview') || sb.name === 'preview'))
+        if (sb && (sb.classList?.contains("preview") || sb.name === "preview"))
           return;
         const u = getUser();
         if (!u.id || !u.name) return;
         const fid = (form.action.match(/fid=(\d+)/) || [])[1] || getForumId();
-        const tidRaw = (form.action.match(/tid=(\d+(\.\d+)*)/) || [])[1] || '';
-        const tid = tidRaw ? tidRaw.split('.')[0] : '';
+        const tidRaw = (form.action.match(/tid=(\d+(\.\d+)*)/) || [])[1] || "";
+        const tid = tidRaw ? tidRaw.split(".")[0] : "";
         const isFirstPost = !!(fid && !tid);
+        if (!isCountable({ fid, tid, isFirstPost })) return;
         saveAddIntent({
-          action: 'add',
-          fid: String(fid || ''),
-          tid: String(tid || '0'),
+          action: "add",
+          fid: String(fid || ""),
+          tid: String(tid || "0"),
           isFirstPost,
-          sentBy: 'submit',
+          sentBy: "submit",
           t: Date.now(),
         });
 
-        const payload = buildPayload(fid, tid || '0', isFirstPost, {
+        const payload = buildPayload(fid, tid || "0", isFirstPost, {
           userId: u.id,
           username: u.name,
-          action: 'add',
+          action: "add",
         });
         sendUpdateFetch(payload).then((res) => {
           if (res?.ok && res.user) {
             const val = valueFromUserObj(
               res.user,
-              config.ui.badgeSource || 'week',
+              config.ui.badgeSource || "week"
             );
             optimisticUpdate(u.id, val);
           }
         });
       },
-      { passive: true },
+      { passive: true }
     );
 
     const prepIntent = (e) => {
       if (!isEnabled()) return;
       const btn = e?.currentTarget;
-      if (btn && (btn.classList?.contains('preview') || btn.name === 'preview'))
+      if (btn && (btn.classList?.contains("preview") || btn.name === "preview"))
         return;
       const fid = getForumId();
-      const tid = getTopicId() || '0';
+      const tid = getTopicId() || "0";
       const isFirstPost = !!(fid && !tid);
+      if (!isCountable({ fid, tid, isFirstPost })) return;
       saveAddIntent({
-        action: 'add',
-        fid: String(fid || ''),
-        tid: String(tid || '0'),
+        action: "add",
+        fid: String(fid || ""),
+        tid: String(tid || "0"),
         isFirstPost,
-        sentBy: 'button',
+        sentBy: "button",
         t: Date.now(),
       });
     };
     form
       .querySelectorAll(
-        'input[type=submit], button[type=submit], input[name=submit], button[name=submit]',
+        "input[type=submit], button[type=submit], input[name=submit], button[name=submit]"
       )
       .forEach((btn) =>
-        btn.addEventListener('click', prepIntent, { passive: true }),
+        btn.addEventListener("click", prepIntent, { passive: true })
       );
-    form.addEventListener('keydown', (e) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') prepIntent();
+    form.addEventListener("keydown", (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") prepIntent();
     });
   }
 
   function hookDeleteLinks() {
     document.addEventListener(
-      'click',
+      "click",
       (ev) => {
         if (!PATH.isTopic() || !isEnabled()) return;
         const a = ev.target.closest('.pl-delete a[href*="/delete.php?id="]');
         if (!a) return;
-        const post = a.closest('.post');
+        const post = a.closest(".post");
         const postId = Number(
-          (a.href.match(/delete\.php\?id=(\d+)/) || [])[1] || 0,
+          (a.href.match(/delete\.php\?id=(\d+)/) || [])[1] || 0
         );
-        const uid = Number(post?.getAttribute('data-user-id') || 0);
+        const uid = Number(post?.getAttribute("data-user-id") || 0);
         const uname = (
-          post?.querySelector('.post-author .pa-author a')?.textContent ||
+          post?.querySelector(".post-author .pa-author a")?.textContent ||
           helpers.getUserInfo().name ||
-          ''
+          ""
         ).trim();
 
         let isFirstPost = false;
-        const liDel = post?.querySelector('li.pl-delete');
+        const liDel = post?.querySelector("li.pl-delete");
         const mNum =
           liDel?.textContent && liDel.textContent.match(/Сообщение\s+(\d+)/i);
         if (mNum) isFirstPost = Number(mNum[1]) === 1;
         else {
-          const n = post?.querySelector('h3 > span > strong');
-          if (n) isFirstPost = Number((n.textContent || '').trim()) === 1;
+          const n = post?.querySelector("h3 > span > strong");
+          if (n) isFirstPost = Number((n.textContent || "").trim()) === 1;
         }
 
         const fid = getForumId();
-        const tid = getTopicId() || '0';
+        const tid = getTopicId() || "0";
         writeDelIntent({
           postId,
           uid,
           uname,
-          fid: String(fid || ''),
-          tid: String(tid || '0'),
+          fid: String(fid || ""),
+          tid: String(tid || "0"),
           isFirstPost,
           sent: false,
           t: Date.now(),
         });
       },
-      { passive: true, capture: true },
+      { passive: true, capture: true }
     );
   }
 
@@ -624,17 +626,17 @@
     const form = document.querySelector('form[action*="/delete.php"]');
     if (form)
       form.addEventListener(
-        'submit',
+        "submit",
         () => {
           if (!isEnabled()) return;
           sendSubtractOnce(info);
         },
-        { passive: true, capture: true },
+        { passive: true, capture: true }
       );
   }
 
   function hookDomObserver() {
-    const target = document.getElementById('pun-main') || document.body;
+    const target = document.getElementById("pun-main") || document.body;
     const mo = new MutationObserver((muts) => {
       let hasAdd = false,
         hasRem = false;
@@ -649,7 +651,7 @@
   }
 
   function hookPageShow() {
-    window.addEventListener('pageshow', () => {
+    window.addEventListener("pageshow", () => {
       trySendFromDelIntent();
     });
   }
@@ -666,11 +668,11 @@
   }
 
   function renderToggle(container) {
-    const label = createEl('label');
-    const cb = createEl('input', { type: 'checkbox' });
+    const label = createEl("label");
+    const cb = createEl("input", { type: "checkbox" });
     cb.checked = isEnabled();
-    label.append(cb, document.createTextNode(' ' + TOGGLE_LABEL));
-    cb.addEventListener('change', () => {
+    label.append(cb, document.createTextNode(" " + TOGGLE_LABEL));
+    cb.addEventListener("change", () => {
       const on = cb.checked;
       saveState(on);
       if (on) applyCounters();
@@ -682,7 +684,7 @@
 
   function initSection(list) {
     if (!list) return;
-    const li = createEl('li');
+    const li = createEl("li");
     renderToggle(li);
     list.insertBefore(li, list.children[1] || null);
   }
@@ -702,7 +704,7 @@
     }
     if (config.toggleInsertAfter) {
       const anchor = document.querySelector(config.toggleInsertAfter);
-      if (anchor) anchor.insertAdjacentElement('afterend', renderToggle());
+      if (anchor) anchor.insertAdjacentElement("afterend", renderToggle());
     }
   }
 
@@ -719,7 +721,7 @@
   helpers.runOnceOnReady(init);
   helpers.runOnceOnReady(initToggle);
 
-  helpers.register('gamepostCounter', {
+  helpers.register("gamepostCounter", {
     config,
     SETTINGS: config,
     getUserStats,
@@ -729,7 +731,7 @@
     updateGlobal({
       userId,
       username,
-      action = 'add',
+      action = "add",
       fid,
       tid,
       isFirstPost = false,
