@@ -462,15 +462,29 @@
 
   function sendSubtractOnce(info) {
     if (!isEnabled() || !info || info.sent) return;
+
+    if (
+      !isCountable({
+        fid: info.fid,
+        tid: info.tid,
+        isFirstPost: !!info.isFirstPost,
+      })
+    ) {
+      clearDelIntent();
+      return;
+    }
+
     const payload = buildPayload(info.fid, info.tid, !!info.isFirstPost, {
       userId: Number(info.uid || 0),
       username: info.uname || "",
       action: "subtract",
     });
+
     if (!payload.userId || !payload.username) {
       clearDelIntent();
       return;
     }
+
     writeDelIntent({ ...info, sent: true });
     sendUpdateFetch(payload).then(async () => {
       const user = await getUserStats(payload.userId).catch(() => null);
@@ -500,19 +514,24 @@
   function hookPostSubmit() {
     const form = $('form#post[action*="/post.php?"]');
     if (!form) return;
+
     form.addEventListener(
       "submit",
       (e) => {
         if (!isEnabled()) return;
+
         const sb = e.submitter || document.activeElement;
         if (sb && (sb.classList?.contains("preview") || sb.name === "preview"))
           return;
+
         const u = getUser();
         if (!u.id || !u.name) return;
+
         const fid = (form.action.match(/fid=(\d+)/) || [])[1] || getForumId();
         const tidRaw = (form.action.match(/tid=(\d+(\.\d+)*)/) || [])[1] || "";
         const tid = tidRaw ? tidRaw.split(".")[0] : "";
         const isFirstPost = !!(fid && !tid);
+
         saveAddIntent({
           action: "add",
           fid: String(fid || ""),
@@ -522,11 +541,14 @@
           t: Date.now(),
         });
 
+        if (!isCountable({ fid, tid: tid || "0", isFirstPost })) return;
+
         const payload = buildPayload(fid, tid || "0", isFirstPost, {
           userId: u.id,
           username: u.name,
           action: "add",
         });
+
         sendUpdateFetch(payload).then((res) => {
           if (res?.ok && res.user) {
             const val = valueFromUserObj(
@@ -545,9 +567,11 @@
       const btn = e?.currentTarget;
       if (btn && (btn.classList?.contains("preview") || btn.name === "preview"))
         return;
+
       const fid = getForumId();
       const tid = getTopicId() || "0";
       const isFirstPost = !!(fid && !tid);
+
       saveAddIntent({
         action: "add",
         fid: String(fid || ""),
@@ -557,6 +581,7 @@
         t: Date.now(),
       });
     };
+
     form
       .querySelectorAll(
         "input[type=submit], button[type=submit], input[name=submit], button[name=submit]"
@@ -564,6 +589,7 @@
       .forEach((btn) =>
         btn.addEventListener("click", prepIntent, { passive: true })
       );
+
     form.addEventListener("keydown", (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key === "Enter") prepIntent();
     });
@@ -744,6 +770,17 @@
         topicId: Number(tid || getTopicId() || 0),
         isFirstPost: !!isFirstPost,
       };
+
+      if (
+        !isCountable({
+          fid: String(payload.forumId || ""),
+          tid: String(payload.topicId || "0"),
+          isFirstPost: payload.isFirstPost,
+        })
+      ) {
+        return;
+      }
+
       sendUpdateFetch(payload);
     },
   });
