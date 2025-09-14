@@ -513,7 +513,6 @@
         const tidRaw = (form.action.match(/tid=(\d+(\.\d+)*)/) || [])[1] || "";
         const tid = tidRaw ? tidRaw.split(".")[0] : "";
         const isFirstPost = !!(fid && !tid);
-        if (!isCountable({ fid, tid, isFirstPost })) return;
         saveAddIntent({
           action: "add",
           fid: String(fid || ""),
@@ -549,7 +548,6 @@
       const fid = getForumId();
       const tid = getTopicId() || "0";
       const isFirstPost = !!(fid && !tid);
-      if (!isCountable({ fid, tid, isFirstPost })) return;
       saveAddIntent({
         action: "add",
         fid: String(fid || ""),
