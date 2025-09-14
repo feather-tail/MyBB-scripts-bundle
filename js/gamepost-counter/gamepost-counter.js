@@ -435,16 +435,24 @@
 
   function trySendFromIntent() {
     if (!isEnabled()) return;
+
     const intent = takeAddIntent();
     if (!intent) return;
+
     const u = getUser();
     if (!u.id || !u.name) return;
+
     let fid = intent.fid || getForumId();
+    const originalTid = intent.tid || "0";
+
     let tid =
-      intent.tid && intent.tid !== "0" ? intent.tid : getTopicId() || "0";
-    const isFirstPost = intent.isFirstPost;
+      originalTid && originalTid !== "0" ? originalTid : getTopicId() || "0";
+
+    const isFirstPost = Boolean(intent.isFirstPost || originalTid === "0");
+
     if (!fid) fid = getForumId();
     if (!tid) tid = getTopicId() || "0";
+
     if (!isCountable({ fid, tid, isFirstPost })) return;
 
     const payload = buildPayload(fid, tid, isFirstPost, {
@@ -452,6 +460,7 @@
       username: u.name,
       action: "add",
     });
+
     sendUpdateFetch(payload).then((res) => {
       if (res?.ok && res.user) {
         const val = valueFromUserObj(res.user, config.ui.badgeSource || "week");
@@ -529,9 +538,10 @@
 
         const fid = (form.action.match(/fid=(\d+)/) || [])[1] || getForumId();
         const tidRaw = (form.action.match(/tid=(\d+(\.\d+)*)/) || [])[1] || "";
-        const tid = tidRaw ? tidRaw.split(".")[0] : "";
+        const tid = tidRaw ? tidRaw.split(".")[0] : ""; // '' => создаём тему
         const isFirstPost = !!(fid && !tid);
 
+        // Сохраняем корректный интент (важно, что isFirstPost вычислен до коалессации tid в "0")
         saveAddIntent({
           action: "add",
           fid: String(fid || ""),
@@ -562,6 +572,7 @@
       { passive: true }
     );
 
+    // ⬇️ ИСПРАВЛЕННАЯ ВЕРСИЯ prepIntent — вычисляем isFirstPost ДО подстановки "0"
     const prepIntent = (e) => {
       if (!isEnabled()) return;
       const btn = e?.currentTarget;
@@ -569,13 +580,13 @@
         return;
 
       const fid = getForumId();
-      const tid = getTopicId() || "0";
-      const isFirstPost = !!(fid && !tid);
+      const tidRaw = getTopicId(); // на странице создания темы вернёт ''
+      const isFirstPost = !!(fid && !tidRaw);
 
       saveAddIntent({
         action: "add",
         fid: String(fid || ""),
-        tid: String(tid || "0"),
+        tid: String(tidRaw || "0"),
         isFirstPost,
         sentBy: "button",
         t: Date.now(),
