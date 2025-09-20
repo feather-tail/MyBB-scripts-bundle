@@ -12,14 +12,27 @@
     100,
   );
   const postsPerRequest = Math.min(Number(config.postsPerRequest) || 100, 100);
-  const usersMax = Math.min(Number(config.usersMax) || postsPerRequest, 100);
   const apiBase = config.apiBase || '/api.php';
+  const pageDelayMs = Number(config.pageDelayMs) || 200;
+  const retryAttempts = Number(config.retryAttempts) || 2;
+  const retryBaseDelayMs = Number(config.retryBaseDelayMs) || 800;
 
   const pagePath = config.pagePath || '/pages/chrono';
   const mountId = config.mountId || 'chrono-root';
   const headings = {
     active: config.headingActive || 'Активные эпизоды',
     done: config.headingDone || 'Завершённые эпизоды',
+  };
+
+  const state = {
+    episodes: [],
+    filters: {
+      dateFrom: null,
+      dateTo: null,
+      title: '',
+      users: [],
+      status: 'all',
+    },
   };
 
   const decodeTextarea = document.createElement('textarea');
@@ -62,10 +75,8 @@
     const n = Number(year);
     if (Number.isNaN(n)) return 0;
     if (n > 999) return n;
-
     const currentYear = currentYearSetting;
     const currentCentury = Math.floor(currentYear / 100);
-
     if (n <= 99) {
       let candidate = currentCentury * 100 + n;
       if (candidate > currentYear) candidate -= 100;
@@ -93,23 +104,18 @@
   );
   const yearOnlyRx = /(?:^|[^\d])(1\d{3}|20\d{2})(?!\d)/;
 
-  const nickRegex = /\[nick\](.*?)\[\/nick\]/;
-
   function parseDate(subject) {
     const normalized = String(subject || '')
       .toLowerCase()
       .replace(/,/g, ' ');
-
     let m = normalized.match(dateRegex);
     if (m) {
       const day = parseInt(m[1], 10);
       const month = parseInt(m[2], 10);
       const year = parseInt(m[3], 10);
-      if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+      if (month >= 1 && month <= 12 && day >= 1 && day <= 31)
         return { y: getFullYear(year), m: month, d: day };
-      }
     }
-
     m = normalized.match(wordDayMonthYearRx);
     if (m) {
       const day = parseInt(m[1], 10);
@@ -117,19 +123,75 @@
       const year = parseInt(m[3], 10);
       if (month) return { y: getFullYear(year), m: month, d: day };
     }
-
     m = normalized.match(wordMonthYearRx);
     if (m) {
       const month = getMonthNumber(m[1]);
       const year = parseInt(m[2], 10);
       if (month) return { y: getFullYear(year), m: month, d: 0 };
     }
-
     const yg = normalized.match(yearOnlyRx);
     if (yg) return { y: getFullYear(yg[1]), m: 0, d: 0 };
-
     return null;
   }
+
+  // ——— НОВОЕ: вырезаем дату из заголовка, если она там есть ———
+  function stripDateFromTitle(title) {
+    let s = String(title || '');
+
+    // [ДД.ММ.ГГГГ] или [ДД.ММ.ГГ] + разделитель
+    s = s.replace(
+      /\s*\[\s*\d{1,2}[.\s\/-]\d{1,2}[.\s\/-]\d{2,4}\s*\]\s*[-–—:]?\s*/iu,
+      '',
+    );
+
+    // Префикс: ДД.ММ.ГГ(ГГ) + разделитель
+    s = s.replace(
+      /^\s*\d{1,2}[.\s\/-]\d{1,2}[.\s\/-]\d{2,4}\s*[-–—:]?\s*/iu,
+      '',
+    );
+
+    // [15 сентября 171 (г.|года)]
+    s = s.replace(
+      new RegExp(
+        `\\s*\\[\\s*\\d{1,2}\\s+(${monthsPattern})\\s+\\d{4}(?:\\s*г(?:\\.|ода)?)?\\s*\\]\\s*[-–—:]?\\s*`,
+        'iu',
+      ),
+      '',
+    );
+
+    // Префикс: 15 сентября 171 (г.|года)
+    s = s.replace(
+      new RegExp(
+        `^\\s*\\d{1,2}\\s+(${monthsPattern})\\s+\\d{4}(?:\\s*г(?:\\.|ода)?)?\\s*[-–—:]?\\s*`,
+        'iu',
+      ),
+      '',
+    );
+
+    // [сентябрь 171]
+    s = s.replace(
+      new RegExp(
+        `\\s*\\[\\s*(${monthsPattern})\\s+\\d{4}(?:\\s*г(?:\\.|ода)?)?\\s*\\]\\s*[-–—:]?\\s*`,
+        'iu',
+      ),
+      '',
+    );
+
+    // Префикс: сентябрь 171
+    s = s.replace(
+      new RegExp(
+        `^\\s*(${monthsPattern})\\s+\\d{4}(?:\\s*г(?:\\.|ода)?)?\\s*[-–—:]?\\s*`,
+        'iu',
+      ),
+      '',
+    );
+
+    // Оставшиеся ведущие тире/двоеточия/скобки
+    s = s.replace(/^\s*[-–—:]\s*/, '');
+
+    return s.replace(/\s{2,}/g, ' ').trim();
+  }
+  // ————————————————————————————————————————————————————————————————
 
   const addonParsers = {
     display: /\[chronodisplay\](.*?)\[\/chronodisplay\]/,
@@ -141,11 +203,9 @@
   function parseAddons(message) {
     const addons = {};
     let hasMatch = false;
-
     for (const name in addonParsers) {
       const match = message.match(addonParsers[name]);
       if (!match) continue;
-
       switch (name) {
         case 'display':
           addons.display = match[1];
@@ -186,112 +246,59 @@
     return hasMatch ? addons : false;
   }
 
-  async function fetchData(url) {
-    try {
-      return await helpers.request(url, { responseType: 'json' });
-    } catch (error) {
-      console.error(`Error fetching ${url}:`, error);
-      return null;
+  const delay = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  async function fetchJsonWithRetry(url) {
+    for (let i = 0; i <= retryAttempts; i++) {
+      try {
+        const data = await helpers.request(url, { responseType: 'json' });
+        if (data && typeof data === 'object') return data;
+      } catch {}
+      if (i < retryAttempts) await delay(retryBaseDelayMs * (i + 1));
     }
+    return null;
   }
 
   async function getTopics(forumIds) {
     const url =
       `${apiBase}?method=topic.get&forum_id=${forumIds.join(',')}` +
       `&fields=id,subject,forum_id,first_post,init_post&limit=${topicsPerRequest}`;
-    const data = await fetchData(url);
+    const data = await fetchJsonWithRetry(url);
     const rows = Array.isArray(data?.response) ? data.response : [];
-    return rows.map((raw) => ({
-      id: Number(raw.id),
-      subject: decodeHtml(raw.subject ?? ''),
-      forum_id: String(raw.forum_id),
-      first_post: Number(raw.init_post ?? raw.first_post ?? 0) || 0,
-    }));
+    const safe = rows.filter((r) => r && typeof r === 'object');
+    return safe
+      .map((raw) => ({
+        id: Number(raw.id),
+        subject: decodeHtml(raw.subject ?? ''),
+        forum_id: String(raw.forum_id ?? raw.forum ?? ''),
+        first_post: Number(raw.init_post ?? raw.first_post ?? 0) || 0,
+      }))
+      .filter((t) => t.id && t.forum_id);
   }
 
-  async function getFirstPostsByIds(postIds) {
-    if (!postIds.length) return new Map();
-
-    const uniqueIds = Array.from(new Set(postIds));
-    const limit = Math.min(postsPerRequest, 100);
-    const chunks = [];
-    for (let i = 0; i < uniqueIds.length; i += limit) {
-      chunks.push(uniqueIds.slice(i, i + limit));
-    }
-
+  async function getAllPostsForTopics(topicIds) {
+    if (!topicIds.length) return [];
+    let skip = 0;
     const out = [];
-    const concurrency = 2;
-    const executing = new Set();
-
-    const runChunk = async (chunk) => {
+    for (;;) {
       const url =
-        `${apiBase}?method=post.get&post_id=${chunk.join(',')}` +
-        `&fields=id,user_id,username,message,topic_id&limit=${chunk.length}`;
-      const data = await fetchData(url);
-      const arr = Array.isArray(data?.response) ? data.response : [];
+        `${apiBase}?method=post.get&topic_id=${topicIds.join(',')}` +
+        `&fields=id,user_id,username,message,topic_id&limit=${postsPerRequest}&skip=${skip}`;
+      const data = await fetchJsonWithRetry(url);
+      const arr = Array.isArray(data?.response) ? data.response : null;
+      if (!arr || arr.length === 0) break;
       out.push(...arr);
-    };
-
-    for (const chunk of chunks) {
-      const p = runChunk(chunk).finally(() => executing.delete(p));
-      executing.add(p);
-      if (executing.size >= concurrency) await Promise.race(executing);
+      if (arr.length < postsPerRequest) break;
+      skip += postsPerRequest;
+      await delay(pageDelayMs);
     }
-    await Promise.all(executing);
-
-    const map = new Map();
-    for (const p of out) {
-      map.set(Number(p.topic_id), {
-        id: Number(p.id),
-        topic_id: Number(p.topic_id),
-        user_id: String(p.user_id),
-        username: p.username,
-        message: p.message,
-      });
-    }
-    return map;
-  }
-
-  async function getUsersForTopics(topicIds) {
-    const results = new Map();
-    const HARD_TOPIC_CAP = 60;
-    if (!Array.isArray(topicIds) || topicIds.length === 0) return results;
-    if (topicIds.length > HARD_TOPIC_CAP) return results;
-
-    const concurrency = 2;
-    const executing = new Set();
-
-    const runOne = async (tid) => {
-      const url =
-        `${apiBase}?method=post.get&topic_id=${tid}` +
-        `&fields=user_id,username,topic_id,id&sort_by=id&sort_dir=asc&limit=${usersMax}`;
-      const data = await fetchData(url);
-      const arr = Array.isArray(data?.response) ? data.response : [];
-      const seen = new Set();
-      const users = [];
-      for (const p of arr) {
-        const uid = String(p.user_id);
-        if (!seen.has(uid)) {
-          seen.add(uid);
-          users.push([uid, p.username]);
-        }
-      }
-      results.set(Number(tid), users);
-    };
-
-    for (const tid of topicIds) {
-      const p = runOne(tid).finally(() => executing.delete(p));
-      executing.add(p);
-      if (executing.size >= concurrency) await Promise.race(executing);
-    }
-    await Promise.all(executing);
-
-    return results;
+    return out;
   }
 
   function makeTopicSkeleton(topic, activeFlag) {
     return {
       ...topic,
+      topic: { forum_id: Number(topic.forum_id) || 0 },
       posts_count: 0,
       users: [],
       flags: {
@@ -309,104 +316,143 @@
         quest: false,
         description: '',
       },
+      subject_clean: String(topic.subject || ''),
+    };
+  }
+
+  function normalizeName(s) {
+    return String(s || '')
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, ' ');
+  }
+
+  function extractUsersAndFirstPost(postsForTopic) {
+    const usersMap = new Map();
+    let minPostId = Infinity;
+    let firstMsg = '';
+    let firstUserId = '';
+    let firstUsername = '';
+    for (const p of postsForTopic) {
+      const msg = String(p.message || '');
+      const tag = msg.match(/\[nick\]([\s\S]*?)\[\/nick\]/i);
+      const display = String(tag && tag[1] ? tag[1] : p.username || '').trim();
+      const key = normalizeName(display);
+      if (key && !usersMap.has(key)) {
+        usersMap.set(key, [
+          String(p.user_id ?? ''),
+          String(p.username ?? ''),
+          display,
+        ]);
+      }
+      if (Number(p.id) < minPostId) {
+        minPostId = Number(p.id);
+        firstMsg = msg;
+        firstUserId = String(p.user_id ?? '');
+        firstUsername = String(p.username ?? '');
+      }
+    }
+    return {
+      users: Array.from(usersMap.values()),
+      first: {
+        id: isFinite(minPostId) ? minPostId : 0,
+        message: firstMsg,
+        user_id: firstUserId,
+        username: firstUsername,
+      },
     };
   }
 
   async function processForum(activeFlag, forumTopics) {
-    const topicsNeedingPost = forumTopics;
-
-    const firstIdsSet = new Set(
-      topicsNeedingPost
-        .map((t) => Number(t.first_post) || 0)
-        .filter((id) => id > 0),
-    );
-
-    const missingTopics = topicsNeedingPost
-      .filter((t) => !t.first_post)
-      .map((t) => t.id);
-    if (missingTopics.length) {
-      for (let i = 0; i < missingTopics.length; i += 100) {
-        const slice = missingTopics.slice(i, i + 100);
-        const url =
-          `${apiBase}?method=topic.get&topic_id=${slice.join(',')}` +
-          `&fields=id,init_post&limit=${slice.length}`;
-        const data = await fetchData(url);
-        const arr = Array.isArray(data?.response) ? data.response : [];
-        for (const r of arr) {
-          const tid = Number(r.id);
-          const fid = Number(r.init_post ?? 0);
-          const target = forumTopics.find((t) => t.id === tid);
-          if (target && fid) {
-            target.first_post = fid;
-            firstIdsSet.add(fid);
-          }
-        }
-      }
+    if (!Array.isArray(forumTopics) || forumTopics.length === 0) return [];
+    const topicIds = forumTopics.map((t) => t && t.id).filter(Boolean);
+    const allPosts = await getAllPostsForTopics(topicIds);
+    const byTopic = new Map();
+    for (const p of allPosts) {
+      const tid = Number(p.topic_id);
+      if (!byTopic.has(tid)) byTopic.set(tid, []);
+      byTopic.get(tid).push(p);
     }
 
-    const firstIds = Array.from(firstIdsSet);
-    const firstPostsMap = await getFirstPostsByIds(firstIds);
-    const topicUsersMap = await getUsersForTopics(forumTopics.map((t) => t.id));
+    const processed = forumTopics
+      .filter((t) => t && t.id)
+      .map((t) => {
+        const dto = makeTopicSkeleton(t, activeFlag);
 
-    const processed = forumTopics.map((t) => {
-      const dto = makeTopicSkeleton(t, activeFlag);
-
-      const subjectDate = parseDate(dto.subject);
-      if (subjectDate) {
-        dto.date = subjectDate;
-        dto.flags.full_date = Number(subjectDate.d) !== 0;
-      }
-
-      const users = topicUsersMap.get(dto.id);
-      if (Array.isArray(users)) dto.users = users;
-
-      if (firstPostsMap.has(dto.id)) {
-        const fp = firstPostsMap.get(dto.id);
-        const addons = parseAddons(fp.message || '');
-        if (addons) dto.addon = { ...dto.addon, ...addons };
-        dto.addon.description ||= fp.message || '';
-
-        const nickMatch = fp.message?.match(nickRegex);
-        if (nickMatch) {
-          const nick = nickMatch[1].trim();
-          const uid = String(fp.user_id);
-          const i = dto.users.findIndex((u) => String(u[0]) === uid);
-          if (i >= 0 && dto.users[i].length === 2) {
-            dto.users[i].push(nick);
-          } else if (i === -1) {
-            dto.users.push([uid, fp.username, nick]);
-          }
+        const subjectDate = parseDate(dto.subject);
+        if (subjectDate) {
+          dto.date = subjectDate;
+          dto.flags.full_date = Number(subjectDate.d) !== 0;
+          dto.subject_clean = stripDateFromTitle(dto.subject);
         }
 
-        if (
-          dto.addon.date &&
-          (dto.addon.date.y || dto.addon.date.m || dto.addon.date.d)
-        ) {
-          if (!dto.date) {
-            dto.date = { ...dto.addon.date };
-          } else if (dto.addon.date.y) {
-            dto.date.y = getFullYear(dto.addon.date.y);
+        const posts = byTopic.get(dto.id) || [];
+        dto.posts_count = posts.length;
+
+        if (posts.length) {
+          const { users, first } = extractUsersAndFirstPost(posts);
+          dto.users = users;
+          const addons = parseAddons(first.message || '');
+          if (addons) dto.addon = { ...dto.addon, ...addons };
+          dto.addon.description ||= first.message || '';
+          if (
+            dto.addon.date &&
+            (dto.addon.date.y || dto.addon.date.m || dto.addon.date.d)
+          ) {
+            if (!dto.date) dto.date = { ...dto.addon.date };
+            else if (dto.addon.date.y)
+              dto.date.y = getFullYear(dto.addon.date.y);
           }
+          dto.flags.descr = true;
+          dto.flags.full_date = dto.date ? Number(dto.date.d) !== 0 : false;
+        } else {
+          dto.flags.descr = Number(dto.first_post) !== 0;
         }
-
-        dto.flags.descr = true;
-        dto.flags.full_date = dto.date ? Number(dto.date.d) !== 0 : false;
-      } else {
-        dto.flags.descr = Number(dto.first_post) !== 0;
-      }
-
-      return dto;
-    });
+        return dto;
+      });
 
     return processed;
   }
 
-  function sortByDateDesc(a, b) {
-    const key = (t) =>
-      Number(t.date?.y || 0) * 10000 +
-      Number(t.date?.m || 0) * 100 +
-      Number(t.date?.d || 0);
-    return key(b) - key(a);
+  function dateKey(y, m = 0, d = 0) {
+    return Number(y || 0) * 10000 + Number(m || 0) * 100 + Number(d || 0);
+  }
+
+  function dateRangeFromObj(obj) {
+    if (!obj || !obj.y) return [0, 0];
+    if (obj.y && obj.m && obj.d) {
+      const k = dateKey(obj.y, obj.m, obj.d);
+      return [k, k];
+    }
+    if (obj.y && obj.m && !obj.d) {
+      const k1 = dateKey(obj.y, obj.m, 1);
+      const k2 = dateKey(obj.y, obj.m, 31);
+      return [k1, k2];
+    }
+    const k1 = dateKey(obj.y, 1, 1);
+    const k2 = dateKey(obj.y, 12, 31);
+    return [k1, k2];
+  }
+
+  function parseFilterDate(s) {
+    const str = String(s || '').trim();
+    if (!str) return null;
+    const rxDots = /^(\d{1,2})[.\-\/](\d{1,2})[.\-\/](\d{4})$/;
+    const rxMonthYear = /^(\d{1,2})[.\-\/](\d{4})$/;
+    const rxYear = /^(\d{4})$/;
+    let m = str.match(rxDots);
+    if (m) return { y: +m[3], m: +m[2], d: +m[1] };
+    m = str.match(rxMonthYear);
+    if (m) return { y: +m[2], m: +m[1], d: 0 };
+    m = str.match(rxYear);
+    if (m) return { y: +m[1], m: 0, d: 0 };
+    return null;
+  }
+
+  function sortByDateAsc(a, b) {
+    const keyA = dateKey(a.date?.y, a.date?.m, a.date?.d);
+    const keyB = dateKey(b.date?.y, b.date?.m, b.date?.d);
+    return keyA - keyB;
   }
 
   function buildTopicUrl(id) {
@@ -426,11 +472,48 @@
     return '';
   }
 
-  function compactUsers(users) {
+  function listAllUsers(users) {
     if (!Array.isArray(users) || users.length === 0) return '';
     const names = users.map((u) => u[2] || u[1]).filter(Boolean);
-    if (names.length <= 2) return names.join(', ');
-    return `${names.slice(0, 2).join(', ')} и ещё ${names.length - 2}`;
+    return names.join(', ');
+  }
+
+  function applyFilters(episodes) {
+    const f = state.filters;
+    const fromR = f.dateFrom ? dateRangeFromObj(f.dateFrom) : null;
+    const toR = f.dateTo ? dateRangeFromObj(f.dateTo) : null;
+    const fromKey = fromR ? fromR[0] : null;
+    const toKey = toR ? toR[1] : null;
+
+    const titleNeedle = normalizeName(f.title);
+    const userNeedles = f.users.map(normalizeName).filter(Boolean);
+
+    return episodes
+      .filter((t) => {
+        if (!t.date) return false;
+        if (f.status === 'active' && !t.flags.active) return false;
+        if (f.status === 'done' && !t.flags.done) return false;
+        if (titleNeedle) {
+          const title = normalizeName(
+            t.addon.display || t.subject_clean || t.subject || '',
+          );
+          if (!title.includes(titleNeedle)) return false;
+        }
+        if (userNeedles.length) {
+          const names = (t.users || []).map((u) =>
+            normalizeName(u[2] || u[1] || ''),
+          );
+          const allFound = userNeedles.every((needle) =>
+            names.some((n) => n.includes(needle)),
+          );
+          if (!allFound) return false;
+        }
+        const [emin, emax] = dateRangeFromObj(t.date);
+        if (fromKey !== null && emax < fromKey) return false;
+        if (toKey !== null && emin > toKey) return false;
+        return true;
+      })
+      .sort(sortByDateAsc);
   }
 
   function renderListSection(root, title, items) {
@@ -446,26 +529,24 @@
 
     items.forEach((t) => {
       const li = helpers.createEl('li', { className: 'chrono__item' });
-
       const date = helpers.createEl('div', {
         className: 'chrono__date',
         text: formatDateObj(t.date),
       });
-
       const titleWrap = helpers.createEl('div', { className: 'chrono__title' });
       const a = helpers.createEl('a', { href: buildTopicUrl(t.id) });
-      a.textContent = t.addon.display || t.subject || `Тема #${t.id}`;
+      a.textContent =
+        t.addon.display || t.subject_clean || t.subject || `Тема #${t.id}`;
       titleWrap.appendChild(a);
-
-      const meta = helpers.createEl('div', { className: 'chrono__meta' });
-      const who = compactUsers(t.users);
+      const who = listAllUsers(t.users);
       if (who) {
-        const span = helpers.createEl('span', {
+        const usersEl = helpers.createEl('div', {
           className: 'chrono__users',
           text: who,
         });
-        meta.appendChild(span);
+        titleWrap.appendChild(usersEl);
       }
+      const meta = helpers.createEl('div', { className: 'chrono__meta' });
       const badge = helpers.createEl('span', {
         className: `chrono__badge ${
           t.flags.active ? 'chrono__badge--active' : 'chrono__badge--done'
@@ -473,7 +554,6 @@
         text: t.flags.active ? 'активно' : 'завершено',
       });
       meta.appendChild(badge);
-
       li.appendChild(date);
       li.appendChild(titleWrap);
       li.appendChild(meta);
@@ -485,29 +565,132 @@
     root.appendChild(section);
   }
 
-  function renderEpisodes(mount, episodes) {
-    mount.innerHTML = '';
-    const root = helpers.createEl('div', { className: 'chrono' });
-
+  function renderEpisodesInto(container, episodes) {
+    container.innerHTML = '';
     const withDate = episodes.filter((t) => t.date);
-    withDate.sort(sortByDateDesc);
-
-    const active = withDate.filter((t) => t.flags.active);
-    const done = withDate.filter((t) => t.flags.done);
-
-    renderListSection(root, headings.active, active);
-    renderListSection(root, headings.done, done);
-
-    if (!active.length && !done.length) {
-      root.appendChild(
+    if (!withDate.length) {
+      container.appendChild(
         helpers.createEl('p', {
           className: 'chrono__empty',
           text: 'Эпизоды не найдены.',
         }),
       );
+      return;
     }
+    const active = withDate.filter((t) => t.flags.active);
+    const done = withDate.filter((t) => t.flags.done);
+    if (state.filters.status === 'active') {
+      renderListSection(container, headings.active, active);
+    } else if (state.filters.status === 'done') {
+      renderListSection(container, headings.done, done);
+    } else {
+      renderListSection(container, headings.active, active);
+      renderListSection(container, headings.done, done);
+    }
+  }
 
+  function buildFiltersBar(onChange) {
+    const wrap = helpers.createEl('div', { className: 'chrono__filters' });
+    const mkGroup = (labelText, controlEl) => {
+      const g = helpers.createEl('div', { className: 'chrono__filter-group' });
+      const lab = helpers.createEl('div', {
+        className: 'chrono__filter-label',
+        text: labelText,
+      });
+      g.appendChild(lab);
+      g.appendChild(controlEl);
+      return g;
+    };
+    const inFrom = helpers.createEl('input', {
+      className: 'chrono__filter-input',
+      placeholder: 'ДД.ММ.ГГГГ | ММ.ГГГГ | ГГГГ',
+    });
+    const inTo = helpers.createEl('input', {
+      className: 'chrono__filter-input',
+      placeholder: 'ДД.ММ.ГГГГ | ММ.ГГГГ | ГГГГ',
+    });
+    const inTitle = helpers.createEl('input', {
+      className: 'chrono__filter-input',
+      placeholder: 'Например: Северное сияние',
+    });
+    const inUsers = helpers.createEl('input', {
+      className: 'chrono__filter-input',
+      placeholder: 'Через запятую: Имя, Имя…',
+    });
+    const selStatus = helpers.createEl('select', {
+      className: 'chrono__filter-select',
+    });
+    ['all:Все', 'active:Активные', 'done:Завершённые'].forEach((opt) => {
+      const [v, t] = opt.split(':');
+      selStatus.appendChild(helpers.createEl('option', { value: v, text: t }));
+    });
+    const btnClear = helpers.createEl('button', {
+      className: 'chrono__filter-clear',
+      text: 'Сбросить',
+    });
+    wrap.appendChild(mkGroup('С даты', inFrom));
+    wrap.appendChild(mkGroup('По дату', inTo));
+    wrap.appendChild(mkGroup('Название', inTitle));
+    wrap.appendChild(mkGroup('Участники', inUsers));
+    wrap.appendChild(mkGroup('Статус', selStatus));
+    wrap
+      .appendChild(
+        helpers.createEl('div', { className: 'chrono__filter-actions' }),
+      )
+      .appendChild(btnClear);
+    const debounced = helpers.debounce(() => onChange(), 250);
+    inFrom.addEventListener('input', () => {
+      state.filters.dateFrom = parseFilterDate(inFrom.value);
+      debounced();
+    });
+    inTo.addEventListener('input', () => {
+      state.filters.dateTo = parseFilterDate(inTo.value);
+      debounced();
+    });
+    inTitle.addEventListener('input', () => {
+      state.filters.title = inTitle.value || '';
+      debounced();
+    });
+    inUsers.addEventListener('input', () => {
+      const raw = String(inUsers.value || '');
+      state.filters.users = raw
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+      debounced();
+    });
+    selStatus.addEventListener('change', () => {
+      state.filters.status = selStatus.value || 'all';
+      onChange();
+    });
+    btnClear.addEventListener('click', () => {
+      inFrom.value = inTo.value = inTitle.value = inUsers.value = '';
+      selStatus.value = 'all';
+      state.filters = {
+        dateFrom: null,
+        dateTo: null,
+        title: '',
+        users: [],
+        status: 'all',
+      };
+      onChange();
+    });
+    return wrap;
+  }
+
+  function renderRoot(mount) {
+    mount.innerHTML = '';
+    const root = helpers.createEl('div', { className: 'chrono' });
+    const filtersBar = buildFiltersBar(() => {
+      const filtered = applyFilters(state.episodes);
+      renderEpisodesInto(listBox, filtered);
+    });
+    const listBox = helpers.createEl('div', { className: 'chrono__lists' });
+    root.appendChild(filtersBar);
+    root.appendChild(listBox);
     mount.appendChild(root);
+    const initial = applyFilters(state.episodes);
+    renderEpisodesInto(listBox, initial);
   }
 
   function renderLoading(mount) {
@@ -544,30 +727,32 @@
       : [];
     const allForums = [...activeForums, ...doneForums];
     if (!allForums.length) return [];
-
     const activeSet = new Set(activeForums);
     const rawTopics = await getTopics(allForums);
-
     const topicsByForum = new Map();
-    for (const topic of rawTopics) {
-      const key = topic.forum_id;
+    const arr = Array.isArray(rawTopics) ? rawTopics : [];
+    for (let i = 0; i < arr.length; i++) {
+      const t = arr[i];
+      if (!t || typeof t !== 'object') continue;
+      const key = String(t.forum_id || '');
+      if (!key) continue;
       if (!topicsByForum.has(key)) topicsByForum.set(key, []);
-      topicsByForum.get(key).push(topic);
+      topicsByForum.get(key).push(t);
     }
-
-    const promises = allForums.map((fid) =>
-      processForum(activeSet.has(fid), topicsByForum.get(fid) || []),
-    );
-
-    const results = await Promise.all(promises);
-    return results.flat();
+    const results = [];
+    for (const fid of allForums) {
+      const list = topicsByForum.get(String(fid)) || [];
+      if (!list.length) continue;
+      const processed = await processForum(activeSet.has(String(fid)), list);
+      results.push(...processed);
+    }
+    return results;
   }
 
   function waitForMount(id, timeoutMs = 10000) {
     return new Promise((resolve) => {
       const ready = document.getElementById(id);
       if (ready) return resolve(ready);
-
       const obs = new MutationObserver(() => {
         const el = document.getElementById(id);
         if (el) {
@@ -576,7 +761,6 @@
         }
       });
       obs.observe(document.documentElement, { childList: true, subtree: true });
-
       setTimeout(() => {
         obs.disconnect();
         resolve(document.getElementById(id) || null);
@@ -588,16 +772,14 @@
     const pathOk =
       !!location.pathname && location.pathname.startsWith(pagePath);
     if (!pathOk) return;
-
     const mount = await waitForMount(mountId, 10000);
     if (!mount) return;
-
     renderLoading(mount);
     try {
       const episodes = await processAll();
-      renderEpisodes(mount, episodes);
+      state.episodes = episodes.sort(sortByDateAsc);
+      renderRoot(mount);
     } catch (e) {
-      console.error('chronoParser render error:', e);
       renderError(
         mount,
         'Не удалось загрузить эпизоды. Попробуйте обновить страницу.',
