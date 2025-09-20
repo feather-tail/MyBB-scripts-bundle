@@ -7,6 +7,7 @@
       obfOffset: 1193,
       buttonAfterSelector: '#button-addition',
       buttonSelector: '#dice-roll-btn',
+      buttonIcon: '/i/blank.gif',
     },
     fontResizer: {
       fontSelector: '.post-content, #main-reply',
@@ -216,12 +217,12 @@
       buttonAfterSelector: '#button-strike',
       buttonId: 'button-indent-btn',
       buttonTitle: 'Отступы',
-      iconSrc: '/i/blank.gif',
+      buttonIcon: '/i/blank.gif',
     },
     bbcodeJustify: {
       insertAfterSelector: '#button-right',
       buttonId: 'button-justify',
-      iconSrc: '/i/blank.gif',
+      buttonIcon: '/i/blank.gif',
       title: 'Выравнивание по ширине',
       bbcodeOpen: '[align=justify]',
       bbcodeClose: '[/align]',
@@ -615,6 +616,7 @@
     stickerPack: {
       dataUrl: 'https://forumstatic.ru/files/001c/73/bf/62093.txt?v=4',
       buttonAfterId: 'button-smile',
+      buttonIcon: 'https://forumstatic.ru/files/001c/73/bf/87441.svg',
       myTabName: 'Свои',
       storageKey: 'stickerPackUserData',
       hideMyGroupId: 3,

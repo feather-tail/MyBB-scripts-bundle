@@ -10,7 +10,8 @@
     if (!refTd || refTd.tagName !== 'TD') return;
 
     const td = createEl('td', { id: config.buttonId, title: config.title });
-    const img = createEl('img', { src: config.iconSrc, alt: config.title });
+    const iconSrc = config.buttonIcon ?? config.iconSrc;
+    const img = createEl('img', { src: iconSrc, alt: config.title });
     td.appendChild(img);
 
     td.addEventListener('click', () => {

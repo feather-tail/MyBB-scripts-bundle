@@ -6,6 +6,7 @@
   const config = helpers.getConfig('dice', {
     buttonSelector: '#dice-roll-btn',
     buttonAfterSelector: '#button-addition',
+    buttonIcon: '/i/blank.gif',
   });
   const bbRe = /\[dice=((?:\d+-)+)(\d+):(\d+)\]/g;
 
@@ -42,7 +43,7 @@
       title: 'Бросить кубики',
     });
     container.append(
-      createEl('img', { src: '/i/blank.gif', style: 'cursor:pointer' }),
+      createEl('img', { src: config.buttonIcon, style: 'cursor:pointer' }),
     );
     anchor.after(container);
     diceButton = container;

@@ -11,10 +11,12 @@
     const ref = $(config.buttonAfterSelector);
     if (!ref || document.getElementById(config.buttonId)) return;
 
+    const buttonIcon = config.buttonIcon;
+
     const td = createEl('td', {
       id: config.buttonId,
       title: config.buttonTitle,
-      html: `<img src="${config.iconSrc}" style="cursor:pointer">`,
+      html: `<img src="${buttonIcon}" style="cursor:pointer">`,
     });
 
     td.addEventListener('click', () => {

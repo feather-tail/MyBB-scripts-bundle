@@ -35,6 +35,14 @@
       id: 'sticker-pack-button',
       title: 'Стикеры',
     });
+    if (config.buttonIcon) {
+      const icon = createEl('img', {
+        src: config.buttonIcon,
+        alt: 'Стикеры',
+        title: 'Стикеры',
+      });
+      buttonTd.append(icon);
+    }
     buttonTd.addEventListener('click', onStickerPackButtonClick);
     const afterElem = $(`#${config.buttonAfterId}`);
     afterElem?.after(buttonTd);
