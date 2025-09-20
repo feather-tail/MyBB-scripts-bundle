@@ -134,23 +134,16 @@
     return null;
   }
 
-  // ——— НОВОЕ: вырезаем дату из заголовка, если она там есть ———
   function stripDateFromTitle(title) {
     let s = String(title || '');
-
-    // [ДД.ММ.ГГГГ] или [ДД.ММ.ГГ] + разделитель
     s = s.replace(
       /\s*\[\s*\d{1,2}[.\s\/-]\d{1,2}[.\s\/-]\d{2,4}\s*\]\s*[-–—:]?\s*/iu,
       '',
     );
-
-    // Префикс: ДД.ММ.ГГ(ГГ) + разделитель
     s = s.replace(
       /^\s*\d{1,2}[.\s\/-]\d{1,2}[.\s\/-]\d{2,4}\s*[-–—:]?\s*/iu,
       '',
     );
-
-    // [15 сентября 171 (г.|года)]
     s = s.replace(
       new RegExp(
         `\\s*\\[\\s*\\d{1,2}\\s+(${monthsPattern})\\s+\\d{4}(?:\\s*г(?:\\.|ода)?)?\\s*\\]\\s*[-–—:]?\\s*`,
@@ -158,8 +151,6 @@
       ),
       '',
     );
-
-    // Префикс: 15 сентября 171 (г.|года)
     s = s.replace(
       new RegExp(
         `^\\s*\\d{1,2}\\s+(${monthsPattern})\\s+\\d{4}(?:\\s*г(?:\\.|ода)?)?\\s*[-–—:]?\\s*`,
@@ -167,8 +158,6 @@
       ),
       '',
     );
-
-    // [сентябрь 171]
     s = s.replace(
       new RegExp(
         `\\s*\\[\\s*(${monthsPattern})\\s+\\d{4}(?:\\s*г(?:\\.|ода)?)?\\s*\\]\\s*[-–—:]?\\s*`,
@@ -176,74 +165,116 @@
       ),
       '',
     );
-
-    // Префикс: сентябрь 171
     s = s.replace(
       new RegExp(
-        `^\\s*(${monthsPattern})\\s+\\d{4}(?:\\s*г(?:\\.|ода)?)?\\s*[-–—:]?\\s*`,
+        `^\\s*(${monthsPattern})\\s+\\д{4}(?:\\s*г(?:\\.|ода)?)?\\s*[-–—:]?\\s*`,
         'iu',
       ),
       '',
     );
-
-    // Оставшиеся ведущие тире/двоеточия/скобки
     s = s.replace(/^\s*[-–—:]\s*/, '');
-
     return s.replace(/\s{2,}/g, ' ').trim();
   }
-  // ————————————————————————————————————————————————————————————————
 
-  const addonParsers = {
-    display: /\[chronodisplay\](.*?)\[\/chronodisplay\]/,
-    date: /\[chronodate\]y:\s*(\d+),\s*m:\s*(\d+),\s*d:\s*(\d+)\[\/chronodate\]/,
-    serial: /\[chronoserial\](.*?)\[\/chronoserial\]/,
-    quest: /\[chronoquest\](.*?)\[\/chronoquest\]/,
-  };
+  function parseEpisodeAddons(message) {
+    const text = String(message || '');
+    const pick = (rx) => {
+      const m = text.match(rx);
+      return m ? m[1].trim() : '';
+    };
 
-  function parseAddons(message) {
-    const addons = {};
-    let hasMatch = false;
-    for (const name in addonParsers) {
-      const match = message.match(addonParsers[name]);
-      if (!match) continue;
-      switch (name) {
-        case 'display':
-          addons.display = match[1];
-          hasMatch = true;
-          break;
-        case 'date':
-          addons.date = {
-            y: parseInt(match[1], 10),
-            m: parseInt(match[2], 10),
-            d: parseInt(match[3], 10),
+    const display =
+      pick(/\[chronodisplay\]([\s\S]*?)\[\/chronodisplay\]/i) || null;
+
+    let date = null;
+    {
+      const mYMD = text.match(
+        /\[chronodate\]\s*y:\s*(\d{1,4})\s*,\s*m:\s*(\d{1,2})\s*,\s*d:\s*(\d{1,2})\s*\[\/chronodate\]/i,
+      );
+      if (mYMD) {
+        date = {
+          y: getFullYear(mYMD[1]),
+          m: Math.max(1, Math.min(12, parseInt(mYMD[2], 10) || 0)),
+          d: Math.max(0, Math.min(31, parseInt(mYMD[3], 10) || 0)),
+        };
+      } else {
+        const mDots = text.match(
+          /\[chronodate\]\s*(\d{1,2})\.(\d{1,2})\.(\d{2,4})\s*\[\/chronodate\]/i,
+        );
+        if (mDots) {
+          date = {
+            d: parseInt(mDots[1], 10),
+            m: parseInt(mDots[2], 10),
+            y: getFullYear(mDots[3]),
           };
-          hasMatch = true;
-          break;
-        case 'serial':
-          addons.is_serial = true;
-          addons.serial_first = parseInt(match[1], 10);
-          hasMatch = true;
-          break;
-        case 'quest': {
-          const raw = match[1].trim();
-          if (/^[\[{]/.test(raw)) {
-            try {
-              addons.quest = JSON.parse(raw);
-            } catch {
-              addons.quest = raw;
-            }
-          } else {
-            addons.quest = raw;
-          }
-          hasMatch = true;
-          break;
         }
-        default:
-          addons[name] = match[1];
-          hasMatch = true;
       }
     }
-    return hasMatch ? addons : false;
+
+    const location =
+      pick(/\[chronolocation\]([\s\S]*?)\[\/chronolocation\]/i) || null;
+
+    let members = null;
+    const membersBlock = text.match(
+      /\[chronomembers\]([\s\S]*?)\[\/chronomembers\]/i,
+    );
+    if (membersBlock) {
+      const block = membersBlock[1];
+      const arr = [];
+      const rxChar = /\[epcharacter\]([\s\S]*?)\[\/epcharacter\]/gi;
+      let m;
+      while ((m = rxChar.exec(block))) {
+        const name = String(m[1] || '').trim();
+        if (name) arr.push(name);
+      }
+      if (arr.length) members = arr;
+    }
+
+    const announce =
+      pick(/\[chronoannounce\]([\s\S]*?)\[\/chronoannounce\]/i) || null;
+
+    const serialM = text.match(
+      /\[chronoserial\]\s*(\d+)\s*\[\/chronoserial\]/i,
+    );
+    const is_serial = !!serialM;
+    const serial_first = is_serial ? parseInt(serialM[1], 10) || 0 : 0;
+
+    let quest = null;
+    const questM = text.match(/\[chronoquest\]([\s\S]*?)\[\/chronoquest\]/i);
+    if (questM) {
+      const raw = questM[1].trim();
+      if (/^[\[{]/.test(raw)) {
+        try {
+          quest = JSON.parse(raw);
+        } catch {
+          quest = raw;
+        }
+      } else {
+        quest = raw;
+      }
+    }
+
+    const hasData =
+      display ||
+      date ||
+      location ||
+      announce ||
+      (members && members.length) ||
+      quest ||
+      is_serial;
+
+    return hasData
+      ? {
+          display,
+          date,
+          location,
+          announce,
+          members,
+          is_serial,
+          serial_first,
+          quest,
+        }
+      : null;
   }
 
   const delay = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -313,8 +344,11 @@
         date: { y: 0, m: 0, d: 0 },
         is_serial: false,
         serial_first: 0,
-        quest: false,
+        quest: null,
         description: '',
+        location: null,
+        announce: null,
+        members: null,
       },
       subject_clean: String(topic.subject || ''),
     };
@@ -391,18 +425,32 @@
 
         if (posts.length) {
           const { users, first } = extractUsersAndFirstPost(posts);
-          dto.users = users;
-          const addons = parseAddons(first.message || '');
-          if (addons) dto.addon = { ...dto.addon, ...addons };
-          dto.addon.description ||= first.message || '';
-          if (
-            dto.addon.date &&
-            (dto.addon.date.y || dto.addon.date.m || dto.addon.date.d)
-          ) {
-            if (!dto.date) dto.date = { ...dto.addon.date };
-            else if (dto.addon.date.y)
-              dto.date.y = getFullYear(dto.addon.date.y);
+
+          const addons = parseEpisodeAddons(first.message || '');
+
+          if (addons) {
+            dto.addon.display = addons.display ?? dto.addon.display;
+            if (addons.date) {
+              dto.date = { ...addons.date };
+            }
+            dto.addon.location = addons.location ?? dto.addon.location;
+            dto.addon.announce = addons.announce ?? dto.addon.announce;
+            dto.addon.members = Array.isArray(addons.members)
+              ? addons.members.slice()
+              : dto.addon.members;
+
+            dto.addon.is_serial = !!addons.is_serial;
+            dto.addon.serial_first = Number(addons.serial_first || 0);
+            dto.addon.quest = addons.quest ?? dto.addon.quest;
           }
+
+          if (Array.isArray(dto.addon.members) && dto.addon.members.length) {
+            dto.users = dto.addon.members.map((name) => ['', '', String(name)]);
+          } else {
+            dto.users = users;
+          }
+
+          dto.addon.description ||= first.message || '';
           dto.flags.descr = true;
           dto.flags.full_date = dto.date ? Number(dto.date.d) !== 0 : false;
         } else {
@@ -538,6 +586,25 @@
       a.textContent =
         t.addon.display || t.subject_clean || t.subject || `Тема #${t.id}`;
       titleWrap.appendChild(a);
+
+      if (t.addon.location) {
+        titleWrap.appendChild(
+          helpers.createEl('div', {
+            className: 'chrono__location',
+            text: t.addon.location,
+          }),
+        );
+      }
+
+      if (t.addon.announce) {
+        titleWrap.appendChild(
+          helpers.createEl('div', {
+            className: 'chrono__announce',
+            text: String(t.addon.announce).trim(),
+          }),
+        );
+      }
+
       const who = listAllUsers(t.users);
       if (who) {
         const usersEl = helpers.createEl('div', {
