@@ -179,7 +179,7 @@
   function parseHtmlEpisode(message) {
     const html = String(message || '');
     if (
-      !/[Cc]hrono(?:episode|data|date|display|members|announce|location|serial|quest)/.test(
+      !/[Cc]hrono(?:episode|data|date|display|members|member|announce|location|images|serial|quest)/.test(
         html,
       )
     )
@@ -188,9 +188,9 @@
     tmp.innerHTML = html;
 
     const root =
-      tmp.querySelector('.chronoepisode') ||
-      tmp.querySelector('.chronodata') ||
-      tmp;
+      tmp.querySelector(
+        '.chrono-episode, .chronoepisode, .chrono-data, .chronodata',
+      ) || tmp;
 
     const textFrom = (el) => {
       if (!el) return null;
@@ -209,14 +209,13 @@
     };
 
     const getText = (sel) => textFrom(root.querySelector(sel));
+    const getAllTexts = (sel) =>
+      Array.from(root.querySelectorAll(sel))
+        .map((el) => textFrom(el))
+        .filter(Boolean);
 
-    const getAllTexts = (sel) => {
-      const list = Array.from(root.querySelectorAll(sel));
-      return list.map((el) => textFrom(el)).filter(Boolean);
-    };
-
-    const display = getText('.chronodisplay');
-    const rawDate = getText('.chronodate');
+    const display = getText('.chrono-display, .chronodisplay');
+    const rawDate = getText('.chrono-date, .chronodate');
     let date = null;
     if (rawDate) {
       const m = rawDate.match(/^(\d{1,2})\.(\d{1,2})\.(\d{2,4})$/);
@@ -228,13 +227,22 @@
       }
     }
 
-    const location = getText('.chronolocation');
-    const announce = getText('.chronoannounce');
-    const members = getAllTexts('.chronomembers .epcharacter');
+    const location = getText('.chrono-location, .chronolocation');
+    const announce = getText('.chrono-announce, .chronoannounce');
+
+    const members = getAllTexts(
+      '.chrono-members .chrono-member, .chronomembers .epcharacter, .chrono-members .ep-character',
+    );
+
+    const images = Array.from(
+      root.querySelectorAll('.chrono-images img, .chronoimages img'),
+    )
+      .map((img) => String(img.getAttribute('src') || '').trim())
+      .filter(Boolean);
 
     let is_serial = false;
     let serial_first = 0;
-    const serialEl = root.querySelector('.chronoserial');
+    const serialEl = root.querySelector('.chrono-serial, .chronoserial');
     if (serialEl) {
       const n = parseInt(serialEl.textContent || '', 10);
       if (!Number.isNaN(n)) {
@@ -244,7 +252,7 @@
     }
 
     let quest = null;
-    const questEl = root.querySelector('.chronoquest');
+    const questEl = root.querySelector('.chrono-quest, .chronoquest');
     if (questEl) {
       const raw = (questEl.textContent || '').trim();
       if (/^[\[{]/.test(raw)) {
@@ -264,6 +272,7 @@
       location ||
       announce ||
       (members && members.length) ||
+      (images && images.length) ||
       is_serial ||
       quest;
 
@@ -274,6 +283,7 @@
           location: location || null,
           announce: announce || null,
           members: members && members.length ? members : null,
+          images: images && images.length ? images : null,
           is_serial,
           serial_first,
           quest,
@@ -353,6 +363,7 @@
         location: null,
         announce: null,
         members: null,
+        images: null,
       },
       subject_clean: String(topic.subject || ''),
     };
@@ -451,6 +462,9 @@
             dto.addon.members = Array.isArray(addons.members)
               ? addons.members.slice()
               : dto.addon.members;
+            dto.addon.images = Array.isArray(addons.images)
+              ? addons.images.slice()
+              : dto.addon.images;
             dto.addon.is_serial = !!addons.is_serial;
             dto.addon.serial_first = Number(addons.serial_first || 0);
             dto.addon.quest = addons.quest ?? dto.addon.quest;
