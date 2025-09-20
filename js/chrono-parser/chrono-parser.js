@@ -167,7 +167,7 @@
     );
     s = s.replace(
       new RegExp(
-        `^\\s*(${monthsPattern})\\s+\\д{4}(?:\\s*г(?:\\.|ода)?)?\\s*[-–—:]?\\s*`,
+        `^\\s*(${monthsPattern})\\s+\\d{4}(?:\\s*г(?:\\.|ода)?)?\\s*[-–—:]?\\s*`,
         'iu',
       ),
       '',
@@ -178,27 +178,41 @@
 
   function parseHtmlEpisode(message) {
     const html = String(message || '');
-    if (!/[Cc]hrono(?:episode|data|date|display|members|announce)/.test(html))
+    if (
+      !/[Cc]hrono(?:episode|data|date|display|members|announce|location|serial|quest)/.test(
+        html,
+      )
+    )
       return null;
     const tmp = document.createElement('div');
     tmp.innerHTML = html;
+
     const root =
       tmp.querySelector('.chronoepisode') ||
       tmp.querySelector('.chronodata') ||
       tmp;
 
-    const getText = (sel) => {
-      const el = root.querySelector(sel);
+    const textFrom = (el) => {
       if (!el) return null;
-      const t = el.textContent || '';
-      return t.replace(/\s+/g, ' ').trim() || null;
+      let t = '';
+      if (
+        el.firstElementChild &&
+        el.children.length === 1 &&
+        el.firstElementChild.tagName === 'P'
+      ) {
+        t = el.firstElementChild.textContent || '';
+      } else {
+        t = el.textContent || '';
+      }
+      t = t.replace(/\s+/g, ' ').trim();
+      return t || null;
     };
+
+    const getText = (sel) => textFrom(root.querySelector(sel));
 
     const getAllTexts = (sel) => {
       const list = Array.from(root.querySelectorAll(sel));
-      return list
-        .map((el) => (el.textContent || '').replace(/\s+/g, ' ').trim())
-        .filter(Boolean);
+      return list.map((el) => textFrom(el)).filter(Boolean);
     };
 
     const display = getText('.chronodisplay');
@@ -392,7 +406,7 @@
       (a, b) => Number(a.id) - Number(b.id),
     );
     for (const p of sorted) {
-      const add = parseHtmlEpisode(p.message || '');
+      const add = parseHtmlEpisode(p?.message ?? '');
       if (add) return { addons: add, sourcePost: p };
     }
     return { addons: null, sourcePost: null };
@@ -409,9 +423,10 @@
       byTopic.get(tid).push(p);
     }
 
-    const processed = forumTopics
-      .filter((t) => t && t.id)
-      .map((t) => {
+    const processed = [];
+    for (const t of forumTopics) {
+      if (!t || !t.id) continue;
+      try {
         const dto = makeTopicSkeleton(t, activeFlag);
 
         const subjectDate = parseDate(dto.subject);
@@ -421,7 +436,7 @@
           dto.subject_clean = stripDateFromTitle(dto.subject);
         }
 
-        const posts = byTopic.get(dto.id) || [];
+        const posts = byTopic.get(Number(dto.id)) || [];
         dto.posts_count = posts.length;
 
         if (posts.length) {
@@ -453,8 +468,9 @@
         } else {
           dto.flags.descr = Number(dto.first_post) !== 0;
         }
-        return dto;
-      });
+        processed.push(dto);
+      } catch {}
+    }
 
     return processed;
   }
@@ -745,11 +761,11 @@
   function renderRoot(mount) {
     mount.innerHTML = '';
     const root = helpers.createEl('div', { className: 'chrono' });
+    const listBox = helpers.createEl('div', { className: 'chrono__lists' });
     const filtersBar = buildFiltersBar(() => {
       const filtered = applyFilters(state.episodes);
       renderEpisodesInto(listBox, filtered);
     });
-    const listBox = helpers.createEl('div', { className: 'chrono__lists' });
     root.appendChild(filtersBar);
     root.appendChild(listBox);
     mount.appendChild(root);
