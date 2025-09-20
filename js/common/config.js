@@ -262,6 +262,17 @@
       doneText: 'Скопировано',
       resetTimeout: 1200,
     },
+    chronoParser: {
+      forumsWithGames: { active: [5, 10, 14], done: [7] },
+      currentYear: 2025,
+      topicsPerRequest: 100,
+      postsPerRequest: 100,
+      apiBase: '/api.php',
+      pagePath: '/pages/chrono',
+      mountId: 'chrono-root',
+      headingActive: 'Активные эпизоды',
+      headingDone: 'Завершённые эпизоды',
+    },
     cursorManager: {
       insertAfterSelector: '#pun-crumbs1',
       storageKey: 'selectedCursor',
