@@ -176,73 +176,63 @@
     return s.replace(/\s{2,}/g, ' ').trim();
   }
 
-  function parseEpisodeAddons(message) {
-    const text = String(message || '');
-    const pick = (rx) => {
-      const m = text.match(rx);
-      return m ? m[1].trim() : '';
+  function parseHtmlEpisode(message) {
+    const html = String(message || '');
+    if (!/[Cc]hrono(?:episode|data|date|display|members|announce)/.test(html))
+      return null;
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html;
+    const root =
+      tmp.querySelector('.chronoepisode') ||
+      tmp.querySelector('.chronodata') ||
+      tmp;
+
+    const getText = (sel) => {
+      const el = root.querySelector(sel);
+      if (!el) return null;
+      const t = el.textContent || '';
+      return t.replace(/\s+/g, ' ').trim() || null;
     };
 
-    const display =
-      pick(/\[chronodisplay\]([\s\S]*?)\[\/chronodisplay\]/i) || null;
+    const getAllTexts = (sel) => {
+      const list = Array.from(root.querySelectorAll(sel));
+      return list
+        .map((el) => (el.textContent || '').replace(/\s+/g, ' ').trim())
+        .filter(Boolean);
+    };
 
+    const display = getText('.chronodisplay');
+    const rawDate = getText('.chronodate');
     let date = null;
-    {
-      const mYMD = text.match(
-        /\[chronodate\]\s*y:\s*(\d{1,4})\s*,\s*m:\s*(\d{1,2})\s*,\s*d:\s*(\d{1,2})\s*\[\/chronodate\]/i,
-      );
-      if (mYMD) {
-        date = {
-          y: getFullYear(mYMD[1]),
-          m: Math.max(1, Math.min(12, parseInt(mYMD[2], 10) || 0)),
-          d: Math.max(0, Math.min(31, parseInt(mYMD[3], 10) || 0)),
-        };
+    if (rawDate) {
+      const m = rawDate.match(/^(\d{1,2})\.(\d{1,2})\.(\d{2,4})$/);
+      if (m) {
+        date = { d: +m[1], m: +m[2], y: getFullYear(m[3]) };
       } else {
-        const mDots = text.match(
-          /\[chronodate\]\s*(\d{1,2})\.(\d{1,2})\.(\d{2,4})\s*\[\/chronodate\]/i,
-        );
-        if (mDots) {
-          date = {
-            d: parseInt(mDots[1], 10),
-            m: parseInt(mDots[2], 10),
-            y: getFullYear(mDots[3]),
-          };
-        }
+        const alt = parseDate(rawDate);
+        if (alt) date = alt;
       }
     }
 
-    const location =
-      pick(/\[chronolocation\]([\s\S]*?)\[\/chronolocation\]/i) || null;
+    const location = getText('.chronolocation');
+    const announce = getText('.chronoannounce');
+    const members = getAllTexts('.chronomembers .epcharacter');
 
-    let members = null;
-    const membersBlock = text.match(
-      /\[chronomembers\]([\s\S]*?)\[\/chronomembers\]/i,
-    );
-    if (membersBlock) {
-      const block = membersBlock[1];
-      const arr = [];
-      const rxChar = /\[epcharacter\]([\s\S]*?)\[\/epcharacter\]/gi;
-      let m;
-      while ((m = rxChar.exec(block))) {
-        const name = String(m[1] || '').trim();
-        if (name) arr.push(name);
+    let is_serial = false;
+    let serial_first = 0;
+    const serialEl = root.querySelector('.chronoserial');
+    if (serialEl) {
+      const n = parseInt(serialEl.textContent || '', 10);
+      if (!Number.isNaN(n)) {
+        is_serial = true;
+        serial_first = n;
       }
-      if (arr.length) members = arr;
     }
-
-    const announce =
-      pick(/\[chronoannounce\]([\s\S]*?)\[\/chronoannounce\]/i) || null;
-
-    const serialM = text.match(
-      /\[chronoserial\]\s*(\d+)\s*\[\/chronoserial\]/i,
-    );
-    const is_serial = !!serialM;
-    const serial_first = is_serial ? parseInt(serialM[1], 10) || 0 : 0;
 
     let quest = null;
-    const questM = text.match(/\[chronoquest\]([\s\S]*?)\[\/chronoquest\]/i);
-    if (questM) {
-      const raw = questM[1].trim();
+    const questEl = root.querySelector('.chronoquest');
+    if (questEl) {
+      const raw = (questEl.textContent || '').trim();
       if (/^[\[{]/.test(raw)) {
         try {
           quest = JSON.parse(raw);
@@ -250,26 +240,26 @@
           quest = raw;
         }
       } else {
-        quest = raw;
+        quest = raw || null;
       }
     }
 
-    const hasData =
+    const has =
       display ||
       date ||
       location ||
       announce ||
       (members && members.length) ||
-      quest ||
-      is_serial;
+      is_serial ||
+      quest;
 
-    return hasData
+    return has
       ? {
-          display,
-          date,
-          location,
-          announce,
-          members,
+          display: display || null,
+          date: date || null,
+          location: location || null,
+          announce: announce || null,
+          members: members && members.length ? members : null,
           is_serial,
           serial_first,
           quest,
@@ -397,6 +387,17 @@
     };
   }
 
+  function findEpisodeAddonsFromPosts(postsForTopic) {
+    const sorted = [...postsForTopic].sort(
+      (a, b) => Number(a.id) - Number(b.id),
+    );
+    for (const p of sorted) {
+      const add = parseHtmlEpisode(p.message || '');
+      if (add) return { addons: add, sourcePost: p };
+    }
+    return { addons: null, sourcePost: null };
+  }
+
   async function processForum(activeFlag, forumTopics) {
     if (!Array.isArray(forumTopics) || forumTopics.length === 0) return [];
     const topicIds = forumTopics.map((t) => t && t.id).filter(Boolean);
@@ -425,20 +426,16 @@
 
         if (posts.length) {
           const { users, first } = extractUsersAndFirstPost(posts);
-
-          const addons = parseEpisodeAddons(first.message || '');
+          const { addons } = findEpisodeAddonsFromPosts(posts);
 
           if (addons) {
             dto.addon.display = addons.display ?? dto.addon.display;
-            if (addons.date) {
-              dto.date = { ...addons.date };
-            }
+            if (addons.date) dto.date = { ...addons.date };
             dto.addon.location = addons.location ?? dto.addon.location;
             dto.addon.announce = addons.announce ?? dto.addon.announce;
             dto.addon.members = Array.isArray(addons.members)
               ? addons.members.slice()
               : dto.addon.members;
-
             dto.addon.is_serial = !!addons.is_serial;
             dto.addon.serial_first = Number(addons.serial_first || 0);
             dto.addon.quest = addons.quest ?? dto.addon.quest;
