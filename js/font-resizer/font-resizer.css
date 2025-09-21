@@ -2,15 +2,12 @@
   display: flex;
   align-items: center;
   gap: 0.5em;
-  margin: 0.5em 0;
+  margin: 0 0.5em;
 }
 .font-resizer button {
   background: none;
-  border: 1px solid #ccc;
   border-radius: 3px;
-  padding: 0.2em 0.6em;
   cursor: pointer;
-  font: inherit;
 }
 .font-resizer button:focus {
   outline: 2px solid #3980d8;
