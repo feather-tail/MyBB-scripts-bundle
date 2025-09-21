@@ -24,7 +24,7 @@
         const post = titleEl.closest('[data-user-id]');
         if (!post) return;
 
-        const id = post.getAttribute('data-user-id');
+        const id = post.getAttribute('data-user-id') || '';
         const url = getAvatarUrl(id);
 
         const avatarLi = document.createElement('li');
@@ -52,17 +52,37 @@
         const img = document.createElement('img');
         img.src = config.DEFAULT_AVATAR;
         img.alt = 'Аватар по умолчанию';
-        div.append(img);
         img.loading = 'lazy';
+        div.append(img);
         container.textContent = '';
         container.append(div);
       }
     });
   }
 
+  function fixLastPosterAvatars() {
+    $$('.tcr .user-avatar.no-avatar').forEach((wrap) => {
+      const link = wrap.querySelector('a[href*="profile.php?id="]');
+      const pic = wrap.querySelector('.avatar-image');
+      if (!pic) return;
+
+      let uid = '';
+      if (link) {
+        try {
+          const u = new URL(link.href, location.origin);
+          uid = u.searchParams.get('id') || '';
+        } catch {}
+      }
+      const url = getAvatarUrl(uid || '1');
+      pic.style.backgroundImage = `url("${url}")`;
+      wrap.classList.remove('no-avatar');
+    });
+  }
+
   function init() {
     insertAuthorAvatars();
     replaceProfilePlaceholder();
+    fixLastPosterAvatars();
   }
 
   helpers.runOnceOnReady(init);
