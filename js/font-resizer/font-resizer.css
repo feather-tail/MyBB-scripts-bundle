@@ -15,5 +15,8 @@
 .font-resizer .slider {
   width: 100px;
   cursor: pointer;
-  accent-color: #3980d8;
+}
+
+.font-resizer input {
+  box-shadow: none;
 }
