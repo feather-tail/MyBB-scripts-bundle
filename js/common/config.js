@@ -405,6 +405,22 @@
       snippet: '[b]{{USER}}[/b], ',
       selector: 'textarea',
     },
+    mobileThemeSwitcher: {
+      themes: [
+        {
+          value: 'mobile',
+          className: 'mobile',
+          title: 'мобильная тема',
+        },
+      ],
+      storageKey: 'selectedMobileTheme',
+      insertAfterSelector: '#pun-crumbs2',
+      settingsMenuSection: 'mobileThemes',
+      containerId: 'mobile_theme_switcher',
+      cookieName: null,
+      cookiePath: '/',
+      cookieDays: 365,
+    },
     multiaccount: {
       allowedGroups: [1, 2, 4],
       selectors: {
