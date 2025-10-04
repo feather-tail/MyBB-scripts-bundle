@@ -7,6 +7,8 @@
   const STORAGE_KEY = config.storageKey || "gamepostCounterToggle";
   const TOGGLE_LABEL = config.toggleLabel || "Счётчик игровых постов";
   const SETTINGS_SECTION = config.settingsMenuSection || "";
+  const INTENT_TTL_MS = 120000;
+
   const last = (sel, root = document) => {
     const L = root.querySelectorAll(sel);
     return L.length ? L[L.length - 1] : null;
@@ -189,6 +191,7 @@
     );
     if (li) normalizeCounterLi(li, value);
   }
+
   function valueFromUserObj(user, source) {
     return source === "total"
       ? user.total || 0
@@ -196,6 +199,7 @@
       ? user.month?.count || 0
       : user.week?.count || 0;
   }
+
   function updateUserValueInDom(userId, value) {
     $$(".post[data-user-id]").forEach((post) => {
       if (Number(post.getAttribute("data-user-id")) === Number(userId)) {
@@ -208,6 +212,7 @@
       if (li) normalizeCounterLi(li, String(value));
     }
   }
+
   function optimisticUpdate(userId, value) {
     updateUserValueInDom(userId, value);
     setTimeout(() => updateUserValueInDom(userId, value), 300);
@@ -433,27 +438,54 @@
     };
   }
 
+  const collectMyPostIds = () => {
+    const me = getUser();
+    if (!me?.id) return [];
+    return Array.from($$(".post[data-user-id]"))
+      .filter(
+        (p) => Number(p.getAttribute("data-user-id")) === Number(me.id)
+      )
+      .map((p) => p.id || "")
+      .filter(Boolean);
+  };
+
   function trySendFromIntent() {
     if (!isEnabled()) return;
 
     const intent = takeAddIntent();
     if (!intent) return;
 
+    if (!intent.t || Date.now() - intent.t > INTENT_TTL_MS) return;
+
+    if (document.querySelector('form#post[action*="edit.php"]')) return;
+
     const u = getUser();
     if (!u.id || !u.name) return;
 
     let fid = intent.fid || getForumId();
     const originalTid = intent.tid || "0";
-
     let tid =
       originalTid && originalTid !== "0" ? originalTid : getTopicId() || "0";
-
     const isFirstPost = Boolean(intent.isFirstPost || originalTid === "0");
 
     if (!fid) fid = getForumId();
     if (!tid) tid = getTopicId() || "0";
 
     if (!isCountable({ fid, tid, isFirstPost })) return;
+
+    const before = Array.isArray(intent.snapshotIds)
+      ? new Set(intent.snapshotIds)
+      : new Set();
+    const after = new Set(collectMyPostIds());
+    let hasNewMine = false;
+    for (const id of after) {
+      if (!before.has(id)) {
+        hasNewMine = true;
+        break;
+      }
+    }
+
+    if (!hasNewMine && !isFirstPost) return;
 
     const payload = buildPayload(fid, tid, isFirstPost, {
       userId: u.id,
@@ -521,13 +553,16 @@
   }
 
   function hookPostSubmit() {
-    const form = $('form#post[action*="/post.php?"]');
+    const form = $('form#post[action]');
     if (!form) return;
+
+    const isCreateForm = (f) => !!f?.action && /\/post\.php\b/i.test(f.action);
 
     form.addEventListener(
       "submit",
       (e) => {
         if (!isEnabled()) return;
+        if (!isCreateForm(form)) return;
 
         const sb = e.submitter || document.activeElement;
         if (sb && (sb.classList?.contains("preview") || sb.name === "preview"))
@@ -536,18 +571,20 @@
         const u = getUser();
         if (!u.id || !u.name) return;
 
-        const fid = (form.action.match(/fid=(\d+)/) || [])[1] || getForumId();
-        const tidRaw = (form.action.match(/tid=(\d+(\.\d+)*)/) || [])[1] || "";
-        const tid = tidRaw ? tidRaw.split(".")[0] : ""; // '' => создаём тему
+        const fid =
+          (form.action.match(/fid=(\d+)/) || [])[1] || getForumId();
+        const tidRaw =
+          (form.action.match(/tid=(\d+(\.\d+)*)/) || [])[1] || "";
+        const tid = tidRaw ? tidRaw.split(".")[0] : "";
         const isFirstPost = !!(fid && !tid);
 
-        // Сохраняем корректный интент (важно, что isFirstPost вычислен до коалессации tid в "0")
         saveAddIntent({
           action: "add",
           fid: String(fid || ""),
           tid: String(tid || "0"),
           isFirstPost,
           sentBy: "submit",
+          snapshotIds: collectMyPostIds(),
           t: Date.now(),
         });
 
@@ -572,15 +609,17 @@
       { passive: true }
     );
 
-    // ⬇️ ИСПРАВЛЕННАЯ ВЕРСИЯ prepIntent — вычисляем isFirstPost ДО подстановки "0"
     const prepIntent = (e) => {
       if (!isEnabled()) return;
       const btn = e?.currentTarget;
       if (btn && (btn.classList?.contains("preview") || btn.name === "preview"))
         return;
 
+      const f = btn?.form || document.querySelector("form#post");
+      if (!isCreateForm(f)) return;
+
       const fid = getForumId();
-      const tidRaw = getTopicId(); // на странице создания темы вернёт ''
+      const tidRaw = getTopicId();
       const isFirstPost = !!(fid && !tidRaw);
 
       saveAddIntent({
@@ -589,6 +628,7 @@
         tid: String(tidRaw || "0"),
         isFirstPost,
         sentBy: "button",
+        snapshotIds: collectMyPostIds(),
         t: Date.now(),
       });
     };
@@ -602,7 +642,26 @@
       );
 
     form.addEventListener("keydown", (e) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") prepIntent();
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+        const active = document.activeElement;
+        const f = active?.form || form;
+        if (f && /\/post\.php\b/i.test(f.action)) {
+          e.preventDefault();
+          e.stopPropagation();
+          const fid = getForumId();
+          const tidRaw = getTopicId();
+          const isFirstPost = !!(fid && !tidRaw);
+          saveAddIntent({
+            action: "add",
+            fid: String(fid || ""),
+            tid: String(tidRaw || "0"),
+            isFirstPost,
+            sentBy: "hotkey",
+            snapshotIds: collectMyPostIds(),
+            t: Date.now(),
+          });
+        }
+      }
     });
   }
 
@@ -673,14 +732,26 @@
   function hookDomObserver() {
     const target = document.getElementById("pun-main") || document.body;
     const mo = new MutationObserver((muts) => {
-      let hasAdd = false,
-        hasRem = false;
+      let postAdded = false;
+      let hasRem = false;
       for (const m of muts) {
-        if (m.addedNodes?.length) hasAdd = true;
+        if (m.addedNodes && m.addedNodes.length) {
+          for (const n of m.addedNodes) {
+            if (
+              n.nodeType === 1 &&
+              ((n.classList && n.classList.contains("post")) ||
+                n.querySelector?.(".post"))
+            ) {
+              postAdded = true;
+              break;
+            }
+          }
+        }
         if (m.removedNodes?.length) hasRem = true;
+        if (postAdded) break;
       }
-      if (hasAdd) trySendFromIntent();
-      if (hasAdd || hasRem) trySendFromDelIntent();
+      if (postAdded) trySendFromIntent();
+      if (postAdded || hasRem) trySendFromDelIntent();
     });
     mo.observe(target, { childList: true, subtree: true });
   }
