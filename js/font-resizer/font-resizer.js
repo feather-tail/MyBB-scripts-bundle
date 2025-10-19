@@ -13,14 +13,8 @@
   };
   const storeSize = (size) => localStorage.setItem(config.storageKey, size);
   const applySize = (size) => {
-    const fontSize = size + 'px';
     $$(config.fontSelector).forEach((el) => {
-      el.style.fontSize = fontSize;
-      if (!el.matches('p')) {
-        $$('p', el).forEach((p) => {
-          p.style.fontSize = fontSize;
-        });
-      }
+      el.style.fontSize = size + 'px';
     });
   };
 
