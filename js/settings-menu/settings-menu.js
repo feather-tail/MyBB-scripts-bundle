@@ -14,6 +14,8 @@
   let sectionsById;
   let sectionCallbacks;
   let pendingMounts;
+  let mountRetryTimer;
+  let mountRetryTicks;
   let api;
 
   function closeMenu() {
@@ -157,21 +159,67 @@
     return li;
   }
 
-  function mountSection(list, cfg) {
+  function scheduleMountRetry() {
+    if (mountRetryTimer) return;
+    mountRetryTicks = 0;
+    mountRetryTimer = setInterval(() => {
+      mountRetryTicks++;
+      const keys = Object.keys(pendingMounts);
+      if (!keys.length) {
+        clearInterval(mountRetryTimer);
+        mountRetryTimer = null;
+        return;
+      }
+      for (const ns of keys) {
+        const ctx =
+          window[ns] ||
+          (window.scripts && window.scripts[ns]) ||
+          undefined;
+        if (!ctx) continue;
+        const tasks = pendingMounts[ns];
+        delete pendingMounts[ns];
+        tasks.forEach(({ method, sectionEl }) => {
+          const fn = ctx && ctx[method];
+          if (typeof fn === 'function') fn(sectionEl, api);
+        });
+      }
+      if (mountRetryTicks > 50) {
+        clearInterval(mountRetryTimer);
+        mountRetryTimer = null;
+      }
+    }, 200);
+  }
+
+  function mountSection(sectionEl, cfg) {
     const { mount } = cfg;
     if (mount === undefined) return;
+
+    if (typeof mount === 'function') {
+      mount(sectionEl, api);
+      return;
+    }
+
     if (typeof mount === 'string') {
-      const [script, method = 'initSection'] = mount.split(':');
-      if (window.scripts?.[script]?.[method]) {
-        window.scripts[script][method](list, api);
-      } else {
-        if (!pendingMounts[script]) pendingMounts[script] = [];
-        pendingMounts[script].push(() =>
-          window.scripts?.[script]?.[method]?.(list, api),
-        );
+      const [ns, method = 'initSection'] = mount.split(':');
+
+      const tryInvoke = () => {
+        const ctx =
+          (ns && window[ns]) ||
+          (ns && window.scripts && window.scripts[ns]) ||
+          undefined;
+        const fn = ctx && ctx[method];
+        if (typeof fn === 'function') {
+          fn(sectionEl, api);
+          return true;
+        }
+        return false;
+      };
+
+      if (!tryInvoke()) {
+        if (!pendingMounts[ns]) pendingMounts[ns] = [];
+        pendingMounts[ns].push({ method, sectionEl });
+        scheduleMountRetry();
       }
-    } else if (typeof mount === 'function') {
-      mount(list, api);
     }
   }
 
@@ -221,7 +269,7 @@
     (cfg.items || []).forEach((item) => list.append(renderItem(item)));
     secEl.append(list);
 
-    mountSection(list, cfg);
+    mountSection(secEl, cfg);
 
     return { section: secEl, list };
   }
@@ -329,9 +377,16 @@
   }
 
   function notifyScriptLoaded(name) {
-    const cbs = pendingMounts?.[name];
-    if (cbs) {
-      cbs.forEach((cb) => cb());
+    const ctx =
+      window[name] ||
+      (window.scripts && window.scripts[name]) ||
+      undefined;
+    const tasks = pendingMounts?.[name];
+    if (tasks && ctx) {
+      tasks.forEach(({ method, sectionEl }) => {
+        const fn = ctx && ctx[method];
+        if (typeof fn === 'function') fn(sectionEl, api);
+      });
       delete pendingMounts[name];
     }
   }
