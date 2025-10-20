@@ -3,7 +3,13 @@
 
   const helpers = window.helpers;
   const { $, $$, createEl } = helpers;
-  const config = helpers.getConfig('fontResizer', {});
+
+  const config = helpers.getConfig('fontResizer', {
+    htmlFrameSelector:
+      'iframe.html_frame, .html-post-box iframe.html_frame, .html-content iframe.html_frame',
+    minSize: 10,
+    maxSize: 38,
+  });
 
   const getStoredSize = () => {
     const v = parseInt(localStorage.getItem(config.storageKey), 10);
@@ -12,48 +18,118 @@
       : config.defaultSize;
   };
   const storeSize = (size) => localStorage.setItem(config.storageKey, size);
+
   const applySize = (size) => {
     $$(config.fontSelector).forEach((el) => {
       el.style.fontSize = size + 'px';
     });
   };
 
+  const getHtmlFrames = () =>
+    Array.from(document.querySelectorAll(config.htmlFrameSelector)).filter(
+      (f) => f && f.tagName === 'IFRAME',
+    );
+
+  const postFontSizeToFrame = (frame, size) => {
+    try {
+      frame.contentWindow &&
+        frame.contentWindow.postMessage(
+          { type: 'FONT_RESIZER_SET', size: Number(size) },
+          '*',
+        );
+    } catch {}
+  };
+
+  const broadcastToHtmlFrames = (size) => {
+    getHtmlFrames().forEach((f) => postFontSizeToFrame(f, size));
+  };
+
+  const wireFrameLoads = () => {
+    getHtmlFrames().forEach((f) => {
+      f.addEventListener('load', () => {
+        postFontSizeToFrame(f, getStoredSize());
+      });
+    });
+  };
+
+  const observeNewFrames = () => {
+    const mo = new MutationObserver((mutations) => {
+      const currentSize = getStoredSize();
+      for (const m of mutations) {
+        m.addedNodes &&
+          m.addedNodes.forEach((node) => {
+            if (node && node.nodeType === 1) {
+              if (
+                node.tagName === 'IFRAME' &&
+                node.matches(config.htmlFrameSelector)
+              ) {
+                postFontSizeToFrame(node, currentSize);
+                node.addEventListener('load', () =>
+                  postFontSizeToFrame(node, getStoredSize()),
+                );
+              }
+              node.querySelectorAll &&
+                node
+                  .querySelectorAll(config.htmlFrameSelector)
+                  .forEach((fr) => {
+                    postFontSizeToFrame(fr, currentSize);
+                    fr.addEventListener('load', () =>
+                      postFontSizeToFrame(fr, getStoredSize()),
+                    );
+                  });
+            }
+          });
+      }
+    });
+    mo.observe(document.documentElement, { childList: true, subtree: true });
+  };
+
   const createControl = (currentSize) => {
     const wrapper = createEl('div');
     wrapper.className = 'font-resizer';
-    const btnDecrease = createEl('button');
-    btnDecrease.type = 'button';
-    btnDecrease.className = 'decrease';
-    btnDecrease.setAttribute('aria-label', 'Уменьшить шрифт');
-    btnDecrease.textContent = 'A−';
-
-    const btnReset = createEl('button');
-    btnReset.type = 'button';
-    btnReset.className = 'reset';
-    btnReset.setAttribute('aria-label', 'Сбросить размер');
-    btnReset.textContent = 'A';
-
-    const btnIncrease = createEl('button');
-    btnIncrease.type = 'button';
-    btnIncrease.className = 'increase';
-    btnIncrease.setAttribute('aria-label', 'Увеличить шрифт');
-    btnIncrease.textContent = 'A+';
-
-    const slider = createEl('input');
-    slider.type = 'range';
-    slider.className = 'slider';
-    slider.min = config.minSize;
-    slider.max = config.maxSize;
-    slider.value = currentSize;
-    slider.setAttribute('aria-label', 'Размер шрифта');
-
+    const btnDecrease = createEl('button', {
+      type: 'button',
+      className: 'decrease',
+      'aria-label': 'Уменьшить шрифт',
+      text: 'A-',
+    });
+    const btnReset = createEl('button', {
+      type: 'button',
+      className: 'reset',
+      'aria-label': 'Сбросить размер',
+      text: 'A',
+    });
+    const btnIncrease = createEl('button', {
+      type: 'button',
+      className: 'increase',
+      'aria-label': 'Увеличить шрифт',
+      text: 'A+',
+    });
+    const slider = createEl('input', {
+      type: 'range',
+      className: 'slider',
+      min: config.minSize,
+      max: config.maxSize,
+      value: currentSize,
+      'aria-label': 'Размер шрифта',
+    });
     wrapper.append(btnDecrease, btnReset, btnIncrease, slider);
     return wrapper;
   };
 
+  function applyStoreBroadcast(size) {
+    const s = Math.max(config.minSize, Math.min(config.maxSize, Number(size)));
+    applySize(s);
+    storeSize(s);
+    broadcastToHtmlFrames(s);
+  }
+
   function init() {
     const initialSize = getStoredSize();
     applySize(initialSize);
+    broadcastToHtmlFrames(initialSize);
+    wireFrameLoads();
+    observeNewFrames();
 
     let anchor = config.insertAfterSelector
       ? $(config.insertAfterSelector)
@@ -70,26 +146,22 @@
     const btnReset = $('.reset', control);
 
     btnDecrease.addEventListener('click', () => {
-      let s = Math.max(config.minSize, +slider.value - 1);
+      const s = Math.max(config.minSize, Number(slider.value) - 1);
       slider.value = s;
-      applySize(s);
-      storeSize(s);
+      applyStoreBroadcast(s);
     });
     btnIncrease.addEventListener('click', () => {
-      let s = Math.min(config.maxSize, +slider.value + 1);
+      const s = Math.min(config.maxSize, Number(slider.value) + 1);
       slider.value = s;
-      applySize(s);
-      storeSize(s);
+      applyStoreBroadcast(s);
     });
     btnReset.addEventListener('click', () => {
       slider.value = config.defaultSize;
-      applySize(config.defaultSize);
-      storeSize(config.defaultSize);
+      applyStoreBroadcast(config.defaultSize);
     });
     slider.addEventListener('input', () => {
-      const s = +slider.value;
-      applySize(s);
-      storeSize(s);
+      const s = Number(slider.value);
+      applyStoreBroadcast(s);
     });
   }
 
