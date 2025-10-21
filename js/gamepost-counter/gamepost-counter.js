@@ -88,16 +88,6 @@
     return false;
   }
 
-  function sendUpdateBeacon(body) {
-    if (!navigator.sendBeacon) return false;
-    try {
-      const blob = new Blob([JSON.stringify(body)], { type: "application/json" });
-      return navigator.sendBeacon(`${config.backend.endpoint}?method=update`, blob);
-    } catch {
-      return false;
-    }
-  }
-
   function sendUpdateFetch(body) {
     return helpers
       .request(`${config.backend.endpoint}?method=update`, {
@@ -396,43 +386,31 @@
     if (profileLi) profileLi.style.display = "none";
   }
 
-  const INTENT_ADD_KEY = "gpc_add_intent";
+ const INTENT_ADD_KEY = "gpc_add_intent";
   const INTENT_DEL_KEY = "gpc_del_intent";
-
+  
   const saveAddIntent = (v) => {
-    try {
-      localStorage.setItem(INTENT_ADD_KEY, JSON.stringify(v));
-    } catch {}
+    try { localStorage.setItem(INTENT_ADD_KEY, JSON.stringify(v)); } catch {}
   };
-  const takeAddIntent = () => {
+  const readAddIntent = () => {
     const r = localStorage.getItem(INTENT_ADD_KEY);
     if (!r) return null;
-    localStorage.removeItem(INTENT_ADD_KEY);
-    try {
-      return JSON.parse(r);
-    } catch {
-      return null;
-    }
+    try { return JSON.parse(r); } catch { return null; }
   };
-
+  const clearAddIntent = () => {
+    try { localStorage.removeItem(INTENT_ADD_KEY); } catch {}
+  };
+  
   const readDelIntent = () => {
     const r = localStorage.getItem(INTENT_DEL_KEY);
     if (!r) return null;
-    try {
-      return JSON.parse(r);
-    } catch {
-      return null;
-    }
+    try { return JSON.parse(r); } catch { return null; }
   };
   const writeDelIntent = (obj) => {
-    try {
-      localStorage.setItem(INTENT_DEL_KEY, JSON.stringify(obj));
-    } catch {}
+    try { localStorage.setItem(INTENT_DEL_KEY, JSON.stringify(obj)); } catch {}
   };
   const clearDelIntent = () => {
-    try {
-      localStorage.removeItem(INTENT_DEL_KEY);
-    } catch {}
+    try { localStorage.removeItem(INTENT_DEL_KEY); } catch {}
   };
 
   function buildPayload(fid, tid, isFirstPost, { userId, username, action }) {
@@ -462,9 +440,15 @@
   function trySendFromIntent() {
     if (!isEnabled()) return;
   
-    const intent = takeAddIntent();
-    if (!intent || intent.sent) return;
-    if (!intent.t || Date.now() - intent.t > INTENT_TTL_MS) return;
+    const intent = readAddIntent();
+    if (!intent) return;
+    if (intent.sent) return;
+  
+    if (!intent.t || Date.now() - intent.t > INTENT_TTL_MS) {
+      clearAddIntent();
+      return;
+    }
+  
     if (document.querySelector('form#post[action*="edit.php"]')) return;
   
     const u = getUser();
@@ -472,21 +456,26 @@
   
     let fid = intent.fid || getForumId();
     const originalTid = intent.tid || "0";
-    let tid = originalTid && originalTid !== "0" ? originalTid : (getTopicId() || "0");
+    let tid = (originalTid && originalTid !== "0") ? originalTid : (getTopicId() || "0");
     const isFirstPost = Boolean(intent.isFirstPost || originalTid === "0");
   
     if (!fid) fid = getForumId();
     if (!tid) tid = getTopicId() || "0";
   
-    if (!isCountable({ fid, tid, isFirstPost })) return;
+    if (!isCountable({ fid, tid, isFirstPost })) {
+      clearAddIntent();
+      return;
+    }
   
     const before = new Set(Array.isArray(intent.snapshotIds) ? intent.snapshotIds : []);
-    const after = new Set(collectMyPostIds());
+    const after  = new Set(collectMyPostIds());
     let hasNewMine = false;
     for (const id of after) {
       if (!before.has(id)) { hasNewMine = true; break; }
     }
     if (!hasNewMine && !isFirstPost) return;
+  
+    clearAddIntent();
   
     const payload = buildPayload(fid, tid, isFirstPost, {
       userId: u.id,
@@ -556,29 +545,27 @@
   function hookPostSubmit() {
     const form = $('form#post[action]');
     if (!form) return;
-
+  
     const isCreateForm = (f) => !!f?.action && /\/post\.php\b/i.test(f.action);
-
+  
     form.addEventListener(
       "submit",
       (e) => {
         if (!isEnabled()) return;
         if (!isCreateForm(form)) return;
-
+  
         const sb = e.submitter || document.activeElement;
         if (sb && (sb.classList?.contains("preview") || sb.name === "preview"))
           return;
-
+  
         const u = getUser();
         if (!u.id || !u.name) return;
-
-        const fid =
-          (form.action.match(/fid=(\d+)/) || [])[1] || getForumId();
-        const tidRaw =
-          (form.action.match(/tid=(\d+(\.\d+)*)/) || [])[1] || "";
+  
+        const fid = (form.action.match(/fid=(\d+)/) || [])[1] || getForumId();
+        const tidRaw = (form.action.match(/tid=(\d+(\.\d+)*)/) || [])[1] || "";
         const tid = tidRaw ? tidRaw.split(".")[0] : "";
         const isFirstPost = !!(fid && !tid);
-
+  
         saveAddIntent({
           action: "add",
           fid: String(fid || ""),
@@ -589,44 +576,24 @@
           t: Date.now(),
           sent: false,
         });
-        
-        if (!isCountable({ fid, tid: tid || "0", isFirstPost })) return;
-        
-        const payload = buildPayload(fid, tid || "0", isFirstPost, {
-          userId: u.id,
-          username: u.name,
-          action: "add",
-        });
-        
-        if (sendUpdateBeacon(payload)) {
-          saveAddIntent({
-            action: "add",
-            fid: String(fid || ""),
-            tid: String(tid || "0"),
-            isFirstPost,
-            sentBy: "submit",
-            snapshotIds: collectMyPostIds(),
-            t: Date.now(),
-            sent: true,
-          });
-        }
+  
       },
       { passive: true }
     );
-
+  
     const prepIntent = (e) => {
       if (!isEnabled()) return;
       const btn = e?.currentTarget;
       if (btn && (btn.classList?.contains("preview") || btn.name === "preview"))
         return;
-
+  
       const f = btn?.form || document.querySelector("form#post");
       if (!isCreateForm(f)) return;
-
+  
       const fid = getForumId();
       const tidRaw = getTopicId();
       const isFirstPost = !!(fid && !tidRaw);
-
+  
       saveAddIntent({
         action: "add",
         fid: String(fid || ""),
@@ -638,7 +605,7 @@
         sent: false,
       });
     };
-
+  
     form
       .querySelectorAll(
         "input[type=submit], button[type=submit], input[name=submit], button[name=submit]"
@@ -646,7 +613,7 @@
       .forEach((btn) =>
         btn.addEventListener("click", prepIntent, { passive: true })
       );
-
+  
     form.addEventListener("keydown", (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
         const active = document.activeElement;
