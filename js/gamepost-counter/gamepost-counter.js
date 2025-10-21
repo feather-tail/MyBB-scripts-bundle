@@ -88,6 +88,16 @@
     return false;
   }
 
+  function sendUpdateBeacon(body) {
+    if (!navigator.sendBeacon) return false;
+    try {
+      const blob = new Blob([JSON.stringify(body)], { type: "application/json" });
+      return navigator.sendBeacon(`${config.backend.endpoint}?method=update`, blob);
+    } catch {
+      return false;
+    }
+  }
+
   function sendUpdateFetch(body) {
     return helpers
       .request(`${config.backend.endpoint}?method=update`, {
@@ -160,7 +170,7 @@
     if (!data?.ok) return;
     const block = (title, s) => `
       <div class="gpc-table">
-        <h4>${title} <small>${s.key}</small> <em>Всего: ${s.total}</em></h4>
+        <h4>${title} <em>Всего: ${s.total}</em></h4>
         <table><tbody>
           ${
             s.rows.length
@@ -451,48 +461,39 @@
 
   function trySendFromIntent() {
     if (!isEnabled()) return;
-
+  
     const intent = takeAddIntent();
-    if (!intent) return;
-
+    if (!intent || intent.sent) return;
     if (!intent.t || Date.now() - intent.t > INTENT_TTL_MS) return;
-
     if (document.querySelector('form#post[action*="edit.php"]')) return;
-
+  
     const u = getUser();
     if (!u.id || !u.name) return;
-
+  
     let fid = intent.fid || getForumId();
     const originalTid = intent.tid || "0";
-    let tid =
-      originalTid && originalTid !== "0" ? originalTid : getTopicId() || "0";
+    let tid = originalTid && originalTid !== "0" ? originalTid : (getTopicId() || "0");
     const isFirstPost = Boolean(intent.isFirstPost || originalTid === "0");
-
+  
     if (!fid) fid = getForumId();
     if (!tid) tid = getTopicId() || "0";
-
+  
     if (!isCountable({ fid, tid, isFirstPost })) return;
-
-    const before = Array.isArray(intent.snapshotIds)
-      ? new Set(intent.snapshotIds)
-      : new Set();
+  
+    const before = new Set(Array.isArray(intent.snapshotIds) ? intent.snapshotIds : []);
     const after = new Set(collectMyPostIds());
     let hasNewMine = false;
     for (const id of after) {
-      if (!before.has(id)) {
-        hasNewMine = true;
-        break;
-      }
+      if (!before.has(id)) { hasNewMine = true; break; }
     }
-
     if (!hasNewMine && !isFirstPost) return;
-
+  
     const payload = buildPayload(fid, tid, isFirstPost, {
       userId: u.id,
       username: u.name,
       action: "add",
     });
-
+  
     sendUpdateFetch(payload).then((res) => {
       if (res?.ok && res.user) {
         const val = valueFromUserObj(res.user, config.ui.badgeSource || "week");
@@ -586,25 +587,29 @@
           sentBy: "submit",
           snapshotIds: collectMyPostIds(),
           t: Date.now(),
+          sent: false,
         });
-
+        
         if (!isCountable({ fid, tid: tid || "0", isFirstPost })) return;
-
+        
         const payload = buildPayload(fid, tid || "0", isFirstPost, {
           userId: u.id,
           username: u.name,
           action: "add",
         });
-
-        sendUpdateFetch(payload).then((res) => {
-          if (res?.ok && res.user) {
-            const val = valueFromUserObj(
-              res.user,
-              config.ui.badgeSource || "week"
-            );
-            optimisticUpdate(u.id, val);
-          }
-        });
+        
+        if (sendUpdateBeacon(payload)) {
+          saveAddIntent({
+            action: "add",
+            fid: String(fid || ""),
+            tid: String(tid || "0"),
+            isFirstPost,
+            sentBy: "submit",
+            snapshotIds: collectMyPostIds(),
+            t: Date.now(),
+            sent: true,
+          });
+        }
       },
       { passive: true }
     );
@@ -630,6 +635,7 @@
         sentBy: "button",
         snapshotIds: collectMyPostIds(),
         t: Date.now(),
+        sent: false,
       });
     };
 
@@ -659,6 +665,7 @@
             sentBy: "hotkey",
             snapshotIds: collectMyPostIds(),
             t: Date.now(),
+            sent: false,
           });
         }
       }
