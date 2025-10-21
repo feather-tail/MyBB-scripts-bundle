@@ -666,13 +666,43 @@
       ],
     },
     themeSwitcher: {
-      themes: [
-        { className: 'CLASS_NAME_1', title: 'NAME_1' },
-        { className: 'CLASS_NAME_2', title: 'NAME_2' },
-        { className: 'CLASS_NAME_3', title: 'NAME_3' },
+      storage: { key: 'mybb.display.v1', instance: '' },
+      defaults: { style: 'classic', scheme: 'light', view: 'desktop' },
+      styles: [
+        { id: 'classic', label: 'Classic' },
+        { id: 'holiday', label: 'Holiday' }
       ],
-      storageKey: 'selectedTheme',
-      insertAfterSelector: '#pun-crumbs1',
-    },
+      selectors: {
+        root: 'html',
+        targets: {
+          style: 'html',
+          scheme: 'body',
+          view: 'html'
+        },
+        controls: {
+          style: '[data-display-style]',
+          scheme: '[data-display-scheme]',
+          view: '[data-display-view]',
+          forceMobileCheckbox: '#forceMobileToggle'
+        },
+        ui: {
+          schemeMount: '#stylelist',
+          styleMount:  '[data-style-mount]',
+          styleMountId: 'ts-style-mount'
+        }
+      },
+      classes: {
+        stylePrefix: '',
+        schemeLight: 'light',
+        schemeDark:  'dark',
+        forceMobile: 'force-mobile',
+        activeControl: 'is-active',
+        styleMount: 'ts-style-mount',
+        styleButton: 'ts-style-btn',
+        styleButtonPrefix: 'ts-style-',
+        schemeButton: 'ts-scheme-btn'
+      }
+    }
   };
 })();
+
