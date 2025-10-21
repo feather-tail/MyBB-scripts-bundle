@@ -20,6 +20,8 @@
   const TOGGLE_LABEL = config.toggleLabel || 'Счётчик символов в постах';
   const SETTINGS_SECTION = config.settingsMenuSection || '';
 
+  let mo;
+
   const extractVisibleText = (postEl) => {
     const src = $(SELECTORS.defaultAfter, postEl);
     if (!src) return '';
@@ -56,6 +58,31 @@
     } catch {}
   };
 
+  const inAllowedGroup = () => {
+    if (typeof GroupID !== 'undefined') return ALLOWED_GROUP_IDS.has(+GroupID);
+    return true;
+  };
+
+  const getForumId = () => {
+    try {
+      if (typeof FORUM === 'object' && typeof FORUM.get === 'function') {
+        const raw =
+          FORUM.get('topic.forum_id') ??
+          FORUM.get('forum.id') ??
+          FORUM.get('forum_id');
+        const n = Number(raw);
+        return Number.isFinite(n) ? n : null;
+      }
+    } catch {}
+    return null;
+  };
+
+  const inAllowedForum = () => {
+    const fid = getForumId();
+    if (fid === null) return true;
+    return ALLOWED_FORUM_IDS.includes(fid);
+  };
+
   const removeCounters = () => {
     $$('.posts-char-count-wrapper').forEach((n) => n.remove());
   };
@@ -88,16 +115,35 @@
     });
   };
 
-  function init() {
-    if (typeof GroupID !== 'undefined' && !ALLOWED_GROUP_IDS.has(+GroupID))
-      return;
-    if (typeof FORUM === 'object' && typeof FORUM.get === 'function') {
-      const fid = +FORUM.get('topic.forum_id');
-      if (!ALLOWED_FORUM_IDS.includes(fid)) return;
-    }
-
+  const tick = () => {
+    if (!inAllowedGroup()) return removeCounters();
+    if (!inAllowedForum()) return removeCounters();
     if (isEnabled()) applyCounters();
     else removeCounters();
+  };
+
+  function initObserver() {
+    if (mo) return;
+    try {
+      mo = new MutationObserver((ml) => {
+        if (!isEnabled()) return;
+        for (const m of ml) {
+          if (m.addedNodes && m.addedNodes.length) {
+            applyCounters();
+            break;
+          }
+        }
+      });
+      mo.observe(document.body, { childList: true, subtree: true });
+    } catch {}
+  }
+
+  function init() {
+    tick();
+    initObserver();
+    window.addEventListener('storage', (e) => {
+      if (e.key === STORAGE_KEY) tick();
+    });
   }
 
   function renderToggle(container) {
@@ -108,8 +154,7 @@
     cb.addEventListener('change', () => {
       const on = cb.checked;
       saveState(on);
-      if (on) applyCounters();
-      else removeCounters();
+      tick();
     });
     if (container) container.append(label);
     return label;
