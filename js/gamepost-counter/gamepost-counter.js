@@ -160,7 +160,7 @@
     if (!data?.ok) return;
     const block = (title, s) => `
       <div class="gpc-table">
-        <h4>${title} <small>${s.key}</small> <em>? ${s.total}</em></h4>
+        <h4>${title} <small>${s.key}</small> <em>Всего: ${s.total}</em></h4>
         <table><tbody>
           ${
             s.rows.length
