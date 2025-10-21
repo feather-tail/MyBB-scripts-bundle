@@ -30,7 +30,6 @@
     styleMountCls: cfg?.classes?.styleMount || 'ts-style-mount',
     styleBtnCls:   cfg?.classes?.styleButton || 'ts-style-btn',
     styleBtnPref:  cfg?.classes?.styleButtonPrefix || 'ts-style-',
-    schemeBtnCls:  cfg?.classes?.schemeButton || 'ts-scheme-btn',
     sel: {
       style:  cfg?.selectors?.controls?.style  || '[data-display-style]',
       scheme: cfg?.selectors?.controls?.scheme || '[data-display-scheme]',
@@ -38,8 +37,8 @@
       chkFM:  cfg?.selectors?.controls?.forceMobileCheckbox || '#forceMobileToggle'
     },
     ui: {
-      schemeMount: cfg?.selectors?.ui?.schemeMount || null,
-      styleMountSel: cfg?.selectors?.ui?.styleMount  || null,
+      schemeMount: cfg?.selectors?.ui?.schemeMount || '#stylelist',
+      styleMountSel: cfg?.selectors?.ui?.styleMount  || '[data-style-mount]',
       styleMountId:  cfg?.selectors?.ui?.styleMountId || 'ts-style-mount'
     },
     targets: {
@@ -71,34 +70,29 @@
     if (!sectionEl) return;
     const list = sectionEl.querySelector('ul') || sectionEl;
 
-    let liHost =
-      list.querySelector('li[data-ts-theme-mount]') ||
+    let styleMount =
+      (C.ui.styleMountSel && $(C.ui.styleMountSel, list)) ||
+      list.querySelector(`#${CSS.escape(C.ui.styleMountId)}`) ||
       (() => {
         const li = doc.createElement('li');
-        li.setAttribute('data-ts-theme-mount','');
-        list.appendChild(li);
-        return li;
-      })();
-
-    let styleMount =
-      (C.ui.styleMountSel && $(C.ui.styleMountSel, liHost)) ||
-      liHost.querySelector(`#${CSS.escape(C.ui.styleMountId)}`) ||
-      (() => {
         const div = doc.createElement('div');
         div.setAttribute('data-style-mount','');
         div.id = C.ui.styleMountId;
         if (C.styleMountCls) div.classList.add(C.styleMountCls);
-        liHost.appendChild(div);
+        li.appendChild(div);
+        list.appendChild(li);
         return div;
       })();
 
     let schemeList =
-      (C.ui.schemeMount && $(C.ui.schemeMount, liHost)) ||
-      liHost.querySelector('#stylelist') ||
+      (C.ui.schemeMount && $(C.ui.schemeMount, list)) ||
+      list.querySelector('#stylelist') ||
       (() => {
+        const li = doc.createElement('li');
         const ul = doc.createElement('ul');
         ul.id = 'stylelist';
-        liHost.appendChild(ul);
+        li.appendChild(ul);
+        list.appendChild(li);
         return ul;
       })();
 
@@ -192,22 +186,9 @@
     const schemeMount =
       (C.ui.schemeMount && $(C.ui.schemeMount, targetRoot)) ||
       $('#stylelist', targetRoot);
-    if (schemeMount && !schemeMount.querySelector('[data-display-scheme]')) {
-      schemeMount.innerHTML = '';
-      const mk = (mode, text) => {
-        const li = doc.createElement('li');
-        li.setAttribute('data-scheme', mode);
-        const b = doc.createElement('button');
-        b.type = 'button';
-        b.setAttribute('data-display-scheme', mode);
-        b.textContent = text;
-        if (C.schemeBtnCls) b.classList.add(C.schemeBtnCls);
-        li.appendChild(b);
-        return li;
-      };
-      schemeMount.appendChild(mk('light', '1'));
-      schemeMount.appendChild(mk('dark',  '2'));
-      updateSchemeListActive(schemeMount);
+    if (schemeMount) {
+      if (!schemeMount.querySelector('li')) renderLegacySchemeList(schemeMount);
+      updateLegacySchemeActive(schemeMount);
     }
 
     const styleMount =
@@ -235,10 +216,27 @@
     }
   }
 
-  function updateSchemeListActive(ul = document.getElementById('stylelist')) {
+  function renderLegacySchemeList(ul) {
+    ul.innerHTML = '';
+    const makeLi = (mode, text) => {
+      const li = doc.createElement('li');
+      li.setAttribute('data', mode);
+      if (state.scheme === mode) li.className = 'active';
+      const a = doc.createElement('a');
+      a.setAttribute('href', '/');
+      a.setAttribute('onclick', "setStyle($(this.parentNode).attr('data'));return false");
+      a.textContent = text;
+      li.appendChild(a);
+      return li;
+    };
+    ul.appendChild(makeLi('light', '1'));
+    ul.appendChild(makeLi('dark',  '2'));
+  }
+
+  function updateLegacySchemeActive(ul = document.getElementById('stylelist')) {
     if (!ul) return;
     ul.querySelectorAll('li').forEach(li => {
-      const mode = (li.getAttribute('data-scheme') || '').toLowerCase();
+      const mode = (li.getAttribute('data') || '').toLowerCase();
       li.classList.toggle('active', mode === state.scheme);
     });
   }
@@ -315,9 +313,20 @@
     }
   }
 
-  function handleStyle(el)  { const id = el.getAttribute('data-display-style');  if (id) setStyle(id); }
-  function handleScheme(el) { const m  = el.getAttribute('data-display-scheme'); if (m)  setScheme(m); }
-  function handleView(el)   { const v  = el.getAttribute('data-display-view');   if (v)  setView(v); }
+  function handleStyle(el)  {
+    const id = el.getAttribute('data-display-style');
+    if (id) setStyle(id);
+  }
+
+  function handleScheme(el) {
+    const m  = el.getAttribute('data-display-scheme');
+    if (m)  setScheme(m);
+  }
+
+  function handleView(el)   {
+    const v  = el.getAttribute('data-display-view');
+    if (v)  setView(v);
+  }
 
   function bindForceMobileCheckbox(cb, rebind) {
     if (rebind && cb.__ds_cb) cb.removeEventListener('change', cb.__ds_cb);
@@ -335,7 +344,7 @@
     for (const el of $$(C.sel.view))   reflect(el, el.getAttribute('data-display-view')   === state.view);
     const cb = document.querySelector(C.sel.chkFM);
     if (cb) cb.checked = (state.view === 'mobile');
-    updateSchemeListActive();
+    updateLegacySchemeActive();
   }
 
   function reflect(el, active) {
@@ -394,4 +403,13 @@
   }
 
   bootstrap();
+
+  if (typeof window.setStyle !== 'function') {
+    window.setStyle = function(id) {
+      try { id = String(id).toLowerCase(); } catch {}
+      if (id === 'light' || id === 'dark') setScheme(id);
+      else setStyle(id);
+      return false;
+    };
+  }
 })();
