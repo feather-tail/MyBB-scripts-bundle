@@ -497,13 +497,14 @@
       },
     },
     quoteBubble: {
-      bubbleId: 'quote-bubble',
-      iconUrl:
-        'http://www.iconsearch.ru/uploads/icons/crystalclear/16x16/comment.png',
-      postSel: '.post[id]',
       topicId: 'pun-viewtopic',
-      offsetX: 8,
-      offsetY: 8,
+      postSel: '.post[id]',
+      bubbleId: 'quote-bubble',
+      iconUrl: 'http://www.iconsearch.ru/uploads/icons/crystalclear/16x16/comment.png',
+      text: 'Цитировать',
+      offsetX: 6,
+      offsetY: 4,
+      margin: 6
     },
     quotePostLink: {
       selectors: {
@@ -705,4 +706,5 @@
     }
   };
 })();
+
 
