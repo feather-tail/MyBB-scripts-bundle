@@ -15,14 +15,24 @@
     let currentPost = null;
 
     function showBubble(rect, post) {
-      bubble.style.left = window.scrollX + rect.right + config.offsetX + 'px';
-      bubble.style.top = window.scrollY + rect.bottom + config.offsetY + 'px';
-      bubble.classList.add('show');
       currentPost = post;
-    }
-    function hideBubble() {
-      bubble.classList.remove('show');
-      currentPost = null;
+      bubble.classList.add('show');
+    
+      const margin = 6;
+      const vw = document.documentElement.clientWidth;
+    
+      let left = window.scrollX + rect.left + (rect.width - bubble.offsetWidth) / 2;
+      let top  = window.scrollY + rect.top - bubble.offsetHeight - margin;
+    
+      if (top < window.scrollY + 4) {
+        top = window.scrollY + rect.bottom + margin;
+      }
+    
+      left = Math.max(window.scrollX + 4,
+              Math.min(left, window.scrollX + vw - bubble.offsetWidth - 4));
+    
+      bubble.style.left = left + 'px';
+      bubble.style.top  = top  + 'px';
     }
 
     bubble.addEventListener('mousedown', (e) => e.preventDefault());
