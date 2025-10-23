@@ -1,6 +1,6 @@
 #quote-bubble {
   display: none;
-  position: absolute;
+  position: fixed;
   z-index: 9999;
   padding: 5px 10px;
   background: #fff;
@@ -22,3 +22,4 @@
   width: 18px;
   height: 18px;
 }
+
