@@ -5,7 +5,7 @@
 
   const helpers = window.helpers;
   const {
-    $, // query selector
+    $,
     createEl,
     getGroupId,
     getUserInfo,
@@ -176,15 +176,23 @@
     const { modal, modalContainer, userContent, addBtn } = stickerPack.elements;
     if (!modal) return;
     modal.classList.toggle('active', stickerPack.isModalOpen);
+  
     if (stickerPack.isModalOpen) {
       const ref = $('#post') || $('#post-form');
       if (ref) {
         const rect = ref.getBoundingClientRect();
-        modalContainer.style.position = 'absolute';
-        modalContainer.style.top = window.scrollY + rect.top + 'px';
-        modalContainer.style.left = window.scrollX + rect.left + 'px';
-        modal.style.width = ref.offsetWidth + 'px';
+  
+        modalContainer.style.position = 'fixed';
+  
+        const top = Math.max(0, rect.top);
+        const left = Math.max(0, rect.left);
+  
+        modalContainer.style.top = top + 'px';
+        modalContainer.style.left = left + 'px';
+  
+        modal.style.width = rect.width + 'px';
       }
+  
       const closeEvents = [
         'pun_post',
         'pun_preview',
@@ -192,6 +200,7 @@
         'pun_edit',
         'messenger:post',
       ];
+  
       stickerPack.events = [
         userContent && {
           target: userContent,
@@ -225,6 +234,7 @@
           options: { once: true },
         })),
       ].filter(Boolean);
+  
       stickerPack.events.forEach(({ target, type, handler, options }) =>
         target.addEventListener(type, handler, options),
       );
@@ -235,6 +245,7 @@
       stickerPack.events = [];
     }
   }
+
   function closeStickerPackModal() {
     toggleStickerPackModal(false);
   }
