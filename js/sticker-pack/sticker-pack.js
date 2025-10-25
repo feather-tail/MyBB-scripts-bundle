@@ -172,22 +172,25 @@
   }
 
   function positionStickerPackModal() {
-    const { button, modalContainer, modal } = stickerPack.elements;
-    if (!button || !modalContainer || !modal) return;
+    const { button, modalContainer } = stickerPack.elements;
+    if (!button || !modalContainer) return;
+
     const rect = button.getBoundingClientRect();
-    const modalWidth = modal.offsetWidth || 300;
+    const modalWidth = stickerPack.elements.modal.offsetWidth || 300;
+
     let left = rect.left;
     let top = rect.bottom + 4;
     const viewportW = window.innerWidth;
+
     if (left + modalWidth > viewportW - 8) {
       left = Math.max(8, viewportW - modalWidth - 8);
     }
     if (left < 8) {
       left = 8;
     }
-    modalContainer.style.position = 'fixed';
-    modalContainer.style.top = top + 'px';
-    modalContainer.style.left = left + 'px';
+
+    modalContainer.style.setProperty('--sticker-pack-top', top + 'px');
+    modalContainer.style.setProperty('--sticker-pack-left', left + 'px');
   }
 
   function toggleStickerPackModal(open = !stickerPack.isModalOpen) {
