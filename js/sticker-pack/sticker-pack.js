@@ -188,14 +188,11 @@
     modalContainer.style.position = 'fixed';
     modalContainer.style.top = top + 'px';
     modalContainer.style.left = left + 'px';
-    modal.style.width = 'auto';
-    modal.style.maxWidth = '90vw';
-    modal.style.maxHeight = '50vh';
   }
 
   function toggleStickerPackModal(open = !stickerPack.isModalOpen) {
     stickerPack.isModalOpen = !!open;
-    const { modal, modalContainer, userContent, addBtn } = stickerPack.elements;
+    const { modal, userContent, addBtn } = stickerPack.elements;
     if (!modal) return;
     modal.classList.toggle('active', stickerPack.isModalOpen);
 
