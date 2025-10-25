@@ -171,28 +171,37 @@
     return div;
   }
 
+  function positionStickerPackModal() {
+    const { button, modalContainer, modal } = stickerPack.elements;
+    if (!button || !modalContainer || !modal) return;
+    const rect = button.getBoundingClientRect();
+    const modalWidth = modal.offsetWidth || 300;
+    let left = rect.left;
+    let top = rect.bottom + 4;
+    const viewportW = window.innerWidth;
+    if (left + modalWidth > viewportW - 8) {
+      left = Math.max(8, viewportW - modalWidth - 8);
+    }
+    if (left < 8) {
+      left = 8;
+    }
+    modalContainer.style.position = 'fixed';
+    modalContainer.style.top = top + 'px';
+    modalContainer.style.left = left + 'px';
+    modal.style.width = 'auto';
+    modal.style.maxWidth = '90vw';
+    modal.style.maxHeight = '50vh';
+  }
+
   function toggleStickerPackModal(open = !stickerPack.isModalOpen) {
     stickerPack.isModalOpen = !!open;
     const { modal, modalContainer, userContent, addBtn } = stickerPack.elements;
     if (!modal) return;
     modal.classList.toggle('active', stickerPack.isModalOpen);
-  
+
     if (stickerPack.isModalOpen) {
-      const ref = $('#post') || $('#post-form');
-      if (ref) {
-        const rect = ref.getBoundingClientRect();
-  
-        modalContainer.style.position = 'fixed';
-  
-        const top = Math.max(0, rect.top);
-        const left = Math.max(0, rect.left);
-  
-        modalContainer.style.top = top + 'px';
-        modalContainer.style.left = left + 'px';
-  
-        modal.style.width = rect.width + 'px';
-      }
-  
+      positionStickerPackModal();
+
       const closeEvents = [
         'pun_post',
         'pun_preview',
@@ -200,7 +209,7 @@
         'pun_edit',
         'messenger:post',
       ];
-  
+
       stickerPack.events = [
         userContent && {
           target: userContent,
@@ -234,7 +243,7 @@
           options: { once: true },
         })),
       ].filter(Boolean);
-  
+
       stickerPack.events.forEach(({ target, type, handler, options }) =>
         target.addEventListener(type, handler, options),
       );
@@ -424,5 +433,6 @@
       throw err;
     }
   }
+
   helpers.register('stickerPack', { init });
 })();
