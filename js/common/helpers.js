@@ -257,22 +257,26 @@
   };
   const getForumId = () => {
     try {
-      if (typeof FORUM === 'object' && typeof FORUM.get === 'function') {
-        const raw =
-          FORUM.get('topic.forum_id') ??
-          FORUM.get('forum.id') ??
-          FORUM.get('forum_id');
-        const n = Number(raw);
-        if (Number.isFinite(n)) return n;
+      if (typeof FORUM === 'object' && FORUM) {
+        if (FORUM.topic && FORUM.topic.forum_id != null) {
+          const n = Number(FORUM.topic.forum_id);
+          if (Number.isFinite(n)) return n;
+        }
+        if (typeof FORUM.get === 'function') {
+          const raw =
+            FORUM.get('topic.forum_id') ??
+            FORUM.get('forum.id') ??
+            FORUM.get('forum_id');
+          const n = Number(raw);
+          if (Number.isFinite(n)) return n;
+        }
       }
     } catch {}
-  
     const crumbs = document.querySelectorAll('#pun-crumbs1 a[href*="/viewforum.php?id="]');
     if (crumbs.length) {
       const m = crumbs[crumbs.length - 1].href.match(/viewforum\.php\?id=(\d+)/);
       if (m) return Number(m[1]);
     }
-  
     const postForm = document.querySelector('form#post[action*="/post.php?"]');
     if (postForm) {
       const m2 = postForm.action.match(/fid=(\d+)/);
