@@ -63,24 +63,12 @@
     return true;
   };
 
-  const getForumId = () => {
-    try {
-      if (typeof FORUM === 'object' && typeof FORUM.get === 'function') {
-        const raw =
-          FORUM.get('topic.forum_id') ??
-          FORUM.get('forum.id') ??
-          FORUM.get('forum_id');
-        const n = Number(raw);
-        return Number.isFinite(n) ? n : null;
-      }
-    } catch {}
-    return null;
-  };
+  const getForumId = () => helpers.getForumId?.() ?? null;
 
   const inAllowedForum = () => {
     const fid = getForumId();
-    if (fid === null) return true;
-    return ALLOWED_FORUM_IDS.includes(fid);
+    if (fid === null) return false;
+    return ALLOWED_FORUM_IDS.includes(Number(fid));
   };
 
   const removeCounters = () => {
