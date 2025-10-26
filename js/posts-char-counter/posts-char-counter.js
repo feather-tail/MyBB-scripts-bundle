@@ -115,13 +115,15 @@
     try {
       mo = new MutationObserver((ml) => {
         if (!isEnabled()) return;
+  
         for (const m of ml) {
           if (m.addedNodes && m.addedNodes.length) {
-            applyCounters();
+            tick();
             break;
           }
         }
       });
+  
       mo.observe(document.body, { childList: true, subtree: true });
     } catch {}
   }
