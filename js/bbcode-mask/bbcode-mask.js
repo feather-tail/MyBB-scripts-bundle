@@ -786,6 +786,7 @@
   const processPosts = async () => {
     const posts = [...$$(SELECTORS.post)];
     if (!posts.length) return;
+
     const changed = [];
     for (const post of posts) {
       if (post.dataset.masked) continue;
@@ -799,6 +800,7 @@
     if (!changed.length) return;
 
     const forum = getForumName() || '';
+
     const userIds = changed
       .map(({ post }) => {
         const d = post.dataset.userId || post.getAttribute('data-user-id');
@@ -818,16 +820,33 @@
 
     const users = await fetchUsersInfo(userIds);
 
+    const allowedGroups = Array.isArray(config.allowedGroups)
+      ? config.allowedGroups.map(Number)
+      : [];
+
     for (const item of changed) {
       const uid =
         item.post.dataset.userId ||
         item.post.getAttribute('data-user-id') ||
         '';
-      const access = computeAccessForUser(users[String(uid)] || null, forum);
+      const uinfo = users[String(uid)] || null;
+
+      const authorAllowed = uinfo
+        ? allowedGroups.includes(Number(uinfo.groupId))
+        : false;
+
+      const access = authorAllowed
+        ? computeAccessForUser(uinfo, forum)
+        : { common: false, extended: false };
+
       item.content.innerHTML = Cache.getCleaned(item.html);
-      applyMaskToPost(item.post, item.data, access);
+
+      if (authorAllowed) {
+        applyMaskToPost(item.post, item.data, access);
+        item.post.querySelector(SELECTORS.profile)?.classList.add('hv-mask');
+      }
+
       item.post.dataset.masked = '1';
-      item.post.querySelector(SELECTORS.profile)?.classList.add('hv-mask');
     }
   };
 
@@ -866,6 +885,12 @@
   };
 
   const addToolbarButton = () => {
+    const myGroupId = helpers.getGroupId();
+    const allowedGroups = Array.isArray(config.allowedGroups)
+      ? config.allowedGroups
+      : [];
+    if (!allowedGroups.includes(myGroupId)) return;
+
     const tryInsert = () => {
       const addition = $('#button-addition');
       const row = addition?.closest('tr') || $(SELECTORS.toolbarRow);
@@ -873,6 +898,7 @@
       insertBtnAfterAddition(addition, row);
       observer.disconnect();
     };
+
     const observer = new MutationObserver(tryInsert);
     observer.observe(document.body, { childList: true, subtree: true });
     tryInsert();
@@ -1435,53 +1461,63 @@
   };
 
   async function init() {
+    const myGroupId = helpers.getGroupId();
+    const allowedGroups = Array.isArray(config.allowedGroups)
+      ? config.allowedGroups
+      : [];
+    const meAllowed = allowedGroups.includes(myGroupId);
+
     document.addEventListener('pun_post', () => processPosts());
     document.addEventListener('pun_edit', () => processPosts());
-    addToolbarButton();
 
-    if ($(SELECTORS.previewBox)) {
-      observePreviewChanges();
-      document.addEventListener('pun_preview', scrubPreview);
-      document.addEventListener('pun_preedit', scrubPreview);
-    }
+    if (meAllowed) {
+      addToolbarButton();
 
-    if (getGroupId() === 1) {
-      const toSave = {
-        fields: config.fields,
-        userFields: config.userFieldOrder,
-        blockTag: config.blockTag,
-        defaultAvatar: config.defaultAvatar,
-        buttonImage: config.buttonIcon,
-        sanitize: config.sanitize,
-      };
-      const getParams = new URLSearchParams({
-        method: 'storage.get',
-        key: 'profileMaskSettings',
-        app_id: 16777215,
-      });
-      try {
-        const j = await helpers.request(`/api.php?${getParams}`, {
-          responseType: 'json',
+      if ($(SELECTORS.previewBox)) {
+        observePreviewChanges();
+        document.addEventListener('pun_preview', scrubPreview);
+        document.addEventListener('pun_preedit', scrubPreview);
+      }
+
+      if (getGroupId() === 1) {
+        const toSave = {
+          fields: config.fields,
+          userFields: config.userFieldOrder,
+          blockTag: config.blockTag,
+          defaultAvatar: config.defaultAvatar,
+          buttonImage: config.buttonIcon,
+          sanitize: config.sanitize,
+        };
+        const getParams = new URLSearchParams({
+          method: 'storage.get',
+          key: 'profileMaskSettings',
+          app_id: 16777215,
         });
-        const saved = j?.response?.storage?.data?.profileMaskSettings;
-        if (saved !== JSON.stringify(toSave)) {
-          const body = new URLSearchParams({
-            method: 'storage.set',
-            token: window.ForumAPITicket,
-            key: 'profileMaskSettings',
-            app_id: 16777215,
-            value: JSON.stringify(toSave),
+        try {
+          const j = await helpers.request(`/api.php?${getParams}`, {
+            responseType: 'json',
           });
-          await helpers.request('/api.php', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            data: body,
-          });
-        }
-      } catch {}
+          const saved = j?.response?.storage?.data?.profileMaskSettings;
+          if (saved !== JSON.stringify(toSave)) {
+            const body = new URLSearchParams({
+              method: 'storage.set',
+              token: window.ForumAPITicket,
+              key: 'profileMaskSettings',
+              app_id: 16777215,
+              value: JSON.stringify(toSave),
+            });
+            await helpers.request('/api.php', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+              data: body,
+            });
+          }
+        } catch {}
+      }
     }
 
     processPosts();
+
     helpers.register('bbcodeMask', {
       CONFIG: config,
       removeMaskTagsFromPreview,
