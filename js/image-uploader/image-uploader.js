@@ -128,32 +128,57 @@
     },
     async host_imgbb(file, onProgress, signal) {
       const key = rfu.CONFIG.imgbb?.key;
-      if (!key) throw new Error('ImgBB: не задан API key');
+      if (!key) {
+        throw new Error('ImgBB: не задан API key');
+      }
+    
       const fd = new FormData();
       fd.append('image', file);
-      const { text, contentType } = await rfu.uploadXHR({
-        url: `https://api.imgbb.com/1/upload?key=${encodeURIComponent(key)}`,
+      fd.append('key', key);
+    
+      if (typeof onProgress === 'function') {
+        try {
+          onProgress(0);
+        } catch (_) {}
+      }
+      
+      const res = await fetch('https://api.imgbb.com/1/upload', {
         method: 'POST',
-        formData: fd,
-        onProgress,
+        body: fd,
         signal,
+        credentials: 'omit',
       });
-      if (!/application\/json/i.test(contentType))
-        throw new Error('ImgBB: не JSON');
+    
+      if (!res.ok) {
+        const txt = await res.text().catch(() => '');
+        throw new Error(
+          `ImgBB: HTTP ${res.status} ${txt.slice(0, 180).replace(/\s+/g, ' ')}`
+        );
+      }
+    
       let resp;
       try {
-        resp = JSON.parse(text);
-      } catch {
+        resp = await res.json();
+      } catch (e) {
         throw new Error('ImgBB: invalid JSON');
       }
-      if (!resp?.success || !resp?.data?.url)
+    
+      if (!resp?.success || !resp?.data?.url) {
         throw new Error(resp?.error?.message || 'ImgBB: upload failed');
+      }
+    
+      if (typeof onProgress === 'function') {
+        try {
+          onProgress(100);
+        } catch (_) {}
+      }
+    
       return {
         direct: resp.data.url,
         thumb: resp.data?.thumb?.url || null,
-        deleteUrl: null,
+        deleteUrl: resp.data?.delete_url || null,
       };
-    },
+    }
     HOSTS: {},
     mounted: false,
     addFiles: null,
