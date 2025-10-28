@@ -11,6 +11,16 @@
     maxSize: 38,
   });
 
+  const getAllFontSelectors = () => {
+    const base = config.fontSelector
+      ? (Array.isArray(config.fontSelector) ? config.fontSelector : [config.fontSelector])
+      : [];
+    const extra = config.extraSelectors
+      ? (Array.isArray(config.extraSelectors) ? config.extraSelectors : [config.extraSelectors])
+      : [];
+    return [...base, ...extra].filter(Boolean);
+  };
+
   const getStoredSize = () => {
     const v = parseInt(localStorage.getItem(config.storageKey), 10);
     return !isNaN(v) && v >= config.minSize && v <= config.maxSize
@@ -20,7 +30,12 @@
   const storeSize = (size) => localStorage.setItem(config.storageKey, size);
 
   const applySize = (size) => {
-    $$(config.fontSelector).forEach((el) => {
+    const selectors = getAllFontSelectors();
+    if (!selectors.length) return;
+
+    const els = new Set();
+    selectors.forEach(sel => $$(sel).forEach(el => els.add(el)));
+    els.forEach((el) => {
       el.style.fontSize = size + 'px';
     });
   };
