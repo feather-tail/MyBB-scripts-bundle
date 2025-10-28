@@ -27,6 +27,7 @@
       ? v
       : config.defaultSize;
   };
+
   const storeSize = (size) => localStorage.setItem(config.storageKey, size);
 
   const applySize = (size) => {
@@ -34,7 +35,7 @@
     if (!selectors.length) return;
 
     const els = new Set();
-    selectors.forEach(sel => $$(sel).forEach(el => els.add(el)));
+    selectors.forEach((sel) => $$(sel).forEach((el) => els.add(el)));
     els.forEach((el) => {
       el.style.fontSize = size + 'px';
     });
@@ -47,20 +48,27 @@
 
   const postFontSizeToFrame = (frame, size) => {
     try {
-      frame.contentWindow &&
+      if (frame && frame.contentWindow) {
         frame.contentWindow.postMessage(
           { type: 'FONT_RESIZER_SET', size: Number(size) },
           '*',
         );
-    } catch {}
+      }
+    } catch (e) {}
   };
 
   const broadcastToHtmlFrames = (size) => {
-    getHtmlFrames().forEach((f) => postFontSizeToFrame(f, size));
+    const frames = getHtmlFrames();
+    frames.forEach((f) => postFontSizeToFrame(f, size));
   };
 
   const wireFrameLoads = () => {
-    getHtmlFrames().forEach((f) => {
+    const currentSize = getStoredSize();
+    const frames = getHtmlFrames();
+
+    frames.forEach((f) => {
+      postFontSizeToFrame(f, currentSize);
+
       f.addEventListener('load', () => {
         postFontSizeToFrame(f, getStoredSize());
       });
@@ -83,6 +91,7 @@
                   postFontSizeToFrame(node, getStoredSize()),
                 );
               }
+
               node.querySelectorAll &&
                 node
                   .querySelectorAll(config.htmlFrameSelector)
@@ -96,12 +105,14 @@
           });
       }
     });
+
     mo.observe(document.documentElement, { childList: true, subtree: true });
   };
 
   const createControl = (currentSize) => {
     const wrapper = createEl('div');
     wrapper.className = 'font-resizer';
+
     const btnDecrease = createEl('button', {
       type: 'button',
       className: 'decrease',
@@ -128,6 +139,7 @@
       value: currentSize,
       'aria-label': 'Размер шрифта',
     });
+
     wrapper.append(btnDecrease, btnReset, btnIncrease, slider);
     return wrapper;
   };
@@ -145,6 +157,9 @@
     broadcastToHtmlFrames(initialSize);
     wireFrameLoads();
     observeNewFrames();
+    setTimeout(() => {
+      broadcastToHtmlFrames(getStoredSize());
+    }, 250);
 
     let anchor = config.insertAfterSelector
       ? $(config.insertAfterSelector)
@@ -165,15 +180,18 @@
       slider.value = s;
       applyStoreBroadcast(s);
     });
+
     btnIncrease.addEventListener('click', () => {
       const s = Math.min(config.maxSize, Number(slider.value) + 1);
       slider.value = s;
       applyStoreBroadcast(s);
     });
+
     btnReset.addEventListener('click', () => {
       slider.value = config.defaultSize;
       applyStoreBroadcast(config.defaultSize);
     });
+
     slider.addEventListener('input', () => {
       const s = Number(slider.value);
       applyStoreBroadcast(s);
