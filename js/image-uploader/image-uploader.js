@@ -178,7 +178,7 @@
         thumb: resp.data?.thumb?.url || null,
         deleteUrl: resp.data?.delete_url || null,
       };
-    }
+    },
     HOSTS: {},
     mounted: false,
     addFiles: null,
