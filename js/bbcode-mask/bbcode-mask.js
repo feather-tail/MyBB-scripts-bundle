@@ -704,7 +704,7 @@
   const applyMaskToPost = (post, data, access, uinfo) => {
     const profileBlock = post.querySelector(SELECTORS.profile);
     if (!profileBlock) return;
-  
+
     const origToNick = (() => {
       const a = profileBlock.querySelector('.pa-author a[href^="javascript:to("]');
       if (!a) return null;
@@ -769,20 +769,22 @@
             (post.querySelector('.post-author a')?.textContent?.trim()) ||
             value;
   
-          const safeRealNick = String(realNick)
+          const displayName = value.slice(0, fld.max || 999);
+          const safeAlias = String(displayName)
             .replace(/\\/g, '\\\\')
             .replace(/'/g, "\\'");
-          const displayName = value.slice(0, fld.max || 999);
   
           const label = createEl('span');
           label.className = 'acchide';
           label.textContent = 'Автор:\u00A0';
   
           const a = createEl('a');
-          a.href = `javascript:to('${safeRealNick}')`;
+          a.href = `javascript:to('${safeAlias}')`;
           a.rel = 'nofollow';
           a.className = 'online';
           a.textContent = displayName;
+  
+          if (uinfo?.userId) a.dataset.userId = String(uinfo.userId);
   
           const ind = createEl('span');
           ind.className = 'indOnline';
