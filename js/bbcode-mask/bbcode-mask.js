@@ -752,24 +752,48 @@
           a.rel = 'noopener noreferrer';
         } else if (key === 'author') {
           const li = getOrCreateProfileField(profileBlock, fld.class);
-          li.innerHTML = '';
   
-          const realNick =
+          const existingAuthorLink =
+            li.querySelector('a[href^="javascript:to("]') ||
+            profileBlock.querySelector('.pa-author a[href^="javascript:to("]');
+          const fromHref = (() => {
+            if (!existingAuthorLink) return '';
+            const href = existingAuthorLink.getAttribute('href') || '';
+            const m = href.match(/javascript:to\('([^']+)'\)/i);
+            return (m && m[1]) ? m[1] : '';
+          })();
+  
+          const anyTo = post.querySelector('a[href^="javascript:to("]');
+          const fromAnyTo = (() => {
+            if (!anyTo) return '';
+            const m = (anyTo.getAttribute('href') || '').match(/javascript:to\('([^']+)'\)/i);
+            return (m && m[1]) ? m[1] : '';
+          })();
+  
+          const fromPostAuthorText =
+            post.querySelector('.post-author a')?.textContent?.trim() || '';
+  
+          let realNick =
+            fromHref ||
             (uinfo && uinfo.username) ||
-            (post.querySelector('.post-author a')?.textContent?.trim()) ||
+            fromAnyTo ||
+            fromPostAuthorText ||
             value;
   
-          const safeRealNick = String(realNick).replace(/'/g, "\\'");
+          realNick = String(realNick).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+  
           const displayName = value.slice(0, fld.max || 999);
   
+          // перерисовываем li
+          li.innerHTML = '';
           const label = createEl('span');
           label.className = 'acchide';
           label.textContent = 'Автор:\u00A0';
   
           const a = createEl('a');
-          a.href = `javascript:to('${safeRealNick}')`;
+          a.href = `javascript:to('${realNick}')`;
           a.rel = 'nofollow';
-          a.className = 'online';
+          a.className = existingAuthorLink?.className || 'online';
           a.textContent = displayName;
   
           const ind = createEl('span');
