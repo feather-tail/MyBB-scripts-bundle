@@ -704,7 +704,7 @@
   const applyMaskToPost = (post, data, access, uinfo) => {
     const profileBlock = post.querySelector(SELECTORS.profile);
     if (!profileBlock) return;
-
+  
     const origToNick = (() => {
       const a = profileBlock.querySelector('.pa-author a[href^="javascript:to("]');
       if (!a) return null;
@@ -713,29 +713,35 @@
       return m ? m[1] : null;
     })();
   
+    const realNick =
+      origToNick ||
+      (uinfo && uinfo.username) ||
+      (post.querySelector('.post-author a')?.textContent?.trim()) ||
+      '';
+  
     const onlyAvatar = access && access.common && !access.extended;
-    const allowAll = access && access.extended;
-    const doAvatar = !!data.avatar;
+    const allowAll  = access && access.extended;
+    const doAvatar  = !!data.avatar;
   
     if (doAvatar && (onlyAvatar || allowAll)) {
-      const li = getOrCreateProfileField(
-        profileBlock,
-        config.fields.avatar.class,
-      );
+      const li  = getOrCreateProfileField(profileBlock, config.fields.avatar.class);
       const img = li.querySelector('img') || li.appendChild(createEl('img'));
-      img.src = normalizeUrl(
-        typeof data.avatar === 'object' ? data.avatar.content : data.avatar,
-      );
-      img.alt = '';
+      img.src   = normalizeUrl(typeof data.avatar === 'object' ? data.avatar.content : data.avatar);
+      img.alt   = '';
+      if (realNick) img.title = realNick;
+    }
+  
+    if (!doAvatar) {
+      const img = profileBlock.querySelector('.pa-avatar img');
+      if (img && realNick && img.title !== realNick) img.title = realNick;
     }
   
     if (allowAll) {
       config.userFieldOrder.forEach((className) => {
         const key = getFieldKeyByClass(className);
         if (!key || !data[key]) return;
-        const fld = config.fields[key];
-        const value =
-          typeof data[key] === 'object' ? data[key].content : data[key];
+        const fld   = config.fields[key];
+        const value = typeof data[key] === 'object' ? data[key].content : data[key];
         if (key === 'avatar') return;
   
         if (fld.type === 'bbcode') {
@@ -754,37 +760,29 @@
           li.innerHTML = sanitizeHtml(value);
         } else if (fld.type === 'link') {
           const li = getOrCreateProfileField(profileBlock, fld.class);
-          const a = li.querySelector('a') || li.appendChild(createEl('a'));
-          a.href = normalizeUrl(value);
+          const a  = li.querySelector('a') || li.appendChild(createEl('a'));
+          a.href   = normalizeUrl(value);
           a.textContent = value;
           a.target = '_blank';
-          a.rel = 'noopener noreferrer';
+          a.rel    = 'noopener noreferrer';
         } else if (key === 'author') {
           const li = getOrCreateProfileField(profileBlock, fld.class);
           li.innerHTML = '';
   
-          const realNick =
-            origToNick ||
-            (uinfo && uinfo.username) ||
-            (post.querySelector('.post-author a')?.textContent?.trim()) ||
-            value;
-  
           const displayName = value.slice(0, fld.max || 999);
-          const safeAlias = String(displayName)
-            .replace(/\\/g, '\\\\')
-            .replace(/'/g, "\\'");
+          const safeAlias   = String(displayName).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
   
           const label = createEl('span');
           label.className = 'acchide';
           label.textContent = 'Автор:\u00A0';
   
           const a = createEl('a');
-          a.href = `javascript:to('${safeAlias}')`;
-          a.rel = 'nofollow';
+          a.href      = `javascript:to('${safeAlias}')`;
+          a.rel       = 'nofollow';
           a.className = 'online';
           a.textContent = displayName;
-  
           if (uinfo?.userId) a.dataset.userId = String(uinfo.userId);
+          if (realNick)      a.dataset.realName = realNick;
   
           const ind = createEl('span');
           ind.className = 'indOnline';
@@ -797,21 +795,14 @@
       });
   
       const authorVal = data.author
-        ? typeof data.author === 'object'
-          ? data.author.content
-          : data.author
+        ? (typeof data.author === 'object' ? data.author.content : data.author)
         : '';
       if (authorVal) {
-        const safeName = authorVal
-          .replace(/'/g, "\\'")
-          .replace(/[\[\]\{\}<>\"]/g, '');
-        const postId =
-          (post.id && post.id.replace(/^\D+/, '')) || post.dataset.id || '';
+        const safeName = authorVal.replace(/'/g, "\\'").replace(/[\[\]\{\}<>\"]/g, '');
+        const postId   = (post.id && post.id.replace(/^\D+/, '')) || post.dataset.id || '';
         const quoteHref = `javascript:quote('#p${postId},${safeName}',${postId})`;
         post
-          .querySelectorAll(
-            '.pl-quote a, .quote-btn a, a[href^="javascript:quote"]',
-          )
+          .querySelectorAll('.pl-quote a, .quote-btn a, a[href^="javascript:quote"]')
           .forEach((link) => {
             link.setAttribute('href', quoteHref);
             link.setAttribute('title', `Цитировать пользователя ${safeName}`);
