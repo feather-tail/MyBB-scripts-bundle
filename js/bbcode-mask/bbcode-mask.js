@@ -701,13 +701,13 @@
     return res;
   };
 
-  const applyMaskToPost = (post, data, access) => {
+  const applyMaskToPost = (post, data, access, uinfo) => {
     const profileBlock = post.querySelector(SELECTORS.profile);
     if (!profileBlock) return;
     const onlyAvatar = access && access.common && !access.extended;
     const allowAll = access && access.extended;
     const doAvatar = !!data.avatar;
-
+  
     if (doAvatar && (onlyAvatar || allowAll)) {
       const li = getOrCreateProfileField(
         profileBlock,
@@ -719,7 +719,7 @@
       );
       img.alt = '';
     }
-
+  
     if (allowAll) {
       config.userFieldOrder.forEach((className) => {
         const key = getFieldKeyByClass(className);
@@ -728,6 +728,7 @@
         const value =
           typeof data[key] === 'object' ? data[key].content : data[key];
         if (key === 'avatar') return;
+  
         if (fld.type === 'bbcode') {
           const contentEl = post.querySelector(SELECTORS.content);
           if (!contentEl) return;
@@ -749,12 +750,38 @@
           a.textContent = value;
           a.target = '_blank';
           a.rel = 'noopener noreferrer';
+        } else if (key === 'author') {
+          const li = getOrCreateProfileField(profileBlock, fld.class);
+          li.innerHTML = '';
+  
+          const realNick =
+            (uinfo && uinfo.username) ||
+            (post.querySelector('.post-author a')?.textContent?.trim()) ||
+            value;
+  
+          const safeRealNick = String(realNick).replace(/'/g, "\\'");
+          const displayName = value.slice(0, fld.max || 999);
+  
+          const label = createEl('span');
+          label.className = 'acchide';
+          label.textContent = 'Автор:\u00A0';
+  
+          const a = createEl('a');
+          a.href = `javascript:to('${safeRealNick}')`;
+          a.rel = 'nofollow';
+          a.className = 'online';
+          a.textContent = displayName;
+  
+          const ind = createEl('span');
+          ind.className = 'indOnline';
+  
+          li.append(label, a, ind);
         } else {
           const li = getOrCreateProfileField(profileBlock, fld.class);
           li.textContent = value.slice(0, fld.max || 999);
         }
       });
-
+  
       const authorVal = data.author
         ? typeof data.author === 'object'
           ? data.author.content
