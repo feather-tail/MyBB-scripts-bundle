@@ -704,6 +704,15 @@
   const applyMaskToPost = (post, data, access, uinfo) => {
     const profileBlock = post.querySelector(SELECTORS.profile);
     if (!profileBlock) return;
+  
+    const origToNick = (() => {
+      const a = profileBlock.querySelector('.pa-author a[href^="javascript:to("]');
+      if (!a) return null;
+      const href = a.getAttribute('href') || '';
+      const m = href.match(/javascript:to\(['"]([^'"]+)['"]\)/i);
+      return m ? m[1] : null;
+    })();
+  
     const onlyAvatar = access && access.common && !access.extended;
     const allowAll = access && access.extended;
     const doAvatar = !!data.avatar;
@@ -752,48 +761,27 @@
           a.rel = 'noopener noreferrer';
         } else if (key === 'author') {
           const li = getOrCreateProfileField(profileBlock, fld.class);
+          li.innerHTML = '';
   
-          const existingAuthorLink =
-            li.querySelector('a[href^="javascript:to("]') ||
-            profileBlock.querySelector('.pa-author a[href^="javascript:to("]');
-          const fromHref = (() => {
-            if (!existingAuthorLink) return '';
-            const href = existingAuthorLink.getAttribute('href') || '';
-            const m = href.match(/javascript:to\('([^']+)'\)/i);
-            return (m && m[1]) ? m[1] : '';
-          })();
-  
-          const anyTo = post.querySelector('a[href^="javascript:to("]');
-          const fromAnyTo = (() => {
-            if (!anyTo) return '';
-            const m = (anyTo.getAttribute('href') || '').match(/javascript:to\('([^']+)'\)/i);
-            return (m && m[1]) ? m[1] : '';
-          })();
-  
-          const fromPostAuthorText =
-            post.querySelector('.post-author a')?.textContent?.trim() || '';
-  
-          let realNick =
-            fromHref ||
+          const realNick =
+            origToNick ||
             (uinfo && uinfo.username) ||
-            fromAnyTo ||
-            fromPostAuthorText ||
+            (post.querySelector('.post-author a')?.textContent?.trim()) ||
             value;
   
-          realNick = String(realNick).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-  
+          const safeRealNick = String(realNick)
+            .replace(/\\/g, '\\\\')
+            .replace(/'/g, "\\'");
           const displayName = value.slice(0, fld.max || 999);
   
-          // перерисовываем li
-          li.innerHTML = '';
           const label = createEl('span');
           label.className = 'acchide';
           label.textContent = 'Автор:\u00A0';
   
           const a = createEl('a');
-          a.href = `javascript:to('${realNick}')`;
+          a.href = `javascript:to('${safeRealNick}')`;
           a.rel = 'nofollow';
-          a.className = existingAuthorLink?.className || 'online';
+          a.className = 'online';
           a.textContent = displayName;
   
           const ind = createEl('span');
