@@ -242,12 +242,22 @@
 
     let is_serial = false;
     let serial_first = 0;
+    let serial_key = null;
+
     const serialEl = root.querySelector('.chrono-serial, .chronoserial');
     if (serialEl) {
-      const n = parseInt(serialEl.textContent || '', 10);
-      if (!Number.isNaN(n)) {
-        is_serial = true;
-        serial_first = n;
+      const raw = (serialEl.textContent || '').trim();
+      if (raw) {
+        const n = parseInt(raw, 10);
+        if (!Number.isNaN(n)) {
+          is_serial = true;
+          serial_first = n;
+          serial_key = raw;
+        } else {
+          is_serial = true;
+          serial_first = 0;
+          serial_key = raw;
+        }
       }
     }
 
@@ -286,6 +296,7 @@
           images: images && images.length ? images : null,
           is_serial,
           serial_first,
+          serial_key,
           quest,
         }
       : null;
@@ -358,6 +369,7 @@
         date: { y: 0, m: 0, d: 0 },
         is_serial: false,
         serial_first: 0,
+        serial_key: null,
         quest: null,
         description: '',
         location: null,
@@ -404,7 +416,7 @@
     return {
       users: Array.from(usersMap.values()),
       first: {
-        id: isFinite(minPostId) ? minPostId : 0,
+        id: Number.isFinite(minPostId) ? minPostId : 0,
         message: firstMsg,
         user_id: firstUserId,
         username: firstUsername,
@@ -467,6 +479,10 @@
               : dto.addon.images;
             dto.addon.is_serial = !!addons.is_serial;
             dto.addon.serial_first = Number(addons.serial_first || 0);
+            dto.addon.serial_key =
+              addons.serial_key != null
+                ? String(addons.serial_key)
+                : dto.addon.serial_key;
             dto.addon.quest = addons.quest ?? dto.addon.quest;
           }
 
@@ -604,6 +620,24 @@
 
     items.forEach((t) => {
       const li = helpers.createEl('li', { className: 'chrono__item' });
+
+      if (t.addon && t.addon.is_serial) {
+        li.classList.add('chrono__item--serial');
+
+        if (t.addon.serial_key) {
+          const rawKey = String(t.addon.serial_key);
+          const normalizedKey = rawKey
+            .toLowerCase()
+            .replace(/[^a-z0-9_-]+/g, '-')
+            .replace(/-+/g, '-')
+            .replace(/^-|-$/g, '');
+          if (normalizedKey) {
+            li.dataset.series = rawKey;
+            li.classList.add(`chrono__item--series-${normalizedKey}`);
+          }
+        }
+      }
+
       const date = helpers.createEl('div', {
         className: 'chrono__date',
         text: formatDateObj(t.date),
