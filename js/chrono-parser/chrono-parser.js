@@ -23,6 +23,8 @@
     active: config.headingActive || 'Активные эпизоды',
     done: config.headingDone || 'Завершённые эпизоды',
   };
+  const seriesStylesMap = config.seriesStyles || {};
+  const seriesDefaultStyle = config.seriesDefaultStyle || null;
 
   const state = {
     episodes: [],
@@ -34,6 +36,18 @@
       status: 'all',
     },
   };
+
+  const loadedSeriesStyles = new Set();
+
+  function ensureStyleLoaded(href) {
+    if (!href || loadedSeriesStyles.has(href)) return;
+    loadedSeriesStyles.add(href);
+    const link = helpers.createEl('link', {
+      rel: 'stylesheet',
+      href,
+    });
+    document.head.appendChild(link);
+  }
 
   const decodeTextarea = document.createElement('textarea');
   const decodeHtml = (str) => {
@@ -906,6 +920,23 @@
     try {
       const episodes = await processAll();
       state.episodes = episodes.sort(sortByDateAsc);
+
+      const seriesKeys = new Set(
+        episodes
+          .map((ep) =>
+            ep && ep.addon && ep.addon.is_serial && ep.addon.serial_key
+              ? String(ep.addon.serial_key).trim()
+              : null,
+          )
+          .filter(Boolean),
+      );
+
+      seriesKeys.forEach((key) => {
+        const href =
+          (seriesStylesMap && seriesStylesMap[key]) || seriesDefaultStyle;
+        if (href) ensureStyleLoaded(href);
+      });
+
       renderRoot(mount);
     } catch (e) {
       renderError(
