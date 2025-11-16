@@ -34,20 +34,28 @@
       if (lastEditEl) lastEditEl.innerHTML = '';
 
       const contentEl = $(config.selectors.content, postElement);
-      if (!contentEl) return;
+      if (!contentEl) {
+        // вернём подпись/редактирование, если не нашли контент
+        if (signatureEl) signatureEl.innerHTML = originalSignature;
+        if (lastEditEl) lastEditEl.innerHTML = originalLastEdit;
+        return;
+      }
+
       let contentHtml = contentEl.innerHTML;
 
-      config.replacements.forEach(({ from, to }) => {
+      (config.replacements || []).forEach(({ from, to }) => {
         contentHtml = contentHtml.replace(from, to);
       });
 
       const tempWrapper = createEl('div');
       tempWrapper.innerHTML = contentHtml;
-      snippet = tempWrapper.textContent.trim();
+      snippet = (tempWrapper.textContent || '').trim();
 
       if (signatureEl) signatureEl.innerHTML = originalSignature;
       if (lastEditEl) lastEditEl.innerHTML = originalLastEdit;
     }
+
+    if (!snippet) return;
 
     const bbCode = `[quote=${userName}]${snippet}[/quote]\n`;
 
