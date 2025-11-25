@@ -1245,6 +1245,11 @@
 
   function renderStoragePanel(storagePanel) {
     storagePanel.innerHTML = '';
+    const title = createEl('div');
+    title.className = 'mask-storage-title';
+    title.textContent = 'Сохранные маски';
+    storagePanel.appendChild(title);
+    
     if (!MaskStore.masks.length) {
       const emptyMsg = createEl('div');
       emptyMsg.className = 'mask-storage-empty';
