@@ -57,6 +57,8 @@
   const doc = document;
   let state = loadState();
 
+  applyState(state, true);
+
   window.DisplaySettings = {
     getState: () => ({ ...state }),
     setStyle, setScheme, setView,
