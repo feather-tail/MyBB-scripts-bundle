@@ -31,5 +31,15 @@
     },
     false,
   );
-  applySize(14);
+  const STORAGE_KEY = 'postFontSize';
+
+  let initial = 14;
+  try {
+    const v = parseInt(localStorage.getItem(STORAGE_KEY), 10);
+    if (!isNaN(v)) {
+      initial = clamp(v, 10, 38);
+    }
+  } catch (e) {}
+
+  applySize(initial);
 })();
