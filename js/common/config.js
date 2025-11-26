@@ -11,6 +11,11 @@
     },
     fontResizer: {
       fontSelector: '.post-content, #main-reply',
+      extraSelectors: [
+        '.post-box .custom_tag_katexttext',
+        '.post-box .custom_tag_katext',
+        '.post-box .custom_tag_kindredaca',
+      ],
       storageKey: 'postFontSize',
       minSize: 10,
       maxSize: 38,
@@ -26,8 +31,8 @@
         labels: { type: 'Тип операции', amount: 'Количество' },
         inputStyle: 'color:#111 !important',
       },
-      access: { allowedTopicIds: ['1', '2', '3'], allowedGroupIds: [1] },
-      profileFieldKey: 'fld1',
+      access: { allowedTopicIds: ['65'], allowedGroupIds: [1] },
+      profileFieldKey: 'fld3',
       operations: [
         { title: 'Начисление', factor: 1, topics: 'all' },
         { title: 'Списание', factor: -1, topics: 'all' },
@@ -40,7 +45,7 @@
         start: `[spoiler="[b]ОБРАБОТАНО[/b] ({{ADMIN_NAME}}) — было: {{CACHE_BEFORE}}, стало: {{CACHE_AFTER}}"]\n[b]Операция:[/b] авто&#8209;начисление из темы банка\n\n`,
         end: `\n[/spoiler]`,
       },
-      adminAliases: { 1: 'АМС' },
+      adminAliases: { 2: 'Kayden Moore', 4: 'Red thread of fate' },
       endpoints: {
         profileUrl: (uid) => `/profile.php?section=fields&id=${uid}`,
         profileFormSelector: 'form[action*="profile.php"][method="post"]',
@@ -56,24 +61,45 @@
       defaultAvatar: 'https://i.imgur.com/bQuC3S1.png',
       buttonIcon: 'https://i.imgur.com/ONu0llO.png',
       storageKey: 'maskListUser',
-      storageLimit: 5,
+      storageLimit: 20,
       localDraftKey: 'maskFormDraft',
       safeProtocols: ['http:', 'https:', 'mailto:', 'ftp:'],
-      allowedGroups: [1, 2],
+      allowedGroups: [1, 2, 6],
       userFieldOrder: [
+        'pa-fld2',
         'pa-author',
         'pa-title',
         'pa-avatar',
-        'custom-field',
         'post-sig',
+        'pa-fld1',
       ],
       bbTagMap: { b: 'strong', i: 'em', u: 'u', s: 's' },
-      forumAccess: {},
-      forumAccessExtended: {},
-      guestAccess: ['Архив игровых тем', 'Архив неигровых тем'],
+      forumAccess: {
+        PR: ['Реклама'],
+      },
+      forumAccessExtended: {
+        Админка: ['Админ', 'Модератор', 'Одарённый'],
+        Гостевая: ['Админ', 'Модератор', 'Одарённый'],
+        'Информация о мире': ['Админ', 'Модератор', 'Одарённый'],
+        'Доска объявлений': ['Админ', 'Модератор', 'Одарённый'],
+        Анкеты: ['Админ', 'Модератор', 'Одарённый'],
+        'Личные дела': ['Админ', 'Модератор', 'Одарённый'],
+        Канцелярия: ['Админ', 'Модератор', 'Одарённый'],
+        'Тень прошлого': ['Админ', 'Модератор', 'Одарённый'],
+        'Мгновения настоящего': ['Админ', 'Модератор', 'Одарённый'],
+        'Веяние будущего': ['Админ', 'Модератор', 'Одарённый'],
+        'Альтернативная ветвь': ['Админ', 'Модератор', 'Одарённый'],
+        'Зона отдыха': ['Админ', 'Модератор', 'Одарённый'],
+        Игровая: ['Админ', 'Модератор', 'Одарённый'],
+        Блоги: ['Админ', 'Модератор', 'Одарённый'],
+        'Книги судеб': ['Админ', 'Модератор', 'Одарённый'],
+        'Прерванные нити': ['Админ', 'Модератор', 'Одарённый'],
+        PR: ['Админ', 'Модератор', 'Одарённый'],
+      },
+      guestAccess: ['Книги судеб', 'Прерванные нити'],
       fields: {
         author: {
-          tags: ['nick', 'nic', 'o'],
+          tags: ['nick', 'nic'],
           class: 'pa-author',
           max: 25,
           label: 'Ник',
@@ -81,7 +107,7 @@
           type: 'text',
         },
         status: {
-          tags: ['status', 'sta', 'q'],
+          tags: ['status', 'sta'],
           class: 'pa-title',
           max: 50,
           label: 'Статус',
@@ -89,25 +115,32 @@
           type: 'text',
         },
         avatar: {
-          tags: ['icon', 'ava', '9'],
+          tags: ['icon', 'ava'],
           class: 'pa-avatar',
           label: 'Аватар',
           defaultCode: 'https://i.imgur.com/bQuC3S1.png',
           type: 'avatar',
         },
         signature: {
-          tags: ['sign', 'sgn', 't'],
+          tags: ['sign', 'sgn', 'signature'],
           class: 'post-sig',
           label: 'Подпись',
           defaultCode: '[b]Информация о персонаже[/b]',
           type: 'bbcode',
         },
-        custom: {
-          tags: ['custom', 'custom-field'],
-          class: 'custom-field',
-          label: 'Кастомное поле',
-          max: 40,
-          defaultCode: 'Текст для кастомного поля',
+        race: {
+          tags: ['race'],
+          class: 'pa-fld2',
+          label: 'Раса',
+          defaultCode: '<div title=укажите расу по-русски>w/f/t/h</div>',
+          type: 'html',
+        },
+        lz: {
+          tags: ['lz'],
+          class: 'pa-fld1',
+          label: 'ЛЗ',
+          defaultCode:
+            '<div class=lz-name><a href=ссылка на профиль>Имя Фамилия</a>, возраст</div> <div class=lz-text>Текст ЛЗ</div>',
           type: 'html',
         },
       },
@@ -148,7 +181,7 @@
           details: ['title'],
           summary: ['title'],
           span: ['style'],
-          div: ['style'],
+          div: ['style', 'title', 'class'],
         },
         allowedInlineStyles: [
           'color',
@@ -199,7 +232,7 @@
       floatRx: /\[float=(left|right)\]([\s\S]{1,11000}?)\[\/float\]/gi,
     },
     bbcodeHideProfile: {
-      allowedGroups: [1, 2, 4],
+      allowedGroups: [1, 2, 6],
       selectors: {
         post: '.post',
         postBody: '.post-body',
@@ -242,20 +275,91 @@
       delays: { open: 20, close: 220 },
       ajaxFolder: 'pages/',
       charset: 'windows-1251',
+      showAwards: true,
+      awardsApi: 'https://core.rusff.me/rusff.php',
     },
-    cleanQuote: {
-      selectors: {
-        post: (id) => `#p${id}`,
-        signature: '.post-sig',
-        lastEdit: 'p.lastedit',
-        content: '.post-content',
-        textarea: 'textarea',
+    charactersParser: {
+      forumsWithCharacters: [8],
+      apiBase: '/api.php',
+      topicsPerRequest: 100,
+      postsPerRequest: 100,
+      pageDelayMs: 200,
+      retryAttempts: 2,
+      retryBaseDelayMs: 800,
+      pagePath: '/pages/characters',
+      mountId: 'characters-root',
+      cacheTtlMs: 30 * 60 * 1000,
+      imageIndex: 2,
+
+      ui: {
+        title: 'Персонажи',
+        filters: {
+          name: 'Имя / Фамилия',
+          age: 'Возраст',
+          gender: 'Пол',
+          race: 'Раса',
+          status: 'Статус',
+          clear: 'Сбросить',
+          refresh: 'Обновить',
+          sort: 'Сортировка',
+        },
+        sort: {
+          nameAZ: 'Имя A&#8594;Я',
+          ageAsc: 'Возраст: младше&#8594;старше',
+          ageDesc: 'Возраст: старше&#8594;младше',
+        },
+        placeholders: {
+          name: 'Например: Имя / Name',
+          ageFrom: 'от',
+          ageTo: 'до',
+        },
+        empty: 'Под подходящие фильтры ничего не найдено.',
+        loadError:
+          'Не удалось загрузить список персонажей. Попробуйте обновить.',
       },
-      replacements: [
-        { from: /<br\s*\/?>/gi, to: '\n' },
-        { from: /<strong>/gi, to: '[b]' },
-        { from: /<\/strong>/gi, to: '[/b]' },
-      ],
+    },
+    charProfileTool: {
+      access: {
+        allowedForumIds: [7, 8, 9],
+        allowedGroupIds: [1],
+      },
+
+      selectors: {
+        insertAfter: 'input.button.preview[name="preview"]',
+        lzSource: '.custom_tag_charpt, .char-pt, [data-bbcode="charpt"]',
+      },
+
+      ui: {
+        fillProfileText: 'Заполнить поля',
+        createPageText: 'Создать страницу',
+        changeGroupText: 'Смена группы',
+      },
+
+      profile: {
+        moneyDefault: '0',
+        postsDefault: '0',
+        targetGroupId: 6,
+        fieldNames: {
+          race: 'form[fld2]', // Вид
+          title: 'form[fld1]', // Личное звание
+          badge: 'form[fld3]', // Плашка
+          money: 'form[fld4]', // Деньги
+          posts: 'form[fld5]', // Игровые посты
+        },
+      },
+
+      endpoints: {
+        apiBase: '/api.php',
+        profileUrl: (uid) => `/profile.php?section=fields&id=${uid}`,
+        profileFormSelector: 'form[action*="profile.php"][method="post"]',
+        adminProfileUrl: (uid) => `/profile.php?section=admin&id=${uid}`,
+        adminProfileFormSelector:
+          'form[action*="profile.php?section=admin"][method="post"], form#profile11',
+        adminAddPageUrl: '/admin_pages.php?action=adddel',
+        adminAddPageFormSelector:
+          'form[action*="admin_pages.php"][method="post"], form#addpage',
+      },
+      requestTimeoutMs: 15000,
     },
     copyCode: {
       buttonText: 'Скопировать код',
@@ -263,7 +367,7 @@
       resetTimeout: 1200,
     },
     chronoParser: {
-      forumsWithGames: { active: [5, 10, 14], done: [7] },
+      forumsWithGames: { active: [10, 11, 13], done: [17] },
       currentYear: 2025,
       topicsPerRequest: 100,
       postsPerRequest: 100,
@@ -272,6 +376,8 @@
       mountId: 'chrono-root',
       headingActive: 'Активные эпизоды',
       headingDone: 'Завершённые эпизоды',
+      seriesDefaultStyle: 'https://forumstatic.ru/files/001c/82/f2/24385.css',
+      seriesStyles: {},
     },
     cursorManager: {
       insertAfterSelector: '#pun-crumbs1',
@@ -318,14 +424,14 @@
       ],
     },
     defaultAvatars: {
-      DEFAULT_AVATAR: 'https://upforme.ru/uploads/001c/73/bf/2/862383.jpg',
+      DEFAULT_AVATAR: 'https://forumstatic.ru/files/001c/82/f2/64447.jpg',
       avatarByRole: {
-        0: 'https://upforme.ru/uploads/001c/0a/76/4/246574.jpg',
-        3: 'https://upforme.ru/uploads/001c/0a/76/4/916153.jpg',
+        0: 'https://forumstatic.ru/files/001c/82/f2/23507.jpg',
+        3: 'https://forumstatic.ru/files/001c/82/f2/50471.jpg',
       },
     },
     episodeTracker: {
-      allowedGroupIds: [1, 2, 4],
+      allowedGroupIds: [1, 2, 6],
       oneDayMs: 86400000,
       maxParticipants: 10,
       selectors: {
@@ -333,9 +439,23 @@
         insertAfter: '',
       },
     },
-    forumChronology: {
-      endpoint: '/api.php?method=forum.chronology',
-      containerSelector: '#forumChronology',
+    forumAccessGuard: {
+      enabled: true,
+      allowedGroupIds: ['1', '2', '4', '6'],
+      protectedForumIds: ['8'],
+      blockMode: 'replace',
+      redirectUrl: '/',
+      hideRowsOnIndex: true,
+      selectors: {
+        forumRowIdPrefix: 'forum_f',
+        mainContainer: '#pun-main, #brd-main, main, #container, body',
+      },
+      blockedMessageHTML:
+        '<div style="max-width:720px;margin:64px auto;padding:24px;border:1px solid var(--hair,#ccc);border-radius:12px;background:var(--paper,#fff);font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;">' +
+        '<h2 style="margin:0 0 12px;">Доступ ограничен</h2>' +
+        '<p style="margin:0 0 12px;">У вас нет прав для просмотра этого раздела.</p>' +
+        '<p style="margin:0;color:#666;">Если вы считаете, что это ошибка, свяжитесь с администрацией.</p>' +
+        '</div>',
     },
     forumTopicsDivider: {
       selectors: {
@@ -349,31 +469,36 @@
       },
     },
     gamepostCounter: {
-      viewerGroups: [1, 2, 4],
+      viewerGroups: [1, 2, 3, 4, 5, 6],
       includeFirstPost: false,
       forumsRules: {
         defaultMode: 'all',
         perForum: new Map([
-          ['1', { mode: 'all' }],
+          ['10', { mode: 'all' }],
+          ['11', { mode: 'all' }],
+          ['12', { mode: 'all' }],
+          ['13', { mode: 'all' }],
+          ['17', { mode: 'all' }],
+          ['18', { mode: 'all' }],
           // ['10', { mode: 'include', topics: new Set([27]) }],
           // ['14', { mode: 'exclude', topics: new Set([101]) }],
         ]),
       },
       ui: {
         showBadgesInTopic: true,
-        badgeSource: 'week',
-        profileBadgeSource: 'week',
-        fieldId: 3,
-        maxUsersToDecorate: 40,
+        badgeSource: 'total',
+        profileBadgeSource: 'total',
+        fieldId: 5,
+        maxUsersToDecorate: 200,
         launcherAfter: '#button-addition',
         launcherText: 'Статистика постов',
-        forumsOnly: [1],
+        forumsOnly: [2],
       },
       backend: {
         endpoint: 'https://feathertail.ru/gamestats/index.php',
-        subscription: 'FTTESTS',
+        subscription: 'KSPIRITS-TEST',
         tableKey: 'ks-global',
-        limit: 20,
+        limit: 40,
         scope: 'site',
       },
       settingsMenuSection: 'settings',
@@ -399,14 +524,30 @@
         headers: () => ({}),
       },
       enabledHosts: ['forum', 'imgbb'],
-      imgbb: { key: 'c5697b050c00a5dcdc012ce325afdd35' },
+      imgbb: { key: '6230a29b3ea5f686064c2b5010146c36' },
     },
     insertAddress: {
       snippet: '[b]{{USER}}[/b], ',
       selector: 'textarea',
     },
+    mobileThemeSwitcher: {
+      themes: [
+        {
+          value: 'mobile',
+          className: 'mobile',
+          title: 'мобильная тема',
+        },
+      ],
+      storageKey: 'selectedMobileTheme',
+      insertAfterSelector: '#pun-crumbs2',
+      settingsMenuSection: 'mobileThemes',
+      containerId: 'mobile_theme_switcher',
+      cookieName: null,
+      cookiePath: '/',
+      cookieDays: 365,
+    },
     multiaccount: {
-      allowedGroups: [1, 2, 4],
+      allowedGroups: [1, 2, 6],
       selectors: {
         navMenu: '#pun-navlinks ul.container',
         logout: '#navlogout',
@@ -447,29 +588,31 @@
       },
     },
     mutualPR: {
-      ALLOWED_GROUPS: [1, 2, 4, 5],
-      TARGET_TOPIC: 'Техническая тема',
+      ALLOWED_GROUPS: [1, 2, 4, 5, 6],
+      TARGET_TOPIC: 'Реклама',
       PR_TEMPLATES: [
-        `[align=center][url=YOUR_LINK][img]YOUR_IMG[/img][/url][/align]`,
+        `[align=center][url=https://kindredspirits.ru][img]https://forumstatic.ru/files/001c/82/f2/21734.jpg[/img][/url][/align]
+[align=center][i]Kindred Spirits. Место, где можно отдохнуть душой.[/i][/align]
+[align=center]&#10070; авторский мир    &#10070; мистика    &#10070; академия      &#10070; рисованные внешности  &#10070; 18+[/align]`,
       ],
       COPY_SUCCESS_TEXT: 'Наш шаблон и ссылка на взаимную рекламу скопированы!',
       BUTTON_LABEL: 'Взаимная реклама',
     },
     newMessagesLink: {
-      allowedGroupIds: [1, 2, 4],
+      allowedGroupIds: [1, 2, 6],
       url: '/search.php?action=show_new',
       text: 'Новые сообщения',
     },
     postPreview: {
-      debounceDelay: 600,
+      debounceDelay: 100,
       toggleCookie: '_PreviewToggle',
-      allowedForums: [1, 5, 10],
+      allowedForums: [10, 11, 13],
       toggleInsertAfter: '#form-buttons',
       settingsMenuSection: 'settings',
-      checkInterval: 800,
+      checkInterval: 100,
     },
     postsCharCounter: {
-      allowedForumIds: [1, 3],
+      allowedForumIds: [10, 11, 12, 13],
       storageKey: 'postsCharCounterToggle',
       toggleInsertAfter: '',
       toggleLabel: 'Счётчик символов в постах',
@@ -485,7 +628,7 @@
     prQuickLogin: {
       login: 'PR',
       pass: '1111',
-      redirectUrl: 'https://feathertailtests.rusff.me/viewtopic.php?id=2',
+      redirectUrl: 'https://kindredspirits.ru/viewtopic.php?id=85',
       selectors: {
         btn: '#pr-quick-login',
         navLogin: '#navlogin',
@@ -497,14 +640,13 @@
       },
     },
     quoteBubble: {
-      topicId: 'pun-viewtopic',
-      postSel: '.post[id]',
       bubbleId: 'quote-bubble',
-      iconUrl: 'http://www.iconsearch.ru/uploads/icons/crystalclear/16x16/comment.png',
-      text: 'Цитировать',
-      offsetX: 6,
-      offsetY: 4,
-      margin: 6
+      iconUrl:
+        'http://www.iconsearch.ru/uploads/icons/crystalclear/16x16/comment.png',
+      postSel: '.post[id]',
+      topicId: 'pun-viewtopic',
+      offsetX: -2,
+      offsetY: -2,
     },
     quotePostLink: {
       selectors: {
@@ -543,7 +685,7 @@
     replyHotkeys: {
       selectors: {
         textarea: '#main-reply',
-        insertAfter: '.formsubmit',
+        insertAfter: '.preview',
         defaultBefore: '.formsubmit',
         submit: '.submit',
       },
@@ -591,44 +733,40 @@
           title: 'Полезные ссылки',
           items: [
             {
-              text: 'Правила форума',
-              children: [
-                { text: 'Правила раздела 1', href: '/viewtopic.php?id=1' },
-                {
-                  text: 'Правила раздела 2',
-                  href: 'https://mayakfor.me/search.php?action=show_new',
-                },
-                {
-                  text: 'Правила раздела 3',
-                  href: 'https://mayakfor.me/viewtopic.php?id=2300&p=35#p200656',
-                },
-              ],
+              text: 'Правила',
+              href: 'https://kindredspirits.ru/viewtopic.php?id=32',
+              target: '_blank',
+              rel: 'noopener noreferrer',
             },
             {
-              text: 'BBCode справка',
-              href: 'https://bbcode.org/reference.php',
+              text: 'F.A.Q.',
+              href: 'https://kindredspirits.ru/viewtopic.php?id=33',
+              target: '_blank',
+              rel: 'noopener noreferrer',
+            },
+            {
+              text: 'Сетка ролей и внешности',
+              href: 'https://kindredspirits.ru/pages/characters',
+              target: '_blank',
+              rel: 'noopener noreferrer',
+            },
+            {
+              text: 'Хронология',
+              href: 'https://kindredspirits.ru/pages/chrono',
               target: '_blank',
               rel: 'noopener noreferrer',
             },
           ],
         },
-        themes: {
-          title: 'Темы',
-          mount: 'themeSwitcher:initSection',
-        },
         settings: {
           title: 'Настройки',
-        },
-        cursors: {
-          title: 'Курсоры',
-          mount: 'cursorManager:initSection',
         },
       },
     },
     stickerPack: {
-      dataUrl: 'https://forumstatic.ru/files/001c/73/bf/62093.txt?v=4',
+      dataUrl: 'https://forumstatic.ru/files/001c/82/f2/64104.txt',
       buttonAfterId: 'button-smile',
-      buttonIcon: 'https://forumstatic.ru/files/001c/73/bf/87441.svg',
+      buttonIcon: '/i/blank.gif',
       myTabName: 'Свои',
       storageKey: 'stickerPackUserData',
       hideMyGroupId: 3,
@@ -642,7 +780,7 @@
         {
           selector: '#navadmin',
           search: 'Администрирование',
-          replace: 'Амс',
+          replace: 'АМС',
         },
         {
           selector: 'li.item1 span',
@@ -671,40 +809,33 @@
       defaults: { style: 'classic', scheme: 'light', view: 'desktop' },
       styles: [
         { id: 'classic', label: 'Classic' },
-        { id: 'holiday', label: 'Holiday' }
+        { id: 'holiday', label: 'Holiday' },
       ],
       selectors: {
         root: 'html',
         targets: {
           style: 'html',
           scheme: 'body',
-          view: 'html'
+          view: 'html',
         },
         controls: {
           style: '[data-display-style]',
           scheme: '[data-display-scheme]',
           view: '[data-display-view]',
-          forceMobileCheckbox: '#forceMobileToggle'
+          forceMobileCheckbox: '#forceMobileToggle',
         },
         ui: {
           schemeMount: '#stylelist',
-          styleMount:  '[data-style-mount]',
-          styleMountId: 'ts-style-mount'
-        }
+          styleMount: '[data-style-mount]',
+        },
       },
       classes: {
         stylePrefix: '',
         schemeLight: 'light',
-        schemeDark:  'dark',
+        schemeDark: 'dark',
         forceMobile: 'force-mobile',
         activeControl: 'is-active',
-        styleMount: 'ts-style-mount',
-        styleButton: 'ts-style-btn',
-        styleButtonPrefix: 'ts-style-',
-        schemeButton: 'ts-scheme-btn'
-      }
-    }
+      },
+    },
   };
 })();
-
-
