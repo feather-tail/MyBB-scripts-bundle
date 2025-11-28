@@ -473,6 +473,14 @@
         insertAfter: '',
       },
     },
+    fieldTitleHints: {
+      rules: [
+        { selector: '.pa-fld4 .fld-name', title: 'деньги' },
+        { selector: '.pa-fld5 .fld-name', title: 'игровые посты' },
+        { selector: '.pa-posts .fld-name', title: 'сообщения' },
+        { selector: '.pa-respect .fld-name', title: 'репутация' },
+      ],
+    },
     forumAccessGuard: {
       enabled: true,
       allowedGroupIds: ['1', '2', '4', '6'],
@@ -873,3 +881,4 @@
     },
   };
 })();
+
