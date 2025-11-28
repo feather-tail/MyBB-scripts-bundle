@@ -9,6 +9,40 @@
       buttonSelector: '#dice-roll-btn',
       buttonIcon: '/i/blank.gif',
     },
+    domWrappers: {
+      groups: [
+        {
+          rootSelector: '#pun-index .tcr',
+          targetSelector: '.lastpost-link, .lastpost',
+          wrapperClass: 'tcr-wrap',
+        },
+        {
+          rootSelector: '#pun-stats',
+          targetSelector: '.item1, .item2, .item3, .item4',
+          wrapperClass: 'statsinfo',
+        },
+        {
+          rootSelector: '.punbb .post .post-author',
+          targetSelector: 'li.pa-title, .pa-avatar, .pa-fld1',
+          wrapperClass: 'author-wrap',
+        },
+        {
+          rootSelector: '#pun-main .post-author ul',
+          targetSelector: '.pa-posts, .pa-respect, .pa-fld4, .pa-fld5',
+          wrapperClass: 'wrap-resp',
+        },
+        {
+          rootSelector: '.post-box',
+          targetSelector: '.post-rating, .post-vote',
+          wrapperClass: 'rsp_wrap',
+        },
+        {
+          rootSelector: 'body',
+          targetSelector: '#selectMobVers, #selectDescVers',
+          wrapperClass: 'sty',
+        },
+      ],
+    },
     fontResizer: {
       fontSelector: '.post-content, #main-reply',
       extraSelectors: [
