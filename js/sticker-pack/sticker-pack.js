@@ -14,6 +14,10 @@
   } = helpers;
   const config = helpers.getConfig('stickerPack', {});
 
+  const M = config.messages || {};
+  const t = (key, fallback) =>
+    typeof M[key] === 'string' ? M[key] : fallback;
+
   const stickerPack = {
     isLoading: false,
     packs: [],
@@ -33,13 +37,13 @@
   function addStickerPackButton() {
     const buttonTd = createEl('td', {
       id: 'sticker-pack-button',
-      title: 'Стикеры',
+      title: t('buttonTitle', 'Стикеры'),
     });
     if (config.buttonIcon) {
       const icon = createEl('img', {
         src: config.buttonIcon,
-        alt: 'Стикеры',
-        title: 'Стикеры',
+        alt: t('buttonTitle', 'Стикеры'),
+        title: t('buttonTitle', 'Стикеры'),
       });
       buttonTd.append(icon);
     }
@@ -84,9 +88,10 @@
 
     const contents = [];
 
-    stickerPack.packs.forEach((pack) => {
+    // Форумные паки
+    stickerPack.packs.forEach((pack, index) => {
       if (!pack.stickers.length) return;
-      tabs.append(createTab(pack.name));
+      tabs.append(createTab(pack.name, pack.stickers[0], false, index));
       const content = createEl('div', {
         className: 'modal__content',
       });
@@ -99,7 +104,8 @@
 
     let userContent, addBox, input, addBtn;
     if (getGroupId() !== config.hideMyGroupId) {
-      tabs.append(createTab(config.myTabName));
+      const userTabIndex = contents.length;
+      tabs.append(createTab(config.myTabName, null, true, userTabIndex));
       userContent = createEl('div', { className: 'modal__content' });
       stickerPack.userStickers.forEach((url) => {
         userContent.append(createStickerItem(url, true));
@@ -108,12 +114,12 @@
       input = createEl('input', {
         className: 'sticker-pack-modal-input',
         type: 'text',
-        placeholder: 'URL стикера',
+        placeholder: t('inputPlaceholder', 'URL стикера'),
       });
       addBtn = createEl('input', {
         className: 'sticker-pack-modal-add-btn',
         type: 'button',
-        value: '+',
+        value: t('addButtonLabel', '+'),
       });
       addBox.append(input, addBtn);
       userContent.append(addBox);
@@ -132,22 +138,80 @@
       addBtn,
     };
 
-    if (tabs.firstElementChild && contents[0]) {
-      tabs.firstElementChild.classList.add('active');
-      contents[0].classList.add('active');
-    }
-
     document.body.append(modalContainer);
+
     initTabs(modal, {
       tabSelector: '.modal__tab',
       contentSelector: '.modal__content',
       activeClass: 'active',
     });
+
+    const allTabs = Array.from(tabs.querySelectorAll('.modal__tab'));
+    const allContents = Array.from(
+      modal.querySelectorAll('.modal__content'),
+    );
+    if (allTabs.length && allContents.length) {
+      let defaultIndex = 0;
+      try {
+        const saved = localStorage.getItem(
+          config.lastTabKey || 'stickerPackLastTab',
+        );
+        const idx = saved != null ? Number(saved) : NaN;
+        if (!Number.isNaN(idx) && idx >= 0 && idx < allTabs.length) {
+          defaultIndex = idx;
+        }
+      } catch {}
+
+      if (!allTabs[defaultIndex].classList.contains('active')) {
+        allTabs[defaultIndex].click();
+      }
+    }
+
+    tabs.addEventListener(
+      'wheel',
+      (e) => {
+        if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+          tabs.scrollLeft += e.deltaY;
+          e.preventDefault();
+        }
+      },
+      { passive: false },
+    );
+
     toggleStickerPackModal(true);
   }
 
-  function createTab(name) {
-    return createEl('div', { className: 'modal__tab', text: name });
+  function createTab(name, previewUrl, isTextOnly = false, index = 0) {
+    const tab = createEl('button', {
+      className: 'modal__tab',
+      type: 'button',
+      title: name,
+    });
+
+    tab.dataset.index = index;
+
+    if (previewUrl && !isTextOnly) {
+      const img = createEl('img', {
+        src: previewUrl,
+        alt: name,
+        loading: 'lazy',
+        className: 'sticker-pack-tab-icon',
+      });
+      tab.append(img);
+    } else {
+      tab.textContent = name;
+    }
+
+    tab.addEventListener('click', () => {
+      try {
+        localStorage.setItem(
+          config.lastTabKey || 'stickerPackLastTab',
+          String(index),
+        );
+      } catch {}
+    });
+
+    return tab;
   }
 
   function createStickerItem(url, isCustom = false) {
@@ -163,7 +227,7 @@
     if (isCustom) {
       const btn = createEl('span', {
         className: 'sticker-pack-remove-item',
-        title: 'Удалить',
+        title: t('removeTitle', 'Удалить'),
         text: 'x',
       });
       div.append(btn);
@@ -176,21 +240,15 @@
     if (!button || !modalContainer) return;
 
     const rect = button.getBoundingClientRect();
-    const modalWidth = stickerPack.elements.modal.offsetWidth || 300;
-
-    let left = rect.left;
-    let top = rect.bottom + 4;
-    const viewportW = window.innerWidth;
-
-    if (left + modalWidth > viewportW - 8) {
-      left = Math.max(8, viewportW - modalWidth - 8);
-    }
-    if (left < 8) {
-      left = 8;
-    }
+    const top = rect.bottom + window.scrollY + 4;
 
     modalContainer.style.setProperty('--sticker-pack-top', top + 'px');
-    modalContainer.style.setProperty('--sticker-pack-left', left + 'px');
+  }
+
+  function addStickerEvent(entry) {
+    if (!entry || !entry.target || !entry.type || !entry.handler) return;
+    stickerPack.events.push(entry);
+    entry.target.addEventListener(entry.type, entry.handler, entry.options);
   }
 
   function toggleStickerPackModal(open = !stickerPack.isModalOpen) {
@@ -210,7 +268,7 @@
         'messenger:post',
       ];
 
-      stickerPack.events = [
+      const entries = [
         userContent && {
           target: userContent,
           type: 'click',
@@ -244,13 +302,15 @@
         })),
       ].filter(Boolean);
 
-      stickerPack.events.forEach(({ target, type, handler, options }) =>
-        target.addEventListener(type, handler, options),
-      );
+      entries.forEach(addStickerEvent);
     } else {
-      stickerPack.events.forEach(({ target, type, handler, options }) =>
-        target.removeEventListener(type, handler, options),
-      );
+      stickerPack.events.forEach((entry) => {
+        entry.target?.removeEventListener(
+          entry.type,
+          entry.handler,
+          entry.options,
+        );
+      });
       stickerPack.events = [];
     }
   }
@@ -260,12 +320,35 @@
   }
 
   function onStickerPackOutsideClick(e) {
-    if (!stickerPack.elements.modal.contains(e.target))
+    if (!stickerPack.elements.modal?.contains(e.target)) {
       toggleStickerPackModal(false);
+    }
   }
 
   function onStickerPackKeyDown(e) {
-    if (e.key === 'Escape') toggleStickerPackModal(false);
+    if (!stickerPack.isModalOpen) return;
+
+    if (e.key === 'Escape') {
+      toggleStickerPackModal(false);
+      return;
+    }
+
+    if (
+      (e.key === 'ArrowRight' || e.key === 'ArrowLeft') &&
+      stickerPack.elements.tabs
+    ) {
+      const tabs = Array.from(
+        stickerPack.elements.tabs.querySelectorAll('.modal__tab'),
+      );
+      if (!tabs.length) return;
+
+      let idx = tabs.findIndex((t) => t.classList.contains('active'));
+      if (idx === -1) idx = 0;
+      const delta = e.key === 'ArrowRight' ? 1 : -1;
+      const nextIdx = (idx + delta + tabs.length) % tabs.length;
+      tabs[nextIdx].click();
+      e.preventDefault();
+    }
   }
 
   function onStickerPackContentClick(e) {
@@ -283,14 +366,21 @@
     if (!url) return;
     const idx = stickerPack.userStickers.indexOf(url);
     if (idx >= 0) {
-      stickerPack.userStickers.splice(idx, 1);
+      const next = [...stickerPack.userStickers];
+      next.splice(idx, 1);
       item.remove();
       try {
-        await saveUserStickers();
+        await saveUserStickers(next);
       } catch {
-        showToast('Изменения не сохранились, что-то пошло не так', {
-          type: 'error',
-        });
+        showToast(
+          t(
+            'toastUserSaveError',
+            'Изменения не сохранились, что-то пошло не так',
+          ),
+          {
+            type: 'error',
+          },
+        );
       }
     }
   }
@@ -298,9 +388,9 @@
   async function addUserSticker(input) {
     const url = input.value.trim();
     try {
-      const { protocol, pathname } = new URL(url);
-      const isSafeProtocol = ['http:', 'https:'].includes(protocol);
-      const isImage = IMAGE_EXT_RE.test(pathname);
+      const urlObj = new URL(url);
+      const isSafeProtocol = ['http:', 'https:'].includes(urlObj.protocol);
+      const isImage = IMAGE_EXT_RE.test(urlObj.pathname);
       if (
         !isSafeProtocol ||
         !isImage ||
@@ -308,35 +398,69 @@
       ) {
         throw new Error('Invalid URL');
       }
+
+      if (
+        typeof config.maxUserStickers === 'number' &&
+        stickerPack.userStickers.length >= config.maxUserStickers
+      ) {
+        showToast(
+          t(
+            'toastUserLimitReached',
+            'Слишком много стикеров, достигнут лимит',
+          ),
+          { type: 'warning' },
+        );
+        return;
+      }
+
       const stickers = [...stickerPack.userStickers, url];
       try {
-        await saveUserStickers(stickers);
-        stickerPack.userStickers = stickers;
+        const saved = await saveUserStickers(stickers);
         const item = createStickerItem(url, true);
         stickerPack.elements.userContent.insertBefore(
           item,
           stickerPack.elements.addBox,
         );
         input.value = '';
+        input.focus();
+        stickerPack.userStickers = saved;
       } catch {
-        showToast('Изменения не сохранились, что-то пошло не так', {
-          type: 'error',
-        });
+        showToast(
+          t(
+            'toastUserSaveError',
+            'Изменения не сохранились, что-то пошло не так',
+          ),
+          {
+            type: 'error',
+          },
+        );
       }
     } catch {
-      showToast('Некорректная ссылка на изображение', { type: 'warning' });
+      showToast(
+        t('toastInvalidUrl', 'Некорректная ссылка на изображение'),
+        { type: 'warning' },
+      );
     }
   }
 
   async function saveUserStickers(stickers = stickerPack.userStickers) {
-    let json = JSON.stringify(stickers);
-    while (json.length >= config.maxJsonSize && stickers.length) {
-      showToast('Слишком много стикеров, последний не был сохранён', {
-        type: 'warning',
-      });
-      stickers.pop();
-      json = JSON.stringify(stickers);
+    const next = Array.isArray(stickers) ? [...stickers] : [];
+    let json = JSON.stringify(next);
+
+    while (json.length >= config.maxJsonSize && next.length) {
+      showToast(
+        t(
+          'toastTooManyStickers',
+          'Слишком много стикеров, последний не был сохранён',
+        ),
+        {
+          type: 'warning',
+        },
+      );
+      next.pop();
+      json = JSON.stringify(next);
     }
+
     try {
       await helpers.request(config.apiUrl, {
         method: 'POST',
@@ -348,10 +472,16 @@
           value: json,
         }),
       });
+      stickerPack.userStickers = next;
+      return next;
     } catch (err) {
-      showToast('Стикеры не сохранились, что-то пошло не так', {
-        type: 'error',
-      });
+      showToast(
+        t(
+          'toastStorageError',
+          'Стикеры не сохранились, что-то пошло не так',
+        ),
+        { type: 'error' },
+      );
       throw err;
     }
   }
@@ -363,9 +493,10 @@
 
   function parseForumStickerData(txt) {
     const lines = txt.split(/\r?\n/).map((s) => s.trim());
-    let packs = [],
-      pack = { name: '', stickers: [] },
-      packIndex = 1;
+    let packs = [];
+    let pack = { name: '', stickers: [] };
+    let packIndex = 1;
+
     for (let str of lines) {
       if (!str) {
         if (pack.stickers.length) {
@@ -383,21 +514,98 @@
         pack = { name: str, stickers: [] };
       }
     }
+
     if (pack.stickers.length) {
       if (!pack.name) pack.name = `Pack ${packIndex++}`;
       packs.push(pack);
     }
-    stickerPack.packs = packs;
+    return packs;
+  }
+
+  function normalizeForumPacks(raw) {
+    if (!Array.isArray(raw)) return [];
+    const packs = [];
+    let packIndex = 1;
+
+    for (const item of raw) {
+      if (!item) continue;
+      const name =
+        typeof item.name === 'string' && item.name.trim()
+          ? item.name.trim()
+          : `Pack ${packIndex++}`;
+      const stickersSource = Array.isArray(item.stickers)
+        ? item.stickers
+        : [];
+      const stickers = stickersSource
+        .map((u) => (typeof u === 'string' ? u.trim() : ''))
+        .filter((u) => u && IMAGE_EXT_RE.test(u));
+
+      if (stickers.length) {
+        packs.push({ name, stickers });
+      }
+    }
+
+    return packs;
+  }
+
+  function getCachedForumPacks() {
+    const key = config.cacheKey || 'stickerPackForumPacks';
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      const ts = parsed && typeof parsed.ts === 'number' ? parsed.ts : 0;
+      const packs = Array.isArray(parsed?.packs) ? parsed.packs : null;
+      const ttl =
+        typeof config.cacheTtlMs === 'number'
+          ? config.cacheTtlMs
+          : 1000 * 60 * 60 * 24;
+      if (!packs) return null;
+      if (Date.now() - ts > ttl) return null;
+      return normalizeForumPacks(packs);
+    } catch {
+      return null;
+    }
+  }
+
+  function setCachedForumPacks(packs) {
+    const key = config.cacheKey || 'stickerPackForumPacks';
+    try {
+      const payload = {
+        ts: Date.now(),
+        packs,
+      };
+      localStorage.setItem(key, JSON.stringify(payload));
+    } catch {}
   }
 
   async function loadForumStickerPacks() {
+    const cached = getCachedForumPacks();
+    if (cached && cached.length) {
+      stickerPack.packs = cached;
+      return;
+    }
+
     try {
       const r = await helpers.request(config.dataUrl);
       const txt = await r.text();
-      parseForumStickerData(txt);
+      let packs;
+
+      try {
+        const json = JSON.parse(txt);
+        packs = normalizeForumPacks(json);
+      } catch {
+        packs = parseForumStickerData(txt);
+      }
+
+      stickerPack.packs = packs;
+      setCachedForumPacks(packs);
     } catch (err) {
       showToast(
-        'Стикеры не грузятся, что-то пошло не так. Может, поможет перезагрузка страницы?',
+        t(
+          'toastForumLoadError',
+          'Стикеры не грузятся, что-то пошло не так. Может, поможет перезагрузка страницы?',
+        ),
         { type: 'error' },
       );
       throw err;
@@ -411,15 +619,23 @@
         `${config.apiUrl}?method=${config.apiGetMethod}&key=${config.storageKey}`,
         { responseType: 'json' },
       );
-      const str = result?.response?.storage?.data?.[config.storageKey] || '';
+      const str =
+        result?.response?.storage?.data?.[config.storageKey] || '';
       if (str) {
         try {
-          stickerPack.userStickers = JSON.parse(str);
+          const parsed = JSON.parse(str);
+          stickerPack.userStickers = Array.isArray(parsed) ? parsed : [];
         } catch (err) {
-          if (err instanceof SyntaxError && str.length > config.maxJsonSize) {
-            await saveUserStickers();
+          if (err instanceof SyntaxError) {
+            try {
+              localStorage.setItem(config.storageKey + '_backup', str);
+            } catch {}
+            await saveUserStickers([]);
             showToast(
-              'Стикеры сохранились критично неправильно, пришлось очистить хранилище. Извините',
+              t(
+                'toastStorageCorrupted',
+                'Стикеры в хранилище были повреждены, пришлось их сбросить. Резервная копия строки сохранена локально.',
+              ),
               { type: 'error' },
             );
           }
@@ -427,12 +643,27 @@
       }
     } catch (err) {
       showToast(
-        'Твои стикеры не прогрузились, придется пользоваться форумными',
+        t(
+          'toastUserLoadWarning',
+          'Твои стикеры не прогрузились, придется пользоваться форумными',
+        ),
         { type: 'warning' },
       );
       throw err;
     }
   }
 
-  helpers.register('stickerPack', { init });
+  helpers.register('stickerPack', {
+    init,
+    open: () => toggleStickerPackModal(true),
+    close: () => toggleStickerPackModal(false),
+    reloadPacks: async () => {
+      setStickerPackLoading(true);
+      try {
+        await loadForumStickerPacks();
+      } finally {
+        setStickerPackLoading(false);
+      }
+    },
+  });
 })();
