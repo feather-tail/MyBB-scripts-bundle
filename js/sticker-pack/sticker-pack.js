@@ -55,9 +55,17 @@
 
   async function onStickerPackButtonClick(e) {
     e.stopPropagation();
+  
+    if (
+      stickerPack.elements.modalContainer &&
+      stickerPack.elements.modalContainer.contains(e.target)
+    ) {
+      return;
+    }
+  
     if (stickerPack.isLoading) return;
     if (stickerPack.packs.length) return toggleStickerPackModal();
-
+  
     setStickerPackLoading(true);
     try {
       await Promise.all([
