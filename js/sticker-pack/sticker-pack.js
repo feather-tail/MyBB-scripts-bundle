@@ -76,13 +76,13 @@
 
   function renderStickerPackModal() {
     if (stickerPack.elements.modal) return toggleStickerPackModal(true);
-
+  
     const modalContainer = createEl('div', {
       className: 'sticker-pack-modal-container',
     });
-
+  
     const modal = createEl('div', { className: 'sticker-pack-modal' });
-
+  
     const closeBtn = createEl('button', {
       className: 'sticker-pack-modal__close',
       type: 'button',
@@ -91,66 +91,64 @@
     });
     closeBtn.addEventListener('click', closeStickerPackModal);
     modal.append(closeBtn);
-
-    // Вкладки
+  
     const tabs = createEl('div', { className: 'modal__tabs' });
     modal.append(tabs);
     modalContainer.append(modal);
-
+  
     const contents = [];
-
-    // Форумные паки
+  
     stickerPack.packs.forEach((pack, index) => {
       if (!pack.stickers.length) return;
-
+  
       tabs.append(createTab(pack.name, pack.stickers[0], false, index));
-
+  
       const content = createEl('div', {
         className: 'modal__content',
       });
-
+  
       pack.stickers.forEach((url) => {
         content.append(createStickerItem(url));
       });
-
+  
       contents.push(content);
       modal.append(content);
     });
-
+  
     let userContent, addBox, input, addBtn;
-
+  
     if (getGroupId() !== config.hideMyGroupId) {
       const userTabIndex = contents.length;
-
+  
       tabs.append(createTab(config.myTabName, null, true, userTabIndex));
-
+  
       userContent = createEl('div', { className: 'modal__content' });
-
+  
       stickerPack.userStickers.forEach((url) => {
         userContent.append(createStickerItem(url, true));
       });
-
+  
       addBox = createEl('div', { className: 'sticker-pack-modal-add' });
-
+  
       input = createEl('input', {
         className: 'sticker-pack-modal-input',
         type: 'text',
         placeholder: t('inputPlaceholder', 'URL стикера'),
       });
-
+  
       addBtn = createEl('input', {
         className: 'sticker-pack-modal-add-btn',
         type: 'button',
         value: t('addButtonLabel', '+'),
       });
-
+  
       addBox.append(input, addBtn);
       userContent.append(addBox);
-
+  
       contents.push(userContent);
       modal.append(userContent);
     }
-
+  
     stickerPack.elements = {
       ...stickerPack.elements,
       modalContainer,
@@ -161,23 +159,24 @@
       input,
       addBtn,
     };
-
-    document.body.append(modalContainer);
-
+  
+    const anchor = stickerPack.elements.button || document.body;
+    anchor.append(modalContainer);
+  
     initTabs(modal, {
       tabSelector: '.modal__tab',
       contentSelector: '.modal__content',
       activeClass: 'active',
     });
-
+  
     const allTabs = Array.from(tabs.querySelectorAll('.modal__tab'));
     const allContents = Array.from(
       modal.querySelectorAll('.modal__content'),
     );
-
+  
     if (allTabs.length && allContents.length) {
       let defaultIndex = 0;
-
+  
       try {
         const saved = localStorage.getItem(
           config.lastTabKey || 'stickerPackLastTab',
@@ -187,12 +186,12 @@
           defaultIndex = idx;
         }
       } catch {}
-
+  
       if (!allTabs[defaultIndex].classList.contains('active')) {
         allTabs[defaultIndex].click();
       }
     }
-
+  
     tabs.addEventListener(
       'wheel',
       (e) => {
@@ -203,7 +202,7 @@
       },
       { passive: false },
     );
-
+  
     toggleStickerPackModal(true);
   }
 
@@ -267,36 +266,7 @@
   }
 
   function positionStickerPackModal() {
-    const { button, modalContainer, modal } = stickerPack.elements;
-    if (!button || !modalContainer || !modal) return;
-  
-    const rect = button.getBoundingClientRect();
-    const vw = window.innerWidth || document.documentElement.clientWidth;
-    const vh = window.innerHeight || document.documentElement.clientHeight;
-  
-    const modalRect = modal.getBoundingClientRect();
-    const modalWidth = modalRect.width || 360;
-    const modalHeight = modalRect.height || 320;
-  
-    const margin = 8;
-  
-    let top = rect.bottom + 4;
-  
-    if (top + modalHeight > vh - margin) {
-      top = rect.top - modalHeight - 4;
-    }
-  
-    if (top < margin) top = margin;
-    if (top + modalHeight > vh - margin) {
-      top = Math.max(margin, vh - modalHeight - margin);
-    }
-  
-    let left = rect.left + rect.width / 2 - modalWidth / 2;
-    if (left < margin) left = margin;
-    if (left + modalWidth > vw - margin) left = vw - modalWidth - margin;
-  
-    modalContainer.style.top = top + 'px';
-    modalContainer.style.left = left + 'px';
+    return;
   }
 
   function addStickerEvent(entry) {
