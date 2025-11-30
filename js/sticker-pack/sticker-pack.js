@@ -287,13 +287,15 @@
 
   function toggleStickerPackModal(open = !stickerPack.isModalOpen) {
     stickerPack.isModalOpen = !!open;
-    const { modal, userContent, addBtn } = stickerPack.elements;
-    if (!modal) return;
+    const { modal, modalContainer, userContent, addBtn } = stickerPack.elements;
+    if (!modal || !modalContainer) return;
+  
     modal.classList.toggle('active', stickerPack.isModalOpen);
-
+    modalContainer.classList.toggle('active', stickerPack.isModalOpen);
+  
     if (stickerPack.isModalOpen) {
       positionStickerPackModal();
-
+  
       const closeEvents = [
         'pun_post',
         'pun_preview',
@@ -301,7 +303,7 @@
         'pun_edit',
         'messenger:post',
       ];
-
+  
       const entries = [
         userContent && {
           target: userContent,
@@ -335,7 +337,7 @@
           options: { once: true },
         })),
       ].filter(Boolean);
-
+  
       entries.forEach(addStickerEvent);
     } else {
       stickerPack.events.forEach((entry) => {
