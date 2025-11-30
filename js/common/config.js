@@ -806,7 +806,7 @@
       },
     },
     stickerPack: {
-      dataUrl: 'https://feathertail.ru/ks-assets/stickers.json',
+      dataUrl: 'https://feathertail.ru/images/stickers/stickers.json',
       buttonAfterId: 'button-smile',
       buttonIcon: '/i/blank.gif',
       myTabName: 'Свои',
@@ -903,3 +903,4 @@
     },
   };
 })();
+
