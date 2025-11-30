@@ -655,6 +655,7 @@
     },
     postsCharCounter: {
       allowedForumIds: [10, 11, 12, 13],
+      allowedGroupIds: [1, 2, 3, 4, 5, 6],
       storageKey: 'postsCharCounterToggle',
       toggleInsertAfter: '',
       toggleLabel: 'Счётчик символов в постах',
@@ -903,4 +904,5 @@
     },
   };
 })();
+
 
