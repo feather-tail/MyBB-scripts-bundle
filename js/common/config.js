@@ -806,16 +806,36 @@
       },
     },
     stickerPack: {
-      dataUrl: 'https://forumstatic.ru/files/001c/82/f2/64104.txt',
+      dataUrl: 'https://feathertail.ru/ks-assets/stickers.json',
       buttonAfterId: 'button-smile',
       buttonIcon: '/i/blank.gif',
       myTabName: 'Свои',
       storageKey: 'stickerPackUserData',
       hideMyGroupId: 3,
       maxJsonSize: 65000,
+      maxUserStickers: 200,
       apiUrl: '/api.php',
       apiSetMethod: 'storage.set',
       apiGetMethod: 'storage.get',
+      cacheKey: 'stickerPackForumPacks_v1',
+      cacheTtlMs: 1000 * 60 * 60 * 24,
+      lastTabKey: 'stickerPackLastTab',
+      messages: {
+        buttonTitle: 'Стикеры',
+        inputPlaceholder: 'URL стикера',
+        addButtonLabel: '+',
+        removeTitle: 'Удалить',
+        toastInvalidUrl: 'Некорректная ссылка на изображение',
+        toastTooManyStickers: 'Слишком много стикеров, последний не был сохранён',
+        toastUserLimitReached: 'Слишком много стикеров, достигнут лимит',
+        toastUserSaveError: 'Изменения не сохранились, что-то пошло не так',
+        toastStorageError: 'Стикеры не сохранились, что-то пошло не так',
+        toastStorageCorrupted:
+          'Стикеры в хранилище были повреждены, пришлось их сбросить. Резервная копия строки сохранена локально.',
+        toastUserLoadWarning:
+          'Твои стикеры не прогрузились, придется пользоваться форумными',
+        toastForumLoadError:
+          'Стикеры не грузятся, что-то пошло не так. Может, поможет перезагрузка страницы?',
     },
     textReplace: {
       rules: [
@@ -881,4 +901,5 @@
     },
   };
 })();
+
 
