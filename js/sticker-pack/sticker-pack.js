@@ -102,29 +102,31 @@
   
       tabs.append(createTab(pack.name, pack.stickers[0], false, index));
   
-      const content = createEl('div', {
-        className: 'modal__content',
-      });
+      const content = createEl('div', { className: 'modal__content' });
+      const grid = createEl('div', { className: 'sticker-pack-grid' });
   
       pack.stickers.forEach((url) => {
-        content.append(createStickerItem(url));
+        grid.append(createStickerItem(url));
       });
   
+      content.append(grid);
       contents.push(content);
       modal.append(content);
     });
   
-    let userContent, addBox, input, addBtn;
+    let userContent, userGrid, addBox, input, addBtn;
   
+    // Свои стикеры: grid + блок добавления снизу
     if (getGroupId() !== config.hideMyGroupId) {
       const userTabIndex = contents.length;
   
       tabs.append(createTab(config.myTabName, null, true, userTabIndex));
   
       userContent = createEl('div', { className: 'modal__content' });
+      userGrid = createEl('div', { className: 'sticker-pack-grid' });
   
       stickerPack.userStickers.forEach((url) => {
-        userContent.append(createStickerItem(url, true));
+        userGrid.append(createStickerItem(url, true));
       });
   
       addBox = createEl('div', { className: 'sticker-pack-modal-add' });
@@ -142,7 +144,7 @@
       });
   
       addBox.append(input, addBtn);
-      userContent.append(addBox);
+      userContent.append(userGrid, addBox);
   
       contents.push(userContent);
       modal.append(userContent);
@@ -165,6 +167,7 @@
       modal,
       tabs,
       userContent,
+      userGrid,
       addBox,
       input,
       addBtn,
@@ -427,14 +430,10 @@
       const urlObj = new URL(url);
       const isSafeProtocol = ['http:', 'https:'].includes(urlObj.protocol);
       const isImage = IMAGE_EXT_RE.test(urlObj.pathname);
-      if (
-        !isSafeProtocol ||
-        !isImage ||
-        stickerPack.userStickers.includes(url)
-      ) {
+      if (!isSafeProtocol || !isImage || stickerPack.userStickers.includes(url)) {
         throw new Error('Invalid URL');
       }
-
+  
       if (
         typeof config.maxUserStickers === 'number' &&
         stickerPack.userStickers.length >= config.maxUserStickers
@@ -448,15 +447,18 @@
         );
         return;
       }
-
+  
       const stickers = [...stickerPack.userStickers, url];
       try {
         const saved = await saveUserStickers(stickers);
         const item = createStickerItem(url, true);
-        stickerPack.elements.userContent.insertBefore(
-          item,
-          stickerPack.elements.addBox,
-        );
+  
+        const grid =
+          stickerPack.elements.userGrid || stickerPack.elements.userContent;
+        if (grid) {
+          grid.append(item);
+        }
+  
         input.value = '';
         input.focus();
         stickerPack.userStickers = saved;
