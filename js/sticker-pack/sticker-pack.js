@@ -267,12 +267,35 @@
   }
 
   function positionStickerPackModal() {
-    const { button, modalContainer } = stickerPack.elements;
-    if (!button || !modalContainer) return;
+    const { button, modalContainer, modal } = stickerPack.elements;
+    if (!button || !modalContainer || !modal) return;
   
     const rect = button.getBoundingClientRect();
-    const top = rect.bottom + 4;
-    const left = rect.left + rect.width / 2;
+    const vw = window.innerWidth || document.documentElement.clientWidth;
+    const vh = window.innerHeight || document.documentElement.clientHeight;
+  
+    const modalRect = modal.getBoundingClientRect();
+    const modalWidth = modalRect.width || 360;
+    const modalHeight = modalRect.height || 320;
+  
+    const margin = 8;
+  
+    let centerX = rect.left + rect.width / 2;
+    let top = rect.bottom + 4;
+  
+    if (top + modalHeight > vh - margin) {
+      top = rect.top - modalHeight - 4;
+    }
+  
+    if (top < margin) top = margin;
+    if (top + modalHeight > vh - margin) {
+      top = Math.max(margin, vh - modalHeight - margin);
+    }
+
+    let left = centerX;
+    const half = modalWidth / 2;
+    if (left - half < margin) left = half + margin;
+    if (left + half > vw - margin) left = vw - half - margin;
   
     modalContainer.style.setProperty('--sticker-pack-top', top + 'px');
     modalContainer.style.setProperty('--sticker-pack-left', left + 'px');
