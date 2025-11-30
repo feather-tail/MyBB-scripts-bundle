@@ -280,7 +280,6 @@
   
     const margin = 8;
   
-    let centerX = rect.left + rect.width / 2;
     let top = rect.bottom + 4;
   
     if (top + modalHeight > vh - margin) {
@@ -291,14 +290,13 @@
     if (top + modalHeight > vh - margin) {
       top = Math.max(margin, vh - modalHeight - margin);
     }
-
-    let left = centerX;
-    const half = modalWidth / 2;
-    if (left - half < margin) left = half + margin;
-    if (left + half > vw - margin) left = vw - half - margin;
   
-    modalContainer.style.setProperty('--sticker-pack-top', top + 'px');
-    modalContainer.style.setProperty('--sticker-pack-left', left + 'px');
+    let left = rect.left + rect.width / 2 - modalWidth / 2;
+    if (left < margin) left = margin;
+    if (left + modalWidth > vw - margin) left = vw - modalWidth - margin;
+  
+    modalContainer.style.top = top + 'px';
+    modalContainer.style.left = left + 'px';
   }
 
   function addStickerEvent(entry) {
