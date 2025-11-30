@@ -226,7 +226,7 @@
       tab.append(img);
     } else if (isUserTab) {
       const icon = createEl('i', {
-        className: 'fa-solid fa-user sticker-pack-tab-icon',
+        className: 'fa-regular fa-user sticker-pack-tab-icon',
       });
       tab.append(icon);
     } else {
