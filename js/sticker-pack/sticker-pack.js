@@ -207,16 +207,16 @@
     toggleStickerPackModal(true);
   }
 
-  function createTab(name, previewUrl, isTextOnly = false, index = 0) {
+  function createTab(name, previewUrl, isUserTab = false, index = 0) {
     const tab = createEl('button', {
       className: 'modal__tab',
       type: 'button',
       title: name,
     });
-
+  
     tab.dataset.index = index;
-
-    if (previewUrl && !isTextOnly) {
+  
+    if (previewUrl && !isUserTab) {
       const img = createEl('img', {
         src: previewUrl,
         alt: name,
@@ -224,10 +224,15 @@
         className: 'sticker-pack-tab-icon',
       });
       tab.append(img);
+    } else if (isUserTab) {
+      const icon = createEl('i', {
+        className: 'fa-solid fa-user sticker-pack-tab-icon',
+      });
+      tab.append(icon);
     } else {
       tab.textContent = name;
     }
-
+  
     tab.addEventListener('click', () => {
       try {
         localStorage.setItem(
@@ -236,7 +241,7 @@
         );
       } catch {}
     });
-
+  
     return tab;
   }
 
