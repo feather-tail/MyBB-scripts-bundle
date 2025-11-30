@@ -83,15 +83,6 @@
   
     const modal = createEl('div', { className: 'sticker-pack-modal' });
   
-    const closeBtn = createEl('button', {
-      className: 'sticker-pack-modal__close',
-      type: 'button',
-      title: t('closeTitle', 'Закрыть'),
-      text: '×',
-    });
-    closeBtn.addEventListener('click', closeStickerPackModal);
-    modal.append(closeBtn);
-  
     const tabs = createEl('div', { className: 'modal__tabs' });
     modal.append(tabs);
     modalContainer.append(modal);
@@ -148,6 +139,17 @@
       contents.push(userContent);
       modal.append(userContent);
     }
+  
+    const footer = createEl('div', { className: 'sticker-pack-modal__footer' });
+    const closeBtn = createEl('button', {
+      className: 'sticker-pack-modal__close',
+      type: 'button',
+      title: t('closeTitle', 'Закрыть'),
+      text: t('closeButtonLabel', 'Закрыть'),
+    });
+    closeBtn.addEventListener('click', closeStickerPackModal);
+    footer.append(closeBtn);
+    modal.append(footer);
   
     stickerPack.elements = {
       ...stickerPack.elements,
