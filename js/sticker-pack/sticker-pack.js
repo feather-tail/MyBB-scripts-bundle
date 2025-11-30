@@ -238,10 +238,10 @@
   function positionStickerPackModal() {
     const { button, modalContainer } = stickerPack.elements;
     if (!button || !modalContainer) return;
-
+  
     const rect = button.getBoundingClientRect();
-    const top = rect.bottom + window.scrollY + 4;
-
+    const top = rect.bottom + 4;
+  
     modalContainer.style.setProperty('--sticker-pack-top', top + 'px');
   }
 
