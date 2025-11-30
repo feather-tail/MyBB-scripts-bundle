@@ -80,7 +80,9 @@
     const modalContainer = createEl('div', {
       className: 'sticker-pack-modal-container',
     });
+
     const modal = createEl('div', { className: 'sticker-pack-modal' });
+
     const closeBtn = createEl('button', {
       className: 'sticker-pack-modal__close',
       type: 'button',
@@ -89,52 +91,62 @@
     });
     closeBtn.addEventListener('click', closeStickerPackModal);
     modal.append(closeBtn);
-  
-    const tabs = createEl('div', { className: 'modal__tabs' });
-  
-    modal.append(tabs);
-    modalContainer.append(modal);
-    const tabs = createEl('div', { className: 'modal__tabs' });
 
+    // Вкладки
+    const tabs = createEl('div', { className: 'modal__tabs' });
     modal.append(tabs);
     modalContainer.append(modal);
 
     const contents = [];
 
+    // Форумные паки
     stickerPack.packs.forEach((pack, index) => {
       if (!pack.stickers.length) return;
+
       tabs.append(createTab(pack.name, pack.stickers[0], false, index));
+
       const content = createEl('div', {
         className: 'modal__content',
       });
+
       pack.stickers.forEach((url) => {
         content.append(createStickerItem(url));
       });
+
       contents.push(content);
       modal.append(content);
     });
 
     let userContent, addBox, input, addBtn;
+
     if (getGroupId() !== config.hideMyGroupId) {
       const userTabIndex = contents.length;
+
       tabs.append(createTab(config.myTabName, null, true, userTabIndex));
+
       userContent = createEl('div', { className: 'modal__content' });
+
       stickerPack.userStickers.forEach((url) => {
         userContent.append(createStickerItem(url, true));
       });
+
       addBox = createEl('div', { className: 'sticker-pack-modal-add' });
+
       input = createEl('input', {
         className: 'sticker-pack-modal-input',
         type: 'text',
         placeholder: t('inputPlaceholder', 'URL стикера'),
       });
+
       addBtn = createEl('input', {
         className: 'sticker-pack-modal-add-btn',
         type: 'button',
         value: t('addButtonLabel', '+'),
       });
+
       addBox.append(input, addBtn);
       userContent.append(addBox);
+
       contents.push(userContent);
       modal.append(userContent);
     }
@@ -162,8 +174,10 @@
     const allContents = Array.from(
       modal.querySelectorAll('.modal__content'),
     );
+
     if (allTabs.length && allContents.length) {
       let defaultIndex = 0;
+
       try {
         const saved = localStorage.getItem(
           config.lastTabKey || 'stickerPackLastTab',
