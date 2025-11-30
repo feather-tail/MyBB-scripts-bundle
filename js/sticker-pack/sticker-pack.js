@@ -81,6 +81,19 @@
       className: 'sticker-pack-modal-container',
     });
     const modal = createEl('div', { className: 'sticker-pack-modal' });
+    const closeBtn = createEl('button', {
+      className: 'sticker-pack-modal__close',
+      type: 'button',
+      title: t('closeTitle', 'Закрыть'),
+      text: '×',
+    });
+    closeBtn.addEventListener('click', closeStickerPackModal);
+    modal.append(closeBtn);
+  
+    const tabs = createEl('div', { className: 'modal__tabs' });
+  
+    modal.append(tabs);
+    modalContainer.append(modal);
     const tabs = createEl('div', { className: 'modal__tabs' });
 
     modal.append(tabs);
@@ -88,7 +101,6 @@
 
     const contents = [];
 
-    // Форумные паки
     stickerPack.packs.forEach((pack, index) => {
       if (!pack.stickers.length) return;
       tabs.append(createTab(pack.name, pack.stickers[0], false, index));
@@ -241,8 +253,10 @@
   
     const rect = button.getBoundingClientRect();
     const top = rect.bottom + 4;
+    const left = rect.left + rect.width / 2;
   
     modalContainer.style.setProperty('--sticker-pack-top', top + 'px');
+    modalContainer.style.setProperty('--sticker-pack-left', left + 'px');
   }
 
   function addStickerEvent(entry) {
