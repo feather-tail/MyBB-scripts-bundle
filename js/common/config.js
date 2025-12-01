@@ -646,7 +646,7 @@
       text: 'Новые сообщения',
     },
     postPreview: {
-      debounceDelay: 100,
+      debounceDelay: 1000,
       toggleCookie: '_PreviewToggle',
       allowedForums: [10, 11, 13],
       toggleInsertAfter: '#form-buttons',
@@ -904,5 +904,6 @@
     },
   };
 })();
+
 
 
