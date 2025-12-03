@@ -801,6 +801,17 @@
             },
           ],
         },
+        links: {
+          title: 'Игры',
+          items: [
+            {
+              text: 'Гадание Таро',
+              href: 'https://kindredspirits.ru/pages/tarot',
+              target: '_blank',
+              rel: 'noopener noreferrer',
+            },
+          ],
+        },
         settings: {
           title: 'Настройки',
         },
@@ -904,6 +915,7 @@
     },
   };
 })();
+
 
 
 
