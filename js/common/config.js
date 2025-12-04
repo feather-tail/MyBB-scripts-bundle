@@ -277,6 +277,14 @@
       hideClass: 'hide-profile',
       buttonText: 'Скрыть минипрофиль',
     },
+    bbcodeImageInsert: {
+      buttonAfterSelector: '#button-image',
+      buttonId: 'button-image-insert',
+      buttonTitle: 'Изображение',
+      buttonIcon: '/i/blank.gif',
+      bbcodeOpen: '[img]',
+      bbcodeClose: '[/img]',
+    },
     bbcodeIndent: {
       bbcode: '[indent]',
       marginLeft: '2em',
@@ -915,6 +923,7 @@
     },
   };
 })();
+
 
 
 
