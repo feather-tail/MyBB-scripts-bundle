@@ -690,6 +690,22 @@
         redirectField: 'input[name="redirect_url"]',
       },
     },
+    quicktip: {
+      enabled: true,
+      delayMs: 1200,
+      speedMs: 300,
+      xOffset: 26,
+      yOffset: -5,
+      defaultTitle: 'подсказка',
+      selectors: [
+        'a[title]',
+        'img[title]',
+        'abbr[title]',
+        'div[title]',
+        'span[title]',
+      ],
+    },
+
     quoteBubble: {
       bubbleId: 'quote-bubble',
       iconUrl:
