@@ -697,6 +697,9 @@
       xOffset: 26,
       yOffset: -5,
       defaultTitle: 'подсказка',
+      reuseTooltip: true,
+      useDelegation: true,
+      tooltipId: 'tooltip',
       selectors: [
         'a[title]',
         'img[title]',
@@ -705,7 +708,6 @@
         'span[title]',
       ],
     },
-
     quoteBubble: {
       bubbleId: 'quote-bubble',
       iconUrl:
