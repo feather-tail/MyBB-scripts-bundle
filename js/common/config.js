@@ -921,14 +921,27 @@
         activeControl: 'is-active',
       },
     },
+    userActivityIndicator: {
+      selectors: {
+        post: '.post',
+        authorBlock: '.post-author',
+        authorLink: '.pa-author > a',
+        lastVisit: '.pa-last-visit',
+        activeTime: '.pa-online',
+      },
+      classes: {
+        authorOnlineRoot: 'online',
+        linkOnline: 'online',
+        linkOffline: 'offline',
+        indicatorOnline: 'indOnline',
+        indicatorOffline: 'indOffline',
+      },
+      texts: {
+        lastVisitPrefix: 'Последний визит:',
+        activePrefix: 'Активен',
+        titleOnline: 'Онлайн {{time}}',
+        titleOffline: 'Был(а) онлайн {{time}}',
+      },
+    },
   };
 })();
-
-
-
-
-
-
-
-
-
