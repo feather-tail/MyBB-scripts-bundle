@@ -708,6 +708,31 @@
         'span[title]',
       ],
     },
+    quickReputation: {
+      enabled: true,
+      addComment: true,
+      selectors: {
+        post: '.post',
+        ratingLink: '.post-rating p > a',
+        postVoteBlock: 'div.post-vote',
+        postVoteLink: 'div.post-vote p > a',
+        emailProfileLink: '.pl-email a[href*="profile.php?"]',
+        respectField: '.pa-respect',
+        positiveField: '.pa-positive',
+        reputationSendBtn: '#reputationButtonSend',
+      },
+      classes: {
+        noNull: 'noNull',
+      },
+      texts: {
+        plusNoCommentTitle: 'Плюс без комментария',
+        plusWithCommentTitle: 'Плюсики с комментарием',
+        ignoreAlertSubstring: 'Мы не смогли сохранить ваше сообщение',
+      },
+      ids: {
+        postVotePrefix: 'post-',
+      },
+    },
     quoteBubble: {
       bubbleId: 'quote-bubble',
       iconUrl:
