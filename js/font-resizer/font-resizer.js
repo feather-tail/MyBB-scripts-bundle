@@ -2,6 +2,8 @@
   'use strict';
 
   const helpers = window.helpers;
+  if (!helpers) return;
+
   const { $, $$, createEl } = helpers;
 
   const config = helpers.getConfig('fontResizer', {
@@ -9,28 +11,41 @@
       'iframe.html_frame, .html-post-box iframe.html_frame, .html-content iframe.html_frame',
     minSize: 10,
     maxSize: 38,
+    defaultSize: 14,
+    storageKey: 'postFontSize',
   });
 
   const getAllFontSelectors = () => {
     const base = config.fontSelector
-      ? (Array.isArray(config.fontSelector) ? config.fontSelector : [config.fontSelector])
+      ? Array.isArray(config.fontSelector)
+        ? config.fontSelector
+        : [config.fontSelector]
       : [];
     const extra = config.extraSelectors
-      ? (Array.isArray(config.extraSelectors) ? config.extraSelectors : [config.extraSelectors])
+      ? Array.isArray(config.extraSelectors)
+        ? config.extraSelectors
+        : [config.extraSelectors]
       : [];
     return [...base, ...extra].filter(Boolean);
   };
 
   const getStoredSize = () => {
-    const v = parseInt(localStorage.getItem(config.storageKey), 10);
+    let v = NaN;
+    try {
+      v = parseInt(localStorage.getItem(config.storageKey), 10);
+    } catch (e) {}
     return !isNaN(v) && v >= config.minSize && v <= config.maxSize
       ? v
       : config.defaultSize;
   };
 
-  const storeSize = (size) => localStorage.setItem(config.storageKey, size);
+  const storeSize = (size) => {
+    try {
+      localStorage.setItem(config.storageKey, String(size));
+    } catch (e) {}
+  };
 
-  const applySize = (size) => {
+  const applySizeToMain = (size) => {
     const selectors = getAllFontSelectors();
     if (!selectors.length) return;
 
@@ -46,20 +61,31 @@
       (f) => f && f.tagName === 'IFRAME',
     );
 
-  const postFontSizeToFrame = (frame, size) => {
+  const applySizeToFrame = (frame, size) => {
     try {
-      if (frame && frame.contentWindow) {
-        frame.contentWindow.postMessage(
-          { type: 'FONT_RESIZER_SET', size: Number(size) },
-          '*',
-        );
+      const doc =
+        frame.contentDocument || (frame.contentWindow && frame.contentWindow.document);
+      if (!doc) return;
+
+      const target = doc.body || doc.documentElement;
+      if (target) {
+        target.style.setProperty('font-size', size + 'px', 'important');
+      }
+
+      const win = frame.contentWindow;
+      if (win) {
+        if (typeof win.setHeight === 'function') {
+          win.setHeight();
+        } else {
+          win.dispatchEvent(new win.Event('resize'));
+        }
       }
     } catch (e) {}
   };
 
-  const broadcastToHtmlFrames = (size) => {
+  const applySizeToAllFrames = (size) => {
     const frames = getHtmlFrames();
-    frames.forEach((f) => postFontSizeToFrame(f, size));
+    frames.forEach((f) => applySizeToFrame(f, size));
   };
 
   const wireFrameLoads = () => {
@@ -67,10 +93,10 @@
     const frames = getHtmlFrames();
 
     frames.forEach((f) => {
-      postFontSizeToFrame(f, currentSize);
+      applySizeToFrame(f, currentSize);
 
       f.addEventListener('load', () => {
-        postFontSizeToFrame(f, getStoredSize());
+        applySizeToFrame(f, getStoredSize());
       });
     });
   };
@@ -81,26 +107,27 @@
       for (const m of mutations) {
         m.addedNodes &&
           m.addedNodes.forEach((node) => {
-            if (node && node.nodeType === 1) {
-              if (
-                node.tagName === 'IFRAME' &&
-                node.matches(config.htmlFrameSelector)
-              ) {
-                postFontSizeToFrame(node, currentSize);
-                node.addEventListener('load', () =>
-                  postFontSizeToFrame(node, getStoredSize()),
-                );
-              }
+            if (!node || node.nodeType !== 1) return;
 
-              node.querySelectorAll &&
-                node
-                  .querySelectorAll(config.htmlFrameSelector)
-                  .forEach((fr) => {
-                    postFontSizeToFrame(fr, currentSize);
-                    fr.addEventListener('load', () =>
-                      postFontSizeToFrame(fr, getStoredSize()),
-                    );
-                  });
+            if (
+              node.tagName === 'IFRAME' &&
+              node.matches(config.htmlFrameSelector)
+            ) {
+              applySizeToFrame(node, currentSize);
+              node.addEventListener('load', () =>
+                applySizeToFrame(node, getStoredSize()),
+              );
+            }
+
+            if (node.querySelectorAll) {
+              node
+                .querySelectorAll(config.htmlFrameSelector)
+                .forEach((fr) => {
+                  applySizeToFrame(fr, currentSize);
+                  fr.addEventListener('load', () =>
+                    applySizeToFrame(fr, getStoredSize()),
+                  );
+                });
             }
           });
       }
@@ -146,19 +173,23 @@
 
   function applyStoreBroadcast(size) {
     const s = Math.max(config.minSize, Math.min(config.maxSize, Number(size)));
-    applySize(s);
+
+    applySizeToMain(s);
     storeSize(s);
-    broadcastToHtmlFrames(s);
+    applySizeToAllFrames(s);
   }
 
   function init() {
     const initialSize = getStoredSize();
-    applySize(initialSize);
-    broadcastToHtmlFrames(initialSize);
+
+    applySizeToMain(initialSize);
+    applySizeToAllFrames(initialSize);
+
     wireFrameLoads();
     observeNewFrames();
+
     setTimeout(() => {
-      broadcastToHtmlFrames(getStoredSize());
+      applySizeToAllFrames(getStoredSize());
     }, 250);
 
     let anchor = config.insertAfterSelector
