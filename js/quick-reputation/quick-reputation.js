@@ -1,8 +1,9 @@
 (() => {
   'use strict';
 
-  const cfgRoot = window.ScriptConfig && window.ScriptConfig.quickReputation;
-  if (!cfgRoot || cfgRoot.enabled === false) return;
+  const cfgRoot =
+    (window.ScriptConfig && window.ScriptConfig.quickReputation) || {};
+  if (cfgRoot.enabled === false) return;
 
   const sel = cfgRoot.selectors || {};
   const cls = cfgRoot.classes || {};
@@ -341,3 +342,4 @@
     init();
   }
 })();
+
