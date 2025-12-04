@@ -877,6 +877,21 @@
           'Стикеры не грузятся, что-то пошло не так. Может, поможет перезагрузка страницы?',
       },
     },
+    stickyNav: {
+      enabled: true,
+      targets: [
+        {
+          selector: '#pun-navlinks',
+          scrolledClass: 'nav-scrolled',
+          threshold: 0,
+        },
+        {
+          selector: '#pun-ulinks',
+          scrolledClass: 'user-scrolled',
+          threshold: 345,
+        },
+      ],
+    },
     textReplace: {
       rules: [
         {
