@@ -9,6 +9,8 @@
   const cls = cfgRoot.classes || {};
   const txt = cfgRoot.texts || {};
   const ids = cfgRoot.ids || {};
+  const behaviorCfg = cfgRoot.behavior || {};
+
   const POST_SELECTOR = sel.post || '.post';
   const POSTBOX_SELECTOR = sel.postBox || '.post-box';
   const RATING_LINK_SELECTOR = sel.ratingLink || '.post-rating p > a';
@@ -32,11 +34,18 @@
   const POSTVOTE_PREFIX = ids.postVotePrefix || 'post-';
   const addCommentEnabled = cfgRoot.addComment !== false;
 
+  const ratingClickMode = behaviorCfg.ratingClickMode || 'ajax-only';
+  const openDefaultWithCtrlClick =
+    behaviorCfg.openDefaultWithCtrlClick !== false;
+
   const originalAlert =
     typeof window.alert === 'function' ? window.alert.bind(window) : null;
   if (originalAlert) {
     window.alert = (msg) => {
-      if (typeof msg === 'string' && msg.indexOf(IGNORE_ALERT_PART) !== -1) {
+      if (
+        typeof msg === 'string' &&
+        msg.indexOf(IGNORE_ALERT_PART) !== -1
+      ) {
         return;
       }
       originalAlert(msg);
@@ -201,7 +210,7 @@
   };
 
   const sendQuickPlus = (post, ratingLink) => {
-    if (!post || !ratingLink) return;
+    if (!post) return;
 
     const voteLink = post.querySelector(POSTVOTE_LINK_SELECTOR);
     if (!voteLink) return;
@@ -267,10 +276,10 @@
     if (!target) return;
 
     const link = target.closest('a');
+    const href = link && link.getAttribute('href');
+
     const isRelationLink =
-      link &&
-      link.getAttribute('href') &&
-      link.getAttribute('href').indexOf('/relation.php?id=') !== -1;
+      link && href && href.indexOf('/relation.php?id=') !== -1;
 
     const isPostVotePlus =
       link && link.closest(POSTVOTE_BLOCK_SELECTOR || 'div.post-vote');
@@ -327,9 +336,38 @@
       }
 
       link.addEventListener('click', (e) => {
-        e.preventDefault();
         const post = findPostRoot(link);
-        sendQuickPlus(post, link);
+        if (!post) return;
+
+        const modifierPressed =
+          openDefaultWithCtrlClick && (e.ctrlKey || e.metaKey);
+
+        let doAjax = true;
+        let cancelDefault = false;
+
+        if (modifierPressed) {
+          doAjax = false;
+          cancelDefault = false;
+        } else {
+          if (ratingClickMode === 'ajax-only') {
+            cancelDefault = true;
+            doAjax = true;
+          } else if (ratingClickMode === 'ajax+default') {
+            cancelDefault = false;
+            doAjax = true;
+          } else if (ratingClickMode === 'default-only') {
+            cancelDefault = false;
+            doAjax = false;
+          }
+        }
+
+        if (cancelDefault) {
+          e.preventDefault();
+        }
+
+        if (doAjax) {
+          sendQuickPlus(post, link);
+        }
       });
     });
 
@@ -342,4 +380,3 @@
     init();
   }
 })();
-
