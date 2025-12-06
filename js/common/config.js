@@ -711,6 +711,10 @@
     quickReputation: {
       enabled: true,
       addComment: true,
+      behavior: {
+        ratingClickMode: 'ajax+default',
+        openDefaultWithCtrlClick: true,
+      },
       selectors: {
         post: '.post',
         ratingLink: '.post-rating p > a',
@@ -1002,5 +1006,6 @@
     },
   };
 })();
+
 
 
