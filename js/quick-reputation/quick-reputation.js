@@ -234,39 +234,56 @@
     const url =
       href.indexOf('format=json') !== -1 ? href : `${href}&format=json`;
 
-    fetch(url, { credentials: 'same-origin' })
-      .then((res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return res.json();
-      })
-      .then((data) => {
-        if (data.error && data.error.message) {
-          notifyError(data.error.message);
-        }
-        if (!data.delta) return;
+    const handleResponse = (data) => {
+      if (!data) return;
 
-        const ratingEl = document.querySelector(`#p${pid} .post-rating p > a`);
-        if (ratingEl) {
-          let pr = data.response;
-          if (typeof pr === 'number') {
-            pr = pr.toString();
-          }
-          const n = parseInt(pr, 10);
-          ratingEl.textContent = Number.isNaN(n) ? String(pr) : String(n);
-          if (!Number.isNaN(n) && n > 0) {
-            ratingEl.classList.add(NONULL_CLASS);
-          } else {
-            ratingEl.classList.remove(NONULL_CLASS);
-          }
-        }
+      if (data.error && data.error.message) {
+        notifyError(data.error.message);
+      }
+      if (!data.delta) return;
 
-        if (uid) {
-          updateReputationFields(uid, v, data.delta);
+      const ratingEl = document.querySelector(`#p${pid} .post-rating p > a`);
+      if (ratingEl) {
+        let pr = data.response;
+        if (typeof pr === 'number') {
+          pr = pr.toString();
         }
-      })
-      .catch((err) => {
-        console.error('quickReputation error:', err);
-      });
+        const n = parseInt(pr, 10);
+        ratingEl.textContent = Number.isNaN(n) ? String(pr) : String(n);
+        if (!Number.isNaN(n) && n > 0) {
+          ratingEl.classList.add(NONULL_CLASS);
+        } else {
+          ratingEl.classList.remove(NONULL_CLASS);
+        }
+      }
+
+      if (uid) {
+        updateReputationFields(uid, v, data.delta);
+      }
+    };
+
+    if (window.jQuery && window.jQuery.get) {
+      window.jQuery
+        .get(url, handleResponse)
+        .fail((xhr, status, err) => {
+          console.error('quickReputation jQuery error:', status, err);
+        });
+    }
+    else if (window.fetch) {
+      fetch(url, { credentials: 'same-origin' })
+        .then((res) => {
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          return res.json();
+        })
+        .then(handleResponse)
+        .catch((err) => {
+          console.error('quickReputation fetch error:', err);
+        });
+    }
+    else {
+      const img = new Image();
+      img.src = url;
+    }
   };
 
   let pendingRatingLink = null;
@@ -385,4 +402,5 @@
     init();
   }
 })();
+
 
