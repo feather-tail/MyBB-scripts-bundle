@@ -493,7 +493,7 @@
       enabled: true,
       allowedGroupIds: ['1', '2', '4', '6'],
       protectedForumIds: ['8'],
-      blockMode: 'replace',
+      blockMode: 'redirect',
       redirectUrl: '/',
       hideRowsOnIndex: true,
       selectors: {
@@ -1002,4 +1002,5 @@
     },
   };
 })();
+
 
