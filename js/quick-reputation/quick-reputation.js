@@ -322,54 +322,59 @@
       });
     }
 
-    const ratingLinks = document.querySelectorAll(RATING_LINK_SELECTOR);
-    ratingLinks.forEach((link) => {
-      normalizeRatingDigit(link);
-      link.title = TITLE_PLUS_NO_COMMENT;
-
+  const ratingLinks = document.querySelectorAll(RATING_LINK_SELECTOR);
+  ratingLinks.forEach((link) => {
+    normalizeRatingDigit(link);
+    link.title = TITLE_PLUS_NO_COMMENT;
+  
+    const post = findPostRoot(link);
+    if (post && addCommentEnabled) {
+      const voteLink = post.querySelector(POSTVOTE_LINK_SELECTOR);
+      if (voteLink && !voteLink.title) {
+        voteLink.title = TITLE_PLUS_WITH_COMMENT;
+      }
+    }
+  
+    link.onclick = (e) => {
+      e = e || window.event;
+  
       const post = findPostRoot(link);
-      if (post && addCommentEnabled) {
-        const voteLink = post.querySelector(POSTVOTE_LINK_SELECTOR);
-        if (voteLink && !voteLink.title) {
-          voteLink.title = TITLE_PLUS_WITH_COMMENT;
+      if (!post) return true;
+  
+      const modifierPressed =
+        openDefaultWithCtrlClick && (e.ctrlKey || e.metaKey);
+  
+      let doAjax = true;
+      let cancelDefault = false;
+  
+      if (modifierPressed) {
+        doAjax = false;
+        cancelDefault = false;
+      } else {
+        if (ratingClickMode === 'ajax-only') {
+          cancelDefault = true;
+          doAjax = true;
+        } else if (ratingClickMode === 'ajax+default') {
+          cancelDefault = false;
+          doAjax = true;
+        } else if (ratingClickMode === 'default-only') {
+          cancelDefault = false;
+          doAjax = false;
         }
       }
-
-      link.addEventListener('click', (e) => {
-        const post = findPostRoot(link);
-        if (!post) return;
-
-        const modifierPressed =
-          openDefaultWithCtrlClick && (e.ctrlKey || e.metaKey);
-
-        let doAjax = true;
-        let cancelDefault = false;
-
-        if (modifierPressed) {
-          doAjax = false;
-          cancelDefault = false;
-        } else {
-          if (ratingClickMode === 'ajax-only') {
-            cancelDefault = true;
-            doAjax = true;
-          } else if (ratingClickMode === 'ajax+default') {
-            cancelDefault = false;
-            doAjax = true;
-          } else if (ratingClickMode === 'default-only') {
-            cancelDefault = false;
-            doAjax = false;
-          }
-        }
-
-        if (cancelDefault) {
-          e.preventDefault();
-        }
-
-        if (doAjax) {
-          sendQuickPlus(post, link);
-        }
-      });
-    });
+  
+      if (doAjax) {
+        sendQuickPlus(post, link);
+      }
+  
+      if (cancelDefault) {
+        if (e && e.preventDefault) e.preventDefault();
+        return false;
+      }
+  
+      return true;
+    };
+  });
 
     document.addEventListener('click', onDocumentClick);
   };
@@ -380,3 +385,4 @@
     init();
   }
 })();
+
