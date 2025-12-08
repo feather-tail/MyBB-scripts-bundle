@@ -213,6 +213,12 @@
         doc.querySelector('.custom_tag_charrace p, .char-race p'),
       );
 
+      const personalText = textFrom(
+        doc.querySelector(
+          '.custom_tag_charpt p, .custom_tag.custom_tag_charpt.char-field.personal-text p',
+        ),
+      );
+
       const hasAny = nameRu || nameEn || age !== null || race;
       if (!hasAny) return null;
 
@@ -221,6 +227,7 @@
         name_en: nameEn || '',
         age,
         race: race || '',
+        lz: personalText || '',
       };
     };
 
@@ -507,6 +514,9 @@
       if (!characterData.race) {
         throw new Error('Не найдена раса персонажа (BB-код [charrace]).');
       }
+      if (!characterData.lz) {
+        throw new Error('Не найден текст ЛЗ (BB-код [charpt]).');
+      }
 
       const userId = await findUserId(characterData, firstPost);
       if (!userId) {
@@ -522,26 +532,22 @@
       state.loaded = true;
     };
 
-    // --- Операции ---
     const handleFillProfile = async () => {
       try {
         await ensureLoaded();
         const { userId, slug, characterData, topicId } = state;
         const raceLetter = getRaceLetter(characterData.race);
-
+    
         const topicUrlBase = `${location.origin}/viewtopic.php?id=${topicId}`;
-        const lzText =
-          prompt(
-            'Введите HTML текст для ЛЗ (будет записан в поле Дополнительно):',
-            `<p>Краткое ЛЗ персонажа.</p>`,
-          ) || '';
-
+    
+        const lzText = characterData.lz;
+    
         const raceField = `<div title="${characterData.race}">${raceLetter}</div>`;
         const lzField = `<div class="lz-name"><a href="${topicUrlBase}">${characterData.name}</a>, ${characterData.age}</div> <div class="lz-text">${lzText}</div>`;
         const plahField = `<pers-plah class="modal-link" id="${slug}" data-user-id="${userId}" role="button" tabindex="0" style="cursor:pointer"><div class="pers-plah"><em class="pers-plah-text"> Two bodies, one soul </em></div></pers-plah>`;
-
+    
         const { form, actionUrl } = await fetchProfileForm(userId);
-
+    
         const overrides = {
           [KS_CONFIG.profileFields.race]: raceField,
           [KS_CONFIG.profileFields.title]: lzField,
@@ -549,10 +555,10 @@
           [KS_CONFIG.profileFields.money]: KS_CONFIG.defaultValues.money,
           [KS_CONFIG.profileFields.posts]: KS_CONFIG.defaultValues.posts,
         };
-
+    
         const params = buildParamsWithOverrides(form, overrides);
         await postForm(actionUrl, params, actionUrl);
-
+    
         notify(
           'Профиль обновлён. Проверь вкладку «Дополнительно» в профиле пользователя.',
           'success',
@@ -677,3 +683,4 @@
 
   runOnceOnReady(start);
 })();
+
