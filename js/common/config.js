@@ -1,6 +1,32 @@
 (() => {
   'use strict';
   window.ScriptConfig = {
+    adminGamepostReward: {
+      forumIds: [10, 11, 12, 13, 17],
+      includeFirstPost: false,
+      apiBase: "/api.php",
+      topicsPerRequest: 100,
+      postsPerRequest: 100,
+      delayBetweenRequestsMs: 200,
+      retryAttempts: 2,
+      retryBaseDelayMs: 800,
+      logToConsole: true,
+      baseReward: 10,
+      fastMultiplier: 1.5,
+      fastThresholdSeconds: 24 * 3600,
+      episodeForumId: 17,
+      endpoints: {
+        bankApiUrl: "https://feathertail.ru/ks/bank/bank-api.php",
+      },
+      selectors: {
+        runButton: "#ks-gpreward-run",
+        applyButton: "#ks-gpreward-apply",
+        warningBox: "#ks-gpreward-warning",
+        errorBox: "#ks-gpreward-error",
+        previewBox: "#ks-gpreward-preview",
+        summaryBox: "#ks-gpreward-summary",
+      },
+    },
     adminBank: {
       endpoints: {
         bankApiUrl: "https://feathertail.ru/ks/bank/bank-api.php",
@@ -1055,6 +1081,7 @@
     },
   };
 })();
+
 
 
 
