@@ -24,7 +24,7 @@
         searchInput: "#ks-bank-admin-search",
       },
     },
-    gamepostRecount: {
+    adminGamepostRecount: {
       forumIds: [10, 13, 11, 12, 17],
       includeFirstPost: false,
       apiBase: "/api.php",
@@ -1104,6 +1104,7 @@
     },
   };
 })();
+
 
 
 
