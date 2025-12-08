@@ -117,7 +117,6 @@
           : 15000,
     };
 
-    // --- Проверка доступа ---
     const forumId = getForumId();
     const user = getUserInfo();
 
@@ -143,11 +142,9 @@
     }
 
     if (!location.pathname.includes('viewtopic.php')) {
-      // Ограничимся страницами темы
       return;
     }
 
-    // --- Состояние ---
     const state = {
       loaded: false,
       topicId: null,
@@ -157,7 +154,6 @@
       slug: null,
     };
 
-    // --- Утилиты парсинга и запросов ---
     const textFrom = (el) =>
       String((el && (el.textContent || el.innerText)) || '').trim();
 
@@ -479,7 +475,6 @@
       return null;
     };
 
-    // --- Загрузка данных из текущей темы (один раз) ---
     const ensureLoaded = async () => {
       if (state.loaded) return;
 
@@ -626,7 +621,6 @@
       }
     };
 
-    // --- Рендер кнопок ---
     const renderButtons = () => {
       const container = document.createElement('div');
       container.className = 'charpt-inline-controls';
@@ -657,7 +651,6 @@
       container.appendChild(pageBtn);
       container.appendChild(groupBtn);
 
-      // Куда вставлять
       const anchorSel =
         selectors.insertAfter || 'input.button.preview[name="preview"]';
       const anchor = document.querySelector(anchorSel);
@@ -683,4 +676,5 @@
 
   runOnceOnReady(start);
 })();
+
 
