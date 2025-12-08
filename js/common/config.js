@@ -94,7 +94,7 @@
       forumBaseUrl: 'https://kindredspirits.ru/',
       storageKeyPrefix: 'ks-bank-cart-',
       endpoints: {
-        configUrl: 'https://feathertail.ru/ks/bank/bank.php',
+        configUrl: 'https://feathertail.ru/ks/bank/bank.json',
         apiUrl: 'https://feathertail.ru/ks/bank/bank-api.php',
       },
       selectors: {
@@ -1032,6 +1032,7 @@
     },
   };
 })();
+
 
 
 
