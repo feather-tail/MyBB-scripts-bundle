@@ -799,7 +799,7 @@
       left.append(idDiv, dateDiv, totalsDiv);
 
       const right = document.createElement('div');
-      right.className = 'ks-bank-request__meta';
+      right.className = 'ks-bank-request__meta_second';
 
       const statusSpan = document.createElement('span');
       statusSpan.className = 'ks-bank-request__status';
@@ -1289,5 +1289,6 @@
     start();
   }
 })();
+
 
 
