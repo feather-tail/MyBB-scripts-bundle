@@ -814,7 +814,7 @@
       balanceDiv.className = 'ks-bank-request__date';
       const current = state.currentBalance;
       const after = current + (Number(item.delta) || 0);
-      balanceDiv.innerHTML = `Баланс (текущий ? ${current}): после заявки будет ${after}`;
+      balanceDiv.innerHTML = `Баланс: ${current}. Будет ${after}`;
       right.appendChild(balanceDiv);
 
       header.append(left, right);
@@ -1289,4 +1289,5 @@
     start();
   }
 })();
+
 
