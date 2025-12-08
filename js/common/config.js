@@ -1,6 +1,29 @@
 (() => {
   'use strict';
   window.ScriptConfig = {
+    adminBank: {
+      endpoints: {
+        bankApiUrl: "https://feathertail.ru/ks/bank/bank-api.php",
+        forumApiBase: "/api.php",
+        profileUrl: (uid) => `/profile.php?section=fields&id=${uid}`,
+        profileFormSelector:
+          'form[action*="profile.php"][method="post"]',
+      },
+      profile: {
+        moneyFieldName: "form[fld4]",
+        decimals: 2,
+      },
+      requestTimeoutMs: 15000,
+      selectors: {
+        root: "#ks-bank-admin-root",
+        messages: "#ks-bank-admin-messages",
+        summaryBox: "#ks-bank-admin-summary",
+        list: "#ks-bank-admin-list",
+        reloadBtn: "#ks-bank-admin-reload",
+        statusFilter: "#ks-bank-admin-status",
+        searchInput: "#ks-bank-admin-search",
+      },
+    },
     balanceTool: {
       ui: {
         insertAfterSelector: '.post-rating',
@@ -33,25 +56,7 @@
       },
       requestTimeoutMs: 15000,
       toastDurationMs: 2200,
-    },
-    bankAdmin: { 
-      endpoints: {
-        apiUrl: 'https://feathertail.ru/ks/bank/bank-api.php',
-      },
-      selectors: {
-        messages: '#ks-bank-admin-messages',
-        list: '#ks-bank-admin-list',
-        summary: '#ks-bank-admin-summary',
-        reloadBtn: '#ks-bank-admin-reload',
-        status: '#ks-bank-admin-status',
-        search: '#ks-bank-admin-search',
-      },
-      requestTimeoutMs: 15000,
-      balance: {
-        decimals: 2,
-        moneyFieldName: 'form[fld4]',
-      },
-    },    
+    }, 
     bankShop: {
       forumBaseUrl: 'https://kindredspirits.ru/',
       storageKeyPrefix: 'ks-bank-cart-',
@@ -1050,6 +1055,7 @@
     },
   };
 })();
+
 
 
 
