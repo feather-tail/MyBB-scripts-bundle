@@ -90,6 +90,32 @@
       requestTimeoutMs: 15000,
       toastDurationMs: 2200,
     },
+    bankShop: {
+      forumBaseUrl: 'https://kindredspirits.ru/',
+      storageKeyPrefix: 'ks-bank-cart-',
+      endpoints: {
+        configUrl: 'https://feathertail.ru/ks/bank/bank.php',
+        apiUrl: 'https://feathertail.ru/ks/bank/bank-api.php',
+      },
+      selectors: {
+        root: '#ks-bank-root',
+        messages: '#ks-bank-messages',
+        myRequestsMessages: '#ks-bank-requests-messages',
+        spendList: '#ks-bank-spend-list',
+        earnList: '#ks-bank-earn-list',
+        cartSpend: '#ks-bank-cart-spend',
+        cartEarn: '#ks-bank-cart-earn',
+        balanceBox: '#ks-bank-balance',
+        summaryBox: '#ks-bank-summary',
+        generateBtn: '#ks-bank-generate',
+        requestsRoot: '#ks-bank-requests',
+        requestsList: '#ks-bank-requests-list',
+        requestsToggle: '#ks-bank-requests-toggle',
+        requestsToggleIcon: '#ks-bank-requests-toggle-icon',
+      },
+      restorePrompt:
+        'Обнаружена незавершённая заявка банка. Восстановить корзину?',
+    },    
     bbcodeMask: {
       blockTag: 'mask',
       defaultAvatar: 'https://i.imgur.com/bQuC3S1.png',
@@ -1006,6 +1032,7 @@
     },
   };
 })();
+
 
 
 
