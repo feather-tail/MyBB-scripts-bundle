@@ -1,6 +1,52 @@
 (() => {
   'use strict';
   window.ScriptConfig = {
+    adminBank: {
+      endpoints: {
+        bankApiUrl: "https://feathertail.ru/ks/bank/bank-api.php",
+        forumApiBase: "/api.php",
+        profileUrl: (uid) => `/profile.php?section=fields&id=${uid}`,
+        profileFormSelector:
+          'form[action*="profile.php"][method="post"]',
+      },
+      profile: {
+        moneyFieldName: "form[fld4]",
+        decimals: 2,
+      },
+      requestTimeoutMs: 15000,
+      selectors: {
+        root: "#ks-bank-admin-root",
+        messages: "#ks-bank-admin-messages",
+        summaryBox: "#ks-bank-admin-summary",
+        list: "#ks-bank-admin-list",
+        reloadBtn: "#ks-bank-admin-reload",
+        statusFilter: "#ks-bank-admin-status",
+        searchInput: "#ks-bank-admin-search",
+      },
+    },
+    gamepostRecount: {
+      forumIds: [10, 13, 11, 12, 17],
+      includeFirstPost: false,
+      apiBase: "/api.php",
+      topicsPerRequest: 100,
+      postsPerRequest: 100,
+      delayBetweenRequestsMs: 200,
+      retryAttempts: 2,
+      retryBaseDelayMs: 800,
+      logToConsole: true,
+      selectors: {
+        runButton: "#ks-recount-run",
+        saveButton: "#ks-recount-save",
+        logBox: "#ks-recount-result",
+        summaryBox: "#ks-recount-progress",
+      },
+      backend: {
+        endpoint: "/ks-gameposts.php",
+        method: "recalc",
+        subscription: "ks_forum_stats",
+        tableKey: "gameposts",
+      },
+    },
     adminGamepostReward: {
       forumIds: [10, 11, 12, 13, 17],
       includeFirstPost: false,
@@ -25,29 +71,6 @@
         errorBox: "#ks-gpreward-error",
         previewBox: "#ks-gpreward-preview",
         summaryBox: "#ks-gpreward-summary",
-      },
-    },
-    adminBank: {
-      endpoints: {
-        bankApiUrl: "https://feathertail.ru/ks/bank/bank-api.php",
-        forumApiBase: "/api.php",
-        profileUrl: (uid) => `/profile.php?section=fields&id=${uid}`,
-        profileFormSelector:
-          'form[action*="profile.php"][method="post"]',
-      },
-      profile: {
-        moneyFieldName: "form[fld4]",
-        decimals: 2,
-      },
-      requestTimeoutMs: 15000,
-      selectors: {
-        root: "#ks-bank-admin-root",
-        messages: "#ks-bank-admin-messages",
-        summaryBox: "#ks-bank-admin-summary",
-        list: "#ks-bank-admin-list",
-        reloadBtn: "#ks-bank-admin-reload",
-        statusFilter: "#ks-bank-admin-status",
-        searchInput: "#ks-bank-admin-search",
       },
     },
     balanceTool: {
@@ -1081,6 +1104,7 @@
     },
   };
 })();
+
 
 
 
