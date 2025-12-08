@@ -44,6 +44,12 @@
 
   const MULT_SIGN = '\u00D7';
   const DELTA_SIGN = '\u0394';
+  const STATUS_LABELS = {
+    pending: 'В обработке',
+    approved: 'Завершена',
+    rejected: 'Отклонена',
+    canceled: 'Отменена',
+  };
 
   const FORUM_BASE_URL =
     (SETTINGS.forumBaseUrl || DEFAULT_CONFIG.forumBaseUrl || '').replace(
@@ -798,8 +804,9 @@
       const statusSpan = document.createElement('span');
       statusSpan.className = 'ks-bank-request__status';
       const status = item.status || 'pending';
+      const statusLabel = STATUS_LABELS[status] || status;
       statusSpan.classList.add(`ks-bank-request__status--${status}`);
-      statusSpan.textContent = status;
+      statusSpan.textContent = statusLabel;
 
       right.appendChild(statusSpan);
 
@@ -1282,3 +1289,4 @@
     start();
   }
 })();
+
