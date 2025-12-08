@@ -1,62 +1,6 @@
 (() => {
   'use strict';
   window.ScriptConfig = {
-    dice: {
-      maxDice: 9,
-      maxSides: 100,
-      obfOffset: 1193,
-      buttonAfterSelector: '#button-addition',
-      buttonSelector: '#dice-roll-btn',
-      buttonIcon: '/i/blank.gif',
-    },
-    domWrappers: {
-      groups: [
-        {
-          rootSelector: '#pun-index .tcr',
-          targetSelector: '.lastpost-link, .lastpost',
-          wrapperClass: 'tcr-wrap',
-        },
-        {
-          rootSelector: '#pun-stats',
-          targetSelector: '.item1, .item2, .item3, .item4',
-          wrapperClass: 'statsinfo',
-        },
-        {
-          rootSelector: '.punbb .post .post-author',
-          targetSelector: 'li.pa-title, .pa-avatar, .pa-fld1',
-          wrapperClass: 'author-wrap',
-        },
-        {
-          rootSelector: '#pun-main .post-author ul',
-          targetSelector: '.pa-posts, .pa-respect, .pa-fld4, .pa-fld5',
-          wrapperClass: 'wrap-resp',
-        },
-        {
-          rootSelector: '.post-box',
-          targetSelector: '.post-rating, .post-vote',
-          wrapperClass: 'rsp_wrap',
-        },
-        {
-          rootSelector: 'body',
-          targetSelector: '#selectMobVers, #selectDescVers',
-          wrapperClass: 'sty',
-        },
-      ],
-    },
-    fontResizer: {
-      fontSelector: '.post-content, #main-reply',
-      extraSelectors: [
-        '.post-box .custom_tag_katexttext',
-        '.post-box .custom_tag_katext',
-        '.post-box .custom_tag_kindredaca',
-      ],
-      storageKey: 'postFontSize',
-      minSize: 10,
-      maxSize: 38,
-      defaultSize: 14,
-      insertAfterSelector: '',
-      defaultAnchorSelector: '.post h3 strong',
-    },
     balanceTool: {
       ui: {
         insertAfterSelector: '.post-rating',
@@ -90,6 +34,24 @@
       requestTimeoutMs: 15000,
       toastDurationMs: 2200,
     },
+    bankAdmin: { 
+      endpoints: {
+        apiUrl: 'https://feathertail.ru/ks/bank/bank-api.php',
+      },
+      selectors: {
+        messages: '#ks-bank-admin-messages',
+        list: '#ks-bank-admin-list',
+        summary: '#ks-bank-admin-summary',
+        reloadBtn: '#ks-bank-admin-reload',
+        status: '#ks-bank-admin-status',
+        search: '#ks-bank-admin-search',
+      },
+      requestTimeoutMs: 15000,
+      balance: {
+        decimals: 2,
+        moneyFieldName: 'form[fld4]',
+      },
+    },    
     bankShop: {
       forumBaseUrl: 'https://kindredspirits.ru/',
       storageKeyPrefix: 'ks-bank-cart-',
@@ -497,7 +459,49 @@
         0: 'https://forumstatic.ru/files/001c/82/f2/23507.jpg',
         3: 'https://forumstatic.ru/files/001c/82/f2/50471.jpg',
       },
-    },
+    },    
+    dice: {
+      maxDice: 9,
+      maxSides: 100,
+      obfOffset: 1193,
+      buttonAfterSelector: '#button-addition',
+      buttonSelector: '#dice-roll-btn',
+      buttonIcon: '/i/blank.gif',
+    },    
+    domWrappers: {
+      groups: [
+        {
+          rootSelector: '#pun-index .tcr',
+          targetSelector: '.lastpost-link, .lastpost',
+          wrapperClass: 'tcr-wrap',
+        },
+        {
+          rootSelector: '#pun-stats',
+          targetSelector: '.item1, .item2, .item3, .item4',
+          wrapperClass: 'statsinfo',
+        },
+        {
+          rootSelector: '.punbb .post .post-author',
+          targetSelector: 'li.pa-title, .pa-avatar, .pa-fld1',
+          wrapperClass: 'author-wrap',
+        },
+        {
+          rootSelector: '#pun-main .post-author ul',
+          targetSelector: '.pa-posts, .pa-respect, .pa-fld4, .pa-fld5',
+          wrapperClass: 'wrap-resp',
+        },
+        {
+          rootSelector: '.post-box',
+          targetSelector: '.post-rating, .post-vote',
+          wrapperClass: 'rsp_wrap',
+        },
+        {
+          rootSelector: 'body',
+          targetSelector: '#selectMobVers, #selectDescVers',
+          wrapperClass: 'sty',
+        },
+      ],
+    },    
     episodeTracker: {
       allowedGroupIds: [1, 2, 6],
       oneDayMs: 86400000,
@@ -514,7 +518,21 @@
         { selector: '.pa-posts .fld-name', title: 'сообщения' },
         { selector: '.pa-respect .fld-name', title: 'репутация' },
       ],
-    },
+    },    
+    fontResizer: {
+      fontSelector: '.post-content, #main-reply',
+      extraSelectors: [
+        '.post-box .custom_tag_katexttext',
+        '.post-box .custom_tag_katext',
+        '.post-box .custom_tag_kindredaca',
+      ],
+      storageKey: 'postFontSize',
+      minSize: 10,
+      maxSize: 38,
+      defaultSize: 14,
+      insertAfterSelector: '',
+      defaultAnchorSelector: '.post h3 strong',
+    },    
     forumAccessGuard: {
       enabled: true,
       allowedGroupIds: ['1', '2', '4', '6'],
@@ -1032,6 +1050,7 @@
     },
   };
 })();
+
 
 
 
