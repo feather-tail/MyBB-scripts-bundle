@@ -1,0 +1,93 @@
+<div class="ks-bank" id="ks-bank-root">
+  <div class="ks-bank__tabs">
+    <button type="button" class="ks-bank__tab-btn is-active" data-tab="spend">
+      Траты
+    </button>
+    <button type="button" class="ks-bank__tab-btn" data-tab="earn">
+      Начисления
+    </button>
+  </div>
+
+  <div class="ks-bank__layout">
+    <div class="ks-bank__panel">
+      <section class="ks-bank__tab-content is-active" data-tab-panel="spend">
+        <h2 class="ks-bank__heading">Траты</h2>
+        <div class="ks-bank__items" id="ks-bank-spend-list"></div>
+      </section>
+
+      <section class="ks-bank__tab-content" data-tab-panel="earn">
+        <h2 class="ks-bank__heading">Начисления</h2>
+        <div class="ks-bank__items" id="ks-bank-earn-list"></div>
+      </section>
+    </div>
+
+    <aside class="ks-bank__cart" aria-label="Корзина банка">
+      <h2 class="ks-bank__heading">Корзина</h2>
+
+      <div class="ks-bank__cart-section">
+        <h3 class="ks-bank__subheading">Покупки</h3>
+        <div class="ks-bank__cart-list" id="ks-bank-cart-spend"></div>
+      </div>
+
+      <div class="ks-bank__cart-section">
+        <h3 class="ks-bank__subheading">Начисления</h3>
+        <div class="ks-bank__cart-list" id="ks-bank-cart-earn"></div>
+      </div>
+
+      <div class="ks-bank__balance" id="ks-bank-balance"></div>
+
+      <div class="ks-bank__summary" id="ks-bank-summary"></div>
+
+      <div class="ks-bank__messages" id="ks-bank-messages"></div>
+
+      <button type="button" class="ks-bank__generate-btn" id="ks-bank-generate">
+        Отправить заявку
+      </button>
+    </aside>
+  </div>
+
+  <section
+    class="ks-bank__requests ks-bank__requests--collapsed"
+    id="ks-bank-requests"
+  >
+    <h2 class="ks-bank__heading ks-bank__requests-title">
+      <span class="ks-bank__requests-title-text">Мои заявки</span>
+      <button
+        type="button"
+        class="ks-bank__requests-toggle"
+        id="ks-bank-requests-toggle"
+        aria-expanded="false"
+        aria-label="Показать или скрыть список заявок"
+      >
+        <span
+          class="ks-bank__requests-toggle-icon fa-solid fa-chevron-right"
+          id="ks-bank-requests-toggle-icon"
+          aria-hidden="true"
+        ></span>
+      </button>
+    </h2>
+
+    <div class="ks-bank__requests-body" id="ks-bank-requests-body">
+      <div class="ks-bank__requests-controls">
+        <button
+          type="button"
+          class="ks-bank__requests-reload"
+          id="ks-bank-requests-reload"
+        >
+          Обновить список
+        </button>
+        <span class="ks-bank__requests-note">
+          Можно редактировать только заявки со статусом
+          <strong>pending</strong>.
+        </span>
+      </div>
+
+      <div
+        class="ks-bank__requests-messages"
+        id="ks-bank-requests-messages"
+      ></div>
+
+      <div class="ks-bank__requests-list" id="ks-bank-requests-list"></div>
+    </div>
+  </section>
+</div>
