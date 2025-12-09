@@ -395,6 +395,12 @@
       balanceBtn.dataset.action = 'balance';
       balanceBtn.dataset.id = String(item.id);
 
+      if (item.balanceApplied) {
+        balanceBtn.disabled = true;
+        balanceBtn.textContent = 'Изменено';
+        balanceBtn.classList.add('ks-bank-admin__btn--done');
+      }
+
       const okBtn = document.createElement('button');
       okBtn.type = 'button';
       okBtn.className = 'ks-bank-admin__btn ks-bank-admin__btn--ok';
@@ -465,7 +471,6 @@
             link.href = row.url;
             link.target = '_blank';
             link.rel = 'noopener noreferrer';
-            link.textContent = row.url;
             li.textContent = `${row.label} — +${row.amount} `;
             li.appendChild(document.createElement('br'));
             li.appendChild(link);
@@ -659,6 +664,14 @@
       }
 
       if (action === 'balance') {
+        if (item.balanceApplied) {
+          setMsg(
+            'Баланс по этой заявке уже был изменён в текущей сессии.',
+            'info',
+          );
+          return;
+        }
+
         const delta =
           Number(item.delta) ||
           (Number(item.total_earn) || 0) - (Number(item.total_spend) || 0);
@@ -706,6 +719,8 @@
               it.user_balance = result.after;
             }
           });
+
+          item.balanceApplied = true;
 
           applyFiltersAndRender();
         } else {
