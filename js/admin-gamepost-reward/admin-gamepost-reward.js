@@ -473,7 +473,7 @@
   }
 
   async function callBankApi(action, users, log) {
-    const apiUrl = SETTINGS.bankApiUrl || BANK_API_URL;
+    const apiUrl = BANK_API_URL;
 
     const body = {
       action,
@@ -487,7 +487,7 @@
       },
     };
 
-    if (log) {
+    if (typeof log === 'function') {
       log(
         `bank-api: ${action} (posts), пользователей: ${body.data.users.length}`,
       );
@@ -504,7 +504,7 @@
     try {
       json = await resp.json();
     } catch (_) {
-      throw new Error(`bank-api HTTP ${resp.status} (не JSON)`);
+      throw new Error(`bank-api HTTP ${resp.status} (ответ не JSON)`);
     }
 
     if (!resp.ok) {
@@ -514,12 +514,13 @@
 
     if (!json || json.ok === false) {
       throw new Error(
-        'bank-api error: ' + (json && json.error ? json.error : 'unknown'),
+        'bank-api error (posts): ' +
+          (json && json.error ? json.error : 'unknown'),
       );
     }
 
     const items = Array.isArray(json.items) ? json.items : [];
-    if (log) {
+    if (typeof log === 'function') {
       log(
         `bank-api: ${action} (posts) — вернуло записей: ${items.length}`,
       );
@@ -951,5 +952,6 @@
     start();
   }
 })();
+
 
 
