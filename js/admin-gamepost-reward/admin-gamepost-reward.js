@@ -474,7 +474,7 @@
 
   async function callBankApi(action, users, log) {
     const apiUrl = BANK_API_URL;
-
+  
     const body = {
       action,
       data: {
@@ -486,46 +486,51 @@
         })),
       },
     };
-
+  
     if (typeof log === 'function') {
       log(
         `bank-api: ${action} (posts), пользователей: ${body.data.users.length}`,
       );
     }
-
-    const resp = await fetch(apiUrl, {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-
+  
+    let resp;
+    try {
+      resp = await fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+    } catch (err) {
+      throw new Error(
+        'Не удалось обратиться к bank-api (сетевой уровень / CORS): ' +
+          (err.message || err),
+      );
+    }
+  
     let json;
     try {
       json = await resp.json();
     } catch (_) {
       throw new Error(`bank-api HTTP ${resp.status} (ответ не JSON)`);
     }
-
+  
     if (!resp.ok) {
       const msg = json && json.error ? json.error : 'unknown';
       throw new Error(`bank-api HTTP ${resp.status}: ${msg}`);
     }
-
+  
     if (!json || json.ok === false) {
       throw new Error(
         'bank-api error (posts): ' +
           (json && json.error ? json.error : 'unknown'),
       );
     }
-
+  
     const items = Array.isArray(json.items) ? json.items : [];
     if (typeof log === 'function') {
-      log(
-        `bank-api: ${action} (posts) — вернуло записей: ${items.length}`,
-      );
+      log(`bank-api: ${action} (posts) — вернуло записей: ${items.length}`);
     }
-
+  
     return items;
   }
 
@@ -952,6 +957,7 @@
     start();
   }
 })();
+
 
 
 
