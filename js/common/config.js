@@ -951,6 +951,12 @@
               target: '_blank',
               rel: 'noopener noreferrer',
             },
+            {
+              text: 'Банк',
+              href: 'https://kindredspirits.ru/pages/bank',
+              target: '_blank',
+              rel: 'noopener noreferrer',
+            },
           ],
         },
         games: {
@@ -1104,4 +1110,5 @@
     },
   };
 })();
+
 
