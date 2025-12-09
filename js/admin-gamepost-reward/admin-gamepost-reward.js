@@ -472,43 +472,30 @@
     };
   }
 
-  async function callBankApi(action, users, log) {
-    const apiUrl = BANK_API_URL;
-
-    const body = {
-      action,
-      data: {
-        users: users.map((u) => ({
-          userId: u.userId,
-          username: u.username,
-          totalPosts: u.totalPosts,
-          fastPosts: u.fastPosts,
-        })),
-      },
-    };
-
-    log(`bank-api: ${action}, пользователей: ${body.data.users.length}`);
-
-    const resp = await fetch(apiUrl, {
+  async function callBankApi(action, data) {
+    const res = await fetch(SETTINGS.bankApiUrl + '?action=' + encodeURIComponent(action), {
       method: 'POST',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
+      body: JSON.stringify({ action, data }),
     });
-
-    if (!resp.ok) {
-      throw new Error(`bank-api HTTP ${resp.status}`);
+  
+    let json = null;
+    try {
+      json = await res.json();
+    } catch (_) {
     }
-
-    const json = await resp.json();
+  
+    if (!res.ok) {
+      const msg = json && json.error ? `bank-api HTTP ${res.status}: ${json.error}` : `bank-api HTTP ${res.status}`;
+      throw new Error(msg);
+    }
+  
     if (!json || json.ok === false) {
-      throw new Error(
-        `bank-api error: ${json && json.error ? json.error : 'UNKNOWN_ERROR'}`,
-      );
+      throw new Error('bank-api error: ' + (json && json.error ? json.error : 'unknown'));
     }
-
-    const items = Array.isArray(json.items) ? json.items : [];
-    log(`bank-api: ${action} — вернуло записей: ${items.length}`);
-    return items;
+  
+    return json;
   }
 
   async function callBankApiEpisodes(action, users, log) {
@@ -934,3 +921,4 @@
     start();
   }
 })();
+
