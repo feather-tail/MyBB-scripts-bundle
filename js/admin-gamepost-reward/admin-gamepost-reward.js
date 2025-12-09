@@ -472,30 +472,60 @@
     };
   }
 
-  async function callBankApi(action, data) {
-    const res = await fetch(SETTINGS.bankApiUrl + '?action=' + encodeURIComponent(action), {
+  async function callBankApi(action, users, log) {
+    const apiUrl = SETTINGS.bankApiUrl || BANK_API_URL;
+
+    const body = {
+      action,
+      data: {
+        users: users.map((u) => ({
+          userId: u.userId,
+          username: u.username,
+          totalPosts: u.totalPosts || 0,
+          fastPosts: u.fastPosts || 0,
+        })),
+      },
+    };
+
+    if (log) {
+      log(
+        `bank-api: ${action} (posts), пользователей: ${body.data.users.length}`,
+      );
+    }
+
+    const resp = await fetch(apiUrl, {
       method: 'POST',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action, data }),
+      body: JSON.stringify(body),
     });
-  
-    let json = null;
+
+    let json;
     try {
-      json = await res.json();
+      json = await resp.json();
     } catch (_) {
+      throw new Error(`bank-api HTTP ${resp.status} (не JSON)`);
     }
-  
-    if (!res.ok) {
-      const msg = json && json.error ? `bank-api HTTP ${res.status}: ${json.error}` : `bank-api HTTP ${res.status}`;
-      throw new Error(msg);
+
+    if (!resp.ok) {
+      const msg = json && json.error ? json.error : 'unknown';
+      throw new Error(`bank-api HTTP ${resp.status}: ${msg}`);
     }
-  
+
     if (!json || json.ok === false) {
-      throw new Error('bank-api error: ' + (json && json.error ? json.error : 'unknown'));
+      throw new Error(
+        'bank-api error: ' + (json && json.error ? json.error : 'unknown'),
+      );
     }
-  
-    return json;
+
+    const items = Array.isArray(json.items) ? json.items : [];
+    if (log) {
+      log(
+        `bank-api: ${action} (posts) — вернуло записей: ${items.length}`,
+      );
+    }
+
+    return items;
   }
 
   async function callBankApiEpisodes(action, users, log) {
@@ -921,4 +951,5 @@
     start();
   }
 })();
+
 
