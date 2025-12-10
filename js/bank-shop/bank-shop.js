@@ -785,15 +785,13 @@
       comment: row.comment || '',
     }));
 
-    const earn = state.cart.earn
-      .filter((row) => row.url && row.url.trim())
-      .map((row) => ({
-        id: row.id,
-        label: row.label,
-        amount: row.amount,
-        url: row.url.trim(),
-        comment: row.comment || '',
-      }));
+    const earn = state.cart.earn.map((row) => ({
+      id: row.id,
+      label: row.label,
+      amount: row.amount,
+      url: (row.url || '').trim(),
+      comment: row.comment || '',
+    }));
 
     const totals = {
       spend: sumSpend(),
@@ -1072,44 +1070,38 @@
     }
 
     const inputs = $$('.ks-bank-cart-row__proof-input');
-    let hasEmpty = false;
     let hasInvalid = false;
-
+    
     inputs.forEach((input) => {
+      const rowId = input.dataset.rowId;
       let val = (input.value || '').trim();
+    
       if (!val) {
-        hasEmpty = true;
-        input.classList.add('ks-bank-cart-row__input--error');
+        input.classList.remove('ks-bank-cart-row__input--error');
+        if (rowId) {
+          handleProofInput(rowId, '');
+        }
         return;
       }
-
+    
       const normalized = normalizeUrl(val);
       input.value = normalized;
-
+    
       if (!isProbablyValidUrl(normalized)) {
         hasInvalid = true;
         input.classList.add('ks-bank-cart-row__input--error');
       } else {
         input.classList.remove('ks-bank-cart-row__input--error');
       }
-
-      const rowId = input.dataset.rowId;
+    
       if (rowId) {
         handleProofInput(rowId, normalized);
       }
     });
-
-    if (hasEmpty && inputs.length) {
-      setMessage(
-        'Заполните ссылки во всех строках начислений или удалите лишние строки.',
-        'error',
-      );
-      return;
-    }
-
+    
     if (hasInvalid) {
       setMessage(
-        'Некоторые ссылки выглядят некорректно. Проверьте, что они начинаются с http(s) или ведут на форум.',
+        'Некоторые ссылки выглядят некорректно.',
         'error',
       );
       return;
@@ -1364,6 +1356,7 @@
     start();
   }
 })();
+
 
 
 
