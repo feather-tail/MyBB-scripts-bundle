@@ -96,6 +96,12 @@
   const MULT_SIGN = '\u00D7';
   const DELTA_SIGN = '\u0394';
 
+  const getPureUrlOrNull = (text) => {
+    const val = (text || '').trim();
+    return /^https?:\/\/\S+$/i.test(val) ? val : null;
+  };
+
+
   const encodeNonAscii = (s) =>
     String(s).replace(/[\u0080-\uFFFF]/g, (ch) => `&#${ch.charCodeAt(0)};`);
 
@@ -438,15 +444,31 @@
         spend.forEach((row) => {
           const li = document.createElement('li');
           li.textContent = `${row.label} — ${row.qty} шт. ${MULT_SIGN} ${row.cost} = ${row.sum}`;
-
+      
           if (row.comment) {
             li.appendChild(document.createElement('br'));
+      
             const span = document.createElement('span');
             span.className = 'ks-bank-admin__comment';
-            span.textContent = `Комментарий: ${row.comment}`;
+      
+            const comment = String(row.comment).trim();
+            const url = getPureUrlOrNull(comment);
+      
+            if (url) {
+              span.append('Комментарий: ');
+              const link = document.createElement('a');
+              link.href = url;
+              link.target = '_blank';
+              link.rel = 'noopener noreferrer';
+              link.textContent = url;
+              span.appendChild(link);
+            } else {
+              span.textContent = `Комментарий: ${comment}`;
+            }
+      
             li.appendChild(span);
           }
-
+      
           sList.appendChild(li);
         });
       } else {
@@ -824,5 +846,6 @@
     start();
   }
 })();
+
 
 
