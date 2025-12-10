@@ -830,12 +830,12 @@
     }
 
     listRoot.addEventListener('click', (evt) => {
-      const t = evt.target;
-      if (!t || !t.dataset) return;
-
-      const act = t.dataset.action;
+      const btn = evt.target.closest('[data-action]');
+      if (!btn) return;
+    
+      const act = btn.dataset.action;
       if (act === 'processed' || act === 'rejected' || act === 'balance') {
-        const id = Number(t.dataset.id || '0');
+        const id = Number(btn.dataset.id || '0');
         if (!id) return;
         updateStatus(id, act);
       }
@@ -860,6 +860,7 @@
     start();
   }
 })();
+
 
 
 
