@@ -475,16 +475,23 @@
           const li = document.createElement('li');
           li.textContent = `${row.label} — ${row.qty} шт. ${MULT_SIGN} ${row.cost} = ${row.sum}`;
 
-          if (row.url) {
+          const urls = Array.isArray(row.urls)
+            ? row.urls
+            : row.url
+            ? [row.url]
+            : [];
+
+          urls.forEach((u) => {
+            if (!u) return;
             li.appendChild(document.createElement('br'));
             const link = document.createElement('a');
-            link.href = row.url;
+            link.href = u;
             link.target = '_blank';
             link.rel = 'noopener noreferrer';
-            link.textContent = row.url;
+            link.textContent = u;
             li.appendChild(link);
-          }
-      
+          });
+
           if (row.comment) {
             li.appendChild(document.createElement('br'));
             const span = document.createElement('span');
@@ -494,7 +501,8 @@
             span.append(linkifyText(row.comment));
 
             li.appendChild(span);
-          }      
+          }
+
           sList.appendChild(li);
         });
       } else {
@@ -513,19 +521,26 @@
       const eList = document.createElement('ul');
       if (earn.length) {
         earn.forEach((row) => {
-          const li = document.createElement('li');
+           const li = document.createElement('li');
           li.textContent = `${row.label} — +${row.amount}`;
-      
-          if (row.url) {
+
+          const urls = Array.isArray(row.urls)
+            ? row.urls
+            : row.url
+            ? [row.url]
+            : [];
+
+          urls.forEach((u) => {
+            if (!u) return;
             li.appendChild(document.createElement('br'));
             const link = document.createElement('a');
-            link.href = row.url;
+            link.href = u;
             link.target = '_blank';
             link.rel = 'noopener noreferrer';
-            link.textContent = row.url;
+            link.textContent = u;
             li.appendChild(link);
-          }
-      
+          });
+
           if (row.comment) {
             li.appendChild(document.createElement('br'));
             const span = document.createElement('span');
@@ -534,7 +549,7 @@
             span.append(linkifyText(row.comment));
             li.appendChild(span);
           }
-      
+
           eList.appendChild(li);
         });
       } else {
@@ -870,6 +885,7 @@
     start();
   }
 })();
+
 
 
 
