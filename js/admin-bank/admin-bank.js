@@ -461,22 +461,33 @@
       const eTitle = document.createElement('h4');
       eTitle.textContent = 'Начисления';
       earnBlock.appendChild(eTitle);
-
+      
       const eList = document.createElement('ul');
       if (earn.length) {
         earn.forEach((row) => {
           const li = document.createElement('li');
+      
+          // заголовок строки
+          li.textContent = `${row.label} — +${row.amount}`;
+      
+          // ссылка, если есть
           if (row.url) {
+            li.appendChild(document.createElement('br'));
             const link = document.createElement('a');
             link.href = row.url;
             link.target = '_blank';
             link.rel = 'noopener noreferrer';
-            li.textContent = `${row.label} — +${row.amount} `;
-            li.appendChild(document.createElement('br'));
             li.appendChild(link);
-          } else {
-            li.textContent = `${row.label} — +${row.amount}`;
           }
+      
+          if (row.comment) {
+            li.appendChild(document.createElement('br'));
+            const span = document.createElement('span');
+            span.className = 'ks-bank-admin__comment';
+            span.textContent = `Комментарий: ${row.comment}`;
+            li.appendChild(span);
+          }
+      
           eList.appendChild(li);
         });
       } else {
@@ -814,3 +825,4 @@
     start();
   }
 })();
+
