@@ -518,12 +518,41 @@
       top.append(name, summary, removeBtn);
       row.append(top);
 
-      const proofInput = document.createElement('input');
-      proofInput.type = 'url';
-      proofInput.className = 'ks-bank-cart-row__proof-input';
-      proofInput.placeholder = 'Ссылка (пост, эпизод и т.д.)';
-      proofInput.value = rowData.url || '';
-      proofInput.dataset.id = rowData.id;
+      // ====== блок с несколькими ссылками ======
+      const proofsBox = document.createElement('div');
+      proofsBox.className = 'ks-bank-cart-row__proofs';
+      proofsBox.dataset.id = rowData.id;
+
+      let proofs = Array.isArray(rowData.proofs)
+        ? rowData.proofs.slice()
+        : typeof rowData.url === 'string'
+        ? [rowData.url]
+        : [];
+
+      if (!proofs.length) proofs = [''];
+
+      proofs.forEach((val, index) => {
+        const proofInput = document.createElement('input');
+        proofInput.type = 'url';
+        proofInput.className = 'ks-bank-cart-row__proof-input';
+        proofInput.placeholder =
+          index === 0
+            ? 'Ссылка (пост, эпизод и т.д.)'
+            : 'Дополнительная ссылка';
+        proofInput.value = val || '';
+        proofInput.dataset.id = rowData.id;
+        proofInput.dataset.proofIndex = String(index);
+        proofsBox.appendChild(proofInput);
+      });
+
+      const addProofBtn = document.createElement('button');
+      addProofBtn.type = 'button';
+      addProofBtn.className = 'ks-bank-cart-row__proof-add';
+      addProofBtn.textContent = 'Добавить ссылку';
+      addProofBtn.dataset.type = 'spend';
+      addProofBtn.dataset.id = rowData.id;
+      proofsBox.appendChild(addProofBtn);
+      // ====== /блок ссылок ======
 
       const commentInput = document.createElement('input');
       commentInput.type = 'text';
@@ -532,7 +561,7 @@
       commentInput.value = rowData.comment || '';
       commentInput.dataset.id = rowData.id;
 
-      row.append(proofInput, commentInput);
+      row.append(proofsBox, commentInput);
 
       root.appendChild(row);
     });
@@ -570,22 +599,51 @@
         '<i class="fa-solid fa-xmark" aria-hidden="true"></i>';
       removeBtn.setAttribute('aria-label', 'Удалить');
 
-      const proofInput = document.createElement('input');
-      proofInput.type = 'url';
-      proofInput.className = 'ks-bank-cart-row__proof-input';
-      proofInput.placeholder = 'Ссылка (пост, эпизод и т.д.)';
-      proofInput.value = row.url || '';
-      proofInput.dataset.rowId = row.rowId;
-      
+      top.append(name, summary, removeBtn);
+      block.appendChild(top);
+
+      const proofsBox = document.createElement('div');
+      proofsBox.className = 'ks-bank-cart-row__proofs';
+      proofsBox.dataset.rowId = row.rowId;
+
+      let proofs = Array.isArray(row.proofs)
+        ? row.proofs.slice()
+        : typeof row.url === 'string'
+        ? [row.url]
+        : [];
+
+      if (!proofs.length) proofs = [''];
+
+      proofs.forEach((val, index) => {
+        const proofInput = document.createElement('input');
+        proofInput.type = 'url';
+        proofInput.className = 'ks-bank-cart-row__proof-input';
+        proofInput.placeholder =
+          index === 0
+            ? 'Ссылка (пост, эпизод и т.д.)'
+            : 'Дополнительная ссылка';
+        proofInput.value = val || '';
+        proofInput.dataset.rowId = row.rowId;
+        proofInput.dataset.proofIndex = String(index);
+        proofsBox.appendChild(proofInput);
+      });
+
+      const addProofBtn = document.createElement('button');
+      addProofBtn.type = 'button';
+      addProofBtn.className = 'ks-bank-cart-row__proof-add';
+      addProofBtn.textContent = 'Добавить ссылку';
+      addProofBtn.dataset.type = 'earn';
+      addProofBtn.dataset.rowId = row.rowId;
+      proofsBox.appendChild(addProofBtn);
+
       const commentInput = document.createElement('input');
       commentInput.type = 'text';
       commentInput.className = 'ks-bank-cart-row__comment-input';
       commentInput.placeholder = 'Комментарий';
       commentInput.value = row.comment || '';
       commentInput.dataset.rowId = row.rowId;
-      
-      top.append(name, summary, removeBtn);
-      block.append(top, proofInput, commentInput);
+
+      block.append(proofsBox, commentInput);
       root.appendChild(block);
     });
   };
@@ -657,11 +715,8 @@
     if (!item) return;
 
     const existing = state.cart.spend[id];
-    const newQty = existing ? existing.qty + 1 : 1;
-    const existingComment =
-      existing && typeof existing.comment === 'string' ? existing.comment : '';
-    const existingUrl =
-      existing && typeof existing.url === 'string' ? existing.url : '';
+    const currentQty = existing ? existing.qty : 0;
+    const newQty = currentQty + 1;
 
     if (item.maxPerOrder && newQty > item.maxPerOrder) {
       setMessage(
@@ -671,14 +726,18 @@
       return;
     }
 
-    state.cart.spend[id] = {
-      id: item.id,
-      label: item.label,
-      cost: item.cost,
-      qty: newQty,
-      comment: existingComment,
-      url: existingUrl,
-    };
+    if (existing) {
+      existing.qty = newQty;
+    } else {
+      state.cart.spend[id] = {
+        id: item.id,
+        label: item.label,
+        cost: item.cost,
+        qty: newQty,
+        comment: '',
+        proofs: [],
+      };
+    }
 
     setMessage('', '');
     updateCartUI();
@@ -704,8 +763,8 @@
       id: item.id,
       label: item.label,
       amount: item.amount,
-      url: '',
       comment: '',
+      proofs: [],
     };
 
     state.cart.earn.push(rowObj);
@@ -755,17 +814,37 @@
     saveCartToStorage();
   };
 
-  const handleSpendProof = (id, value) => {
+  const handleSpendProof = (id, index, value) => {
     const row = state.cart.spend[id];
     if (!row) return;
-    row.url = value;
+
+    if (!Array.isArray(row.proofs)) {
+      const initial = [];
+      if (typeof row.url === 'string' && row.url.trim()) {
+        initial.push(row.url.trim());
+      }
+      row.proofs = initial;
+      delete row.url;
+    }
+
+    const idx = Number.isFinite(Number(index)) ? Number(index) : 0;
+    row.proofs[idx] = value;
     saveCartToStorage();
   };
 
-  const handleEarnProof = (rowId, value) => {
+  const handleEarnProof = (rowId, index, value) => {
     state.cart.earn.forEach((row) => {
       if (row.rowId === rowId) {
-        row.url = value;
+        if (!Array.isArray(row.proofs)) {
+          const initial = [];
+          if (typeof row.url === 'string' && row.url.trim()) {
+            initial.push(row.url.trim());
+          }
+          row.proofs = initial;
+          delete row.url;
+        }
+        const idx = Number.isFinite(Number(index)) ? Number(index) : 0;
+        row.proofs[idx] = value;
       }
     });
     saveCartToStorage();
@@ -793,23 +872,47 @@
   };
 
   const buildRequestData = () => {
-    const spend = Object.values(state.cart.spend).map((row) => ({
-      id: row.id,
-      label: row.label,
-      qty: row.qty,
-      cost: row.cost,
-      sum: row.cost * row.qty,
-      url: (row.url || '').trim(),
-      comment: row.comment || '',
-    }));
+    const spend = Object.values(state.cart.spend).map((row) => {
+      const rawProofs = Array.isArray(row.proofs)
+        ? row.proofs
+        : typeof row.url === 'string'
+        ? [row.url]
+        : [];
+      const urls = rawProofs
+        .map((u) => String(u || '').trim())
+        .filter(Boolean);
 
-    const earn = state.cart.earn.map((row) => ({
-      id: row.id,
-      label: row.label,
-      amount: row.amount,
-      url: (row.url || '').trim(),
-      comment: row.comment || '',
-    }));
+      return {
+        id: row.id,
+        label: row.label,
+        qty: row.qty,
+        cost: row.cost,
+        sum: row.cost * row.qty,
+        url: urls[0] || '',
+        urls,
+        comment: row.comment || '',
+      };
+    });
+
+    const earn = state.cart.earn.map((row) => {
+      const rawProofs = Array.isArray(row.proofs)
+        ? row.proofs
+        : typeof row.url === 'string'
+        ? [row.url]
+        : [];
+      const urls = rawProofs
+        .map((u) => String(u || '').trim())
+        .filter(Boolean);
+
+      return {
+        id: row.id,
+        label: row.label,
+        amount: row.amount,
+        url: urls[0] || '',
+        urls,
+        comment: row.comment || '',
+      };
+    });
 
     const totals = {
       spend: sumSpend(),
@@ -909,15 +1012,22 @@
           const li = document.createElement('li');
           li.textContent = `${row.label} — ${row.qty} шт. ${MULT_SIGN} ${row.cost} = ${row.sum}`;
 
-          if (row.url) {
+          const urls = Array.isArray(row.urls)
+            ? row.urls
+            : row.url
+            ? [row.url]
+            : [];
+
+          urls.forEach((u) => {
+            if (!u) return;
             li.appendChild(document.createElement('br'));
             const link = document.createElement('a');
-            link.href = row.url;
+            link.href = u;
             link.target = '_blank';
             link.rel = 'noopener noreferrer';
-            link.textContent = row.url;
+            link.textContent = u;
             li.appendChild(link);
-          }
+          });
 
           if (row.comment) {
             li.appendChild(document.createElement('br'));
@@ -949,15 +1059,22 @@
           const li = document.createElement('li');
           li.textContent = `${row.label} — +${row.amount}`;
       
-          if (row.url) {
+          const urls = Array.isArray(row.urls)
+            ? row.urls
+            : row.url
+            ? [row.url]
+            : [];
+
+          urls.forEach((u) => {
+            if (!u) return;
             li.appendChild(document.createElement('br'));
             const link = document.createElement('a');
-            link.href = row.url;
+            link.href = u;
             link.target = '_blank';
             link.rel = 'noopener noreferrer';
-            link.textContent = row.url;
+            link.textContent = u;
             li.appendChild(link);
-          }
+          });
       
           if (row.comment) {
             li.appendChild(document.createElement('br'));
@@ -1056,12 +1173,19 @@
     state.cart.spend = {};
     spendRows.forEach((row) => {
       if (!row.id) return;
+      const rawProofs = Array.isArray(row.urls)
+        ? row.urls
+        : Array.isArray(row.proofs)
+        ? row.proofs
+        : row.url
+        ? [row.url]
+        : [];
       state.cart.spend[row.id] = {
         id: row.id,
         label: row.label || row.id,
         cost: Number(row.cost) || 0,
         qty: Number(row.qty) || 0,
-        url: row.url || '',
+        proofs: rawProofs.slice(),
         comment: row.comment || '',
       };
     });
@@ -1069,12 +1193,19 @@
     state.cart.earn = [];
     state.nextEarnRowId = 1;
     earnRows.forEach((row) => {
+      const rawProofs = Array.isArray(row.urls)
+        ? row.urls
+        : Array.isArray(row.proofs)
+        ? row.proofs
+        : row.url
+        ? [row.url]
+        : [];
       state.cart.earn.push({
         rowId: `e${state.nextEarnRowId++}`,
         id: row.id,
         label: row.label || row.id,
         amount: Number(row.amount) || 0,
-        url: row.url || '',
+        proofs: rawProofs.slice(),
         comment: row.comment || '',
       });
     });
@@ -1097,15 +1228,16 @@
     inputs.forEach((input) => {
       const id = input.dataset.id;
       const rowId = input.dataset.rowId;
+      const proofIndex = input.dataset.proofIndex;
       let val = (input.value || '').trim();
 
       if (!val) {
         input.classList.remove('ks-bank-cart-row__input--error');
         if (id) {
-          handleSpendProof(id, '');
+          handleSpendProof(id, proofIndex, '');
         }
         if (rowId) {
-          handleEarnProof(rowId, '');
+          handleEarnProof(rowId, proofIndex, '');
         }
         return;
       }
@@ -1121,10 +1253,10 @@
       }
 
       if (id) {
-        handleSpendProof(id, normalized);
+        handleSpendProof(id, proofIndex, normalized);
       }
       if (rowId) {
-        handleEarnProof(rowId, normalized);
+        handleEarnProof(rowId, proofIndex, normalized);
       }
     });
 
@@ -1306,6 +1438,44 @@
         }
       }
 
+            if (t.classList.contains('ks-bank-cart-row__proof-add')) {
+        const type = t.dataset.type;
+
+        if (type === 'spend') {
+          const id = t.dataset.id;
+          if (!id) return;
+          const row = state.cart.spend[id];
+          if (!row) return;
+
+          if (!Array.isArray(row.proofs)) {
+            const initial = [];
+            if (typeof row.url === 'string' && row.url.trim()) {
+              initial.push(row.url.trim());
+            }
+            row.proofs = initial;
+            delete row.url;
+          }
+          row.proofs.push('');
+          updateCartUI();
+        } else if (type === 'earn') {
+          const rowId = t.dataset.rowId;
+          if (!rowId) return;
+          const row = state.cart.earn.find((r) => r.rowId === rowId);
+          if (!row) return;
+
+          if (!Array.isArray(row.proofs)) {
+            const initial = [];
+            if (typeof row.url === 'string' && row.url.trim()) {
+              initial.push(row.url.trim());
+            }
+            row.proofs = initial;
+            delete row.url;
+          }
+          row.proofs.push('');
+          updateCartUI();
+        }
+      }
+
       if (t.classList.contains('ks-bank-request__edit')) {
         const id = t.dataset.id;
         if (id) {
@@ -1327,11 +1497,12 @@
       if (t.classList.contains('ks-bank-cart-row__proof-input')) {
         const id = t.dataset.id;
         const rowId = t.dataset.rowId;
+        const proofIndex = t.dataset.proofIndex;
 
         if (id) {
-          handleSpendProof(id, t.value);
+          handleSpendProof(id, proofIndex, t.value);
         } else if (rowId) {
-          handleEarnProof(rowId, t.value);
+          handleEarnProof(rowId, proofIndex, t.value);
         }
       }
 
@@ -1397,6 +1568,7 @@
     start();
   }
 })();
+
 
 
 
