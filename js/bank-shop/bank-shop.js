@@ -105,6 +105,42 @@
     if (type === 'info') box.classList.add('ks-bank__messages--info');
   };
 
+  const linkifyText = (text) => {
+    const frag = document.createDocumentFragment();
+    const str = String(text || '');
+    if (!str) return frag;
+
+    const urlRegex = /(https?:\/\/[^\s]+)/gi;
+    let lastIndex = 0;
+    let match;
+
+    while ((match = urlRegex.exec(str)) !== null) {
+      const index = match.index;
+      const url = match[0];
+
+      if (index > lastIndex) {
+        frag.appendChild(
+          document.createTextNode(str.slice(lastIndex, index)),
+        );
+      }
+
+      const a = document.createElement('a');
+      a.href = url;
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      a.textContent = url;
+      frag.appendChild(a);
+
+      lastIndex = urlRegex.lastIndex;
+    }
+
+    if (lastIndex < str.length) {
+      frag.appendChild(document.createTextNode(str.slice(lastIndex)));
+    }
+
+    return frag;
+  };
+
   const setMyRequestsMessage = (text, type) => {
     const box = $(SELECTORS.myRequestsMessages);
     if (!box) return;
@@ -843,10 +879,11 @@
             li.appendChild(document.createElement('br'));
             const span = document.createElement('span');
             span.className = 'ks-bank-request__comment';
-            span.textContent = 'Комментарий: ' + row.comment;
+            span.append(document.createTextNode('Комментарий: '));
+            span.append(linkifyText(row.comment));
+
             li.appendChild(span);
           }
-
           sList.appendChild(li);
         });
       } else {
@@ -1289,6 +1326,7 @@
     start();
   }
 })();
+
 
 
 
