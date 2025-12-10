@@ -474,6 +474,16 @@
         spend.forEach((row) => {
           const li = document.createElement('li');
           li.textContent = `${row.label} — ${row.qty} шт. ${MULT_SIGN} ${row.cost} = ${row.sum}`;
+
+          if (row.url) {
+            li.appendChild(document.createElement('br'));
+            const link = document.createElement('a');
+            link.href = row.url;
+            link.target = '_blank';
+            link.rel = 'noopener noreferrer';
+            link.textContent = row.url;
+            li.appendChild(link);
+          }
       
           if (row.comment) {
             li.appendChild(document.createElement('br'));
@@ -860,6 +870,7 @@
     start();
   }
 })();
+
 
 
 
