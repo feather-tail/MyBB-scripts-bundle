@@ -931,3 +931,20 @@ span#ks-bank-requests-toggle-icon {
 input.ks-bank-cart-row__comment-input {
     background-color: var(--ks-bank-muted-bg);
 }
+
+.ks-bank-cart-row__proofs {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.ks-bank-cart-row__proof-input {
+  width: 100%;
+}
+
+.ks-bank-cart-row__proof-add {
+  align-self: flex-start;
+  font-size: 0.85rem;
+  padding: 2px 8px;
+}
