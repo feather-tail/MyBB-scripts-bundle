@@ -739,6 +739,13 @@
     updateCartUI();
   };
 
+  const handleSpendComment = (id, value) => {
+    const row = state.cart.spend[id];
+    if (!row) return;
+    row.comment = value;
+    saveCartToStorage();
+  };
+
   const handleEarnComment = (rowId, value) => {
     state.cart.earn.forEach((row) => {
       if (row.rowId === rowId) {
@@ -1390,6 +1397,7 @@
     start();
   }
 })();
+
 
 
 
