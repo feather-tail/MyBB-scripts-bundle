@@ -467,16 +467,15 @@
         earn.forEach((row) => {
           const li = document.createElement('li');
       
-          // заголовок строки
           li.textContent = `${row.label} — +${row.amount}`;
       
-          // ссылка, если есть
           if (row.url) {
             li.appendChild(document.createElement('br'));
             const link = document.createElement('a');
             link.href = row.url;
             link.target = '_blank';
             link.rel = 'noopener noreferrer';
+            link.textContent = row.url;
             li.appendChild(link);
           }
       
@@ -825,4 +824,5 @@
     start();
   }
 })();
+
 
