@@ -518,14 +518,21 @@
       top.append(name, summary, removeBtn);
       row.append(top);
 
+      const proofInput = document.createElement('input');
+      proofInput.type = 'url';
+      proofInput.className = 'ks-bank-cart-row__proof-input';
+      proofInput.placeholder = 'Ссылка (пост, эпизод и т.д.)';
+      proofInput.value = rowData.url || '';
+      proofInput.dataset.id = rowData.id;
+
       const commentInput = document.createElement('input');
       commentInput.type = 'text';
       commentInput.className = 'ks-bank-cart-row__comment-input';
-      commentInput.placeholder = 'Комментарий (необязательно)';
+      commentInput.placeholder = 'Комментарий';
       commentInput.value = rowData.comment || '';
       commentInput.dataset.id = rowData.id;
 
-      row.append(commentInput);
+      row.append(proofInput, commentInput);
 
       root.appendChild(row);
     });
@@ -653,6 +660,8 @@
     const newQty = existing ? existing.qty + 1 : 1;
     const existingComment =
       existing && typeof existing.comment === 'string' ? existing.comment : '';
+    const existingUrl =
+      existing && typeof existing.url === 'string' ? existing.url : '';
 
     if (item.maxPerOrder && newQty > item.maxPerOrder) {
       setMessage(
@@ -668,6 +677,7 @@
       cost: item.cost,
       qty: newQty,
       comment: existingComment,
+      url: existingUrl,
     };
 
     setMessage('', '');
@@ -729,13 +739,6 @@
     updateCartUI();
   };
 
-  const handleSpendComment = (id, value) => {
-    const row = state.cart.spend[id];
-    if (!row) return;
-    row.comment = value;
-    saveCartToStorage();
-  };
-
   const handleEarnComment = (rowId, value) => {
     state.cart.earn.forEach((row) => {
       if (row.rowId === rowId) {
@@ -745,7 +748,14 @@
     saveCartToStorage();
   };
 
-  const handleProofInput = (rowId, value) => {
+  const handleSpendProof = (id, value) => {
+    const row = state.cart.spend[id];
+    if (!row) return;
+    row.url = value;
+    saveCartToStorage();
+  };
+
+  const handleEarnProof = (rowId, value) => {
     state.cart.earn.forEach((row) => {
       if (row.rowId === rowId) {
         row.url = value;
@@ -782,6 +792,7 @@
       qty: row.qty,
       cost: row.cost,
       sum: row.cost * row.qty,
+      url: (row.url || '').trim(),
       comment: row.comment || '',
     }));
 
@@ -1033,6 +1044,7 @@
         label: row.label || row.id,
         cost: Number(row.cost) || 0,
         qty: Number(row.qty) || 0,
+        url: row.url || '',
         comment: row.comment || '',
       };
     });
@@ -1064,34 +1076,41 @@
 
     const inputs = $$('.ks-bank-cart-row__proof-input');
     let hasInvalid = false;
-    
+
     inputs.forEach((input) => {
+      const id = input.dataset.id;
       const rowId = input.dataset.rowId;
       let val = (input.value || '').trim();
-    
+
       if (!val) {
         input.classList.remove('ks-bank-cart-row__input--error');
+        if (id) {
+          handleSpendProof(id, '');
+        }
         if (rowId) {
-          handleProofInput(rowId, '');
+          handleEarnProof(rowId, '');
         }
         return;
       }
-    
+
       const normalized = normalizeUrl(val);
       input.value = normalized;
-    
+
       if (!isProbablyValidUrl(normalized)) {
         hasInvalid = true;
         input.classList.add('ks-bank-cart-row__input--error');
       } else {
         input.classList.remove('ks-bank-cart-row__input--error');
       }
-    
+
+      if (id) {
+        handleSpendProof(id, normalized);
+      }
       if (rowId) {
-        handleProofInput(rowId, normalized);
+        handleEarnProof(rowId, normalized);
       }
     });
-    
+
     if (hasInvalid) {
       setMessage(
         'Некоторые ссылки выглядят некорректно.',
@@ -1174,7 +1193,7 @@
     } catch (err) {
       console.error(err);
       setMessage(
-        'Не удалось отправить заявку. Попробуйте ещё раз или сообщите администрации.',
+        'Не удалось отправить заявку.',
         'error',
       );
     } finally {
@@ -1262,10 +1281,10 @@
       if (btnRemove) {
         const type = btnRemove.dataset.type;
         if (type === 'spend') {
-          const id = t.dataset.id;
+          const id = btnRemove.dataset.id;
           if (id) handleRemoveSpend(id);
         } else if (type === 'earn') {
-          const rowId = t.dataset.rowId;
+          const rowId = btnRemove.dataset.rowId;
           if (rowId) handleRemoveEarn(rowId);
         }
       }
@@ -1287,18 +1306,22 @@
     root.addEventListener('input', (evt) => {
       const t = evt.target;
       if (!(t instanceof HTMLElement)) return;
-    
+
       if (t.classList.contains('ks-bank-cart-row__proof-input')) {
+        const id = t.dataset.id;
         const rowId = t.dataset.rowId;
-        if (rowId) {
-          handleProofInput(rowId, t.value);
+
+        if (id) {
+          handleSpendProof(id, t.value);
+        } else if (rowId) {
+          handleEarnProof(rowId, t.value);
         }
       }
-    
+
       if (t.classList.contains('ks-bank-cart-row__comment-input')) {
         const id = t.dataset.id;
         const rowId = t.dataset.rowId;
-    
+
         if (id) {
           handleSpendComment(id, t.value);
         } else if (rowId) {
@@ -1357,6 +1380,7 @@
     start();
   }
 })();
+
 
 
 
