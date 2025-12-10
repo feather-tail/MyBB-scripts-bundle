@@ -495,17 +495,17 @@
       spendBlock.appendChild(sList);
 
       const earnBlock = document.createElement('div');
-      earnBlock.className = 'ks-bank-request__subsection';
+      earnBlock.className = 'ks-bank-admin__subsection';
       const eTitle = document.createElement('h4');
       eTitle.textContent = 'Начисления';
       earnBlock.appendChild(eTitle);
-
+      
       const eList = document.createElement('ul');
-      if (earnRows.length) {
-        earnRows.forEach((row) => {
+      if (earn.length) {
+        earn.forEach((row) => {
           const li = document.createElement('li');
           li.textContent = `${row.label} — +${row.amount}`;
-
+      
           if (row.url) {
             li.appendChild(document.createElement('br'));
             const link = document.createElement('a');
@@ -515,7 +515,7 @@
             link.textContent = row.url;
             li.appendChild(link);
           }
-
+      
           if (row.comment) {
             li.appendChild(document.createElement('br'));
             const span = document.createElement('span');
@@ -524,7 +524,7 @@
             span.append(linkifyText(row.comment));
             li.appendChild(span);
           }
-
+      
           eList.appendChild(li);
         });
       } else {
@@ -535,7 +535,6 @@
       earnBlock.appendChild(eList);
       details.append(spendBlock, earnBlock);
       art.appendChild(details);
-
       root.appendChild(art);
     });
   };
@@ -861,6 +860,7 @@
     start();
   }
 })();
+
 
 
 
