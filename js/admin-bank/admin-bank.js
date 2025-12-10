@@ -96,11 +96,42 @@
   const MULT_SIGN = '\u00D7';
   const DELTA_SIGN = '\u0394';
 
-  const getPureUrlOrNull = (text) => {
-    const val = (text || '').trim();
-    return /^https?:\/\/\S+$/i.test(val) ? val : null;
-  };
+  const linkifyText = (text) => {
+    const frag = document.createDocumentFragment();
+    const str = String(text || '');
+    if (!str) return frag;
 
+    // Ищем только http/https — обычный текст не трогаем
+    const urlRegex = /(https?:\/\/[^\s]+)/gi;
+    let lastIndex = 0;
+    let match;
+
+    while ((match = urlRegex.exec(str)) !== null) {
+      const index = match.index;
+      const url = match[0];
+
+      if (index > lastIndex) {
+        frag.appendChild(
+          document.createTextNode(str.slice(lastIndex, index)),
+        );
+      }
+
+      const a = document.createElement('a');
+      a.href = url;
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      a.textContent = url;
+      frag.appendChild(a);
+
+      lastIndex = urlRegex.lastIndex;
+    }
+
+    if (lastIndex < str.length) {
+      frag.appendChild(document.createTextNode(str.slice(lastIndex)));
+    }
+
+    return frag;
+  };
 
   const encodeNonAscii = (s) =>
     String(s).replace(/[\u0080-\uFFFF]/g, (ch) => `&#${ch.charCodeAt(0)};`);
@@ -479,18 +510,17 @@
       spendBlock.appendChild(sList);
 
       const earnBlock = document.createElement('div');
-      earnBlock.className = 'ks-bank-admin__subsection';
+      earnBlock.className = 'ks-bank-request__subsection';
       const eTitle = document.createElement('h4');
       eTitle.textContent = 'Начисления';
       earnBlock.appendChild(eTitle);
-      
+
       const eList = document.createElement('ul');
-      if (earn.length) {
-        earn.forEach((row) => {
+      if (earnRows.length) {
+        earnRows.forEach((row) => {
           const li = document.createElement('li');
-      
           li.textContent = `${row.label} — +${row.amount}`;
-      
+
           if (row.url) {
             li.appendChild(document.createElement('br'));
             const link = document.createElement('a');
@@ -500,15 +530,16 @@
             link.textContent = row.url;
             li.appendChild(link);
           }
-      
+
           if (row.comment) {
             li.appendChild(document.createElement('br'));
             const span = document.createElement('span');
-            span.className = 'ks-bank-admin__comment';
-            span.textContent = `Комментарий: ${row.comment}`;
+            span.className = 'ks-bank-request__comment';
+            span.append(document.createTextNode('Комментарий: '));
+            span.append(linkifyText(row.comment));
             li.appendChild(span);
           }
-      
+
           eList.appendChild(li);
         });
       } else {
@@ -517,7 +548,6 @@
         eList.appendChild(li);
       }
       earnBlock.appendChild(eList);
-
       details.append(spendBlock, earnBlock);
       art.appendChild(details);
 
@@ -846,6 +876,7 @@
     start();
   }
 })();
+
 
 
 
