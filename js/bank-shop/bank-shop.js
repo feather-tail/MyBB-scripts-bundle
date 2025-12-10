@@ -558,20 +558,27 @@
       removeBtn.className = 'ks-bank-cart-row__remove-btn';
       removeBtn.dataset.type = 'earn';
       removeBtn.dataset.rowId = row.rowId;
-      removeBtn.title = 'Удалить эту строку начисления';
+      removeBtn.title = 'Удалить';
       removeBtn.innerHTML =
         '<i class="fa-solid fa-xmark" aria-hidden="true"></i>';
       removeBtn.setAttribute('aria-label', 'Удалить');
 
-      const input = document.createElement('input');
-      input.type = 'url';
-      input.className = 'ks-bank-cart-row__proof-input';
-      input.placeholder = 'Ссылка-доказательство (пост, эпизод и т.п.)';
-      input.value = row.url || '';
-      input.dataset.rowId = row.rowId;
-
+      const proofInput = document.createElement('input');
+      proofInput.type = 'url';
+      proofInput.className = 'ks-bank-cart-row__proof-input';
+      proofInput.placeholder = 'Ссылка (пост, эпизод и т.д.)';
+      proofInput.value = row.url || '';
+      proofInput.dataset.rowId = row.rowId;
+      
+      const commentInput = document.createElement('input');
+      commentInput.type = 'text';
+      commentInput.className = 'ks-bank-cart-row__comment-input';
+      commentInput.placeholder = 'Комментарий';
+      commentInput.value = row.comment || '';
+      commentInput.dataset.rowId = row.rowId;
+      
       top.append(name, summary, removeBtn);
-      block.append(top, input);
+      block.append(top, proofInput, commentInput);
       root.appendChild(block);
     });
   };
@@ -688,6 +695,7 @@
       label: item.label,
       amount: item.amount,
       url: '',
+      comment: '',
     };
 
     state.cart.earn.push(rowObj);
@@ -725,6 +733,15 @@
     const row = state.cart.spend[id];
     if (!row) return;
     row.comment = value;
+    saveCartToStorage();
+  };
+
+  const handleEarnComment = (rowId, value) => {
+    state.cart.earn.forEach((row) => {
+      if (row.rowId === rowId) {
+        row.comment = value;
+      }
+    });
     saveCartToStorage();
   };
 
@@ -775,6 +792,7 @@
         label: row.label,
         amount: row.amount,
         url: row.url.trim(),
+        comment: row.comment || '',
       }));
 
     const totals = {
@@ -898,20 +916,32 @@
       const eTitle = document.createElement('h4');
       eTitle.textContent = 'Начисления';
       earnBlock.appendChild(eTitle);
-
+      
       const eList = document.createElement('ul');
       if (earnRows.length) {
         earnRows.forEach((row) => {
           const li = document.createElement('li');
-          const link = document.createElement('a');
-          link.href = row.url;
-          link.target = '_blank';
-          link.rel = 'noopener noreferrer';
-          link.textContent = row.url;
-
-          li.textContent = `${row.label} — +${row.amount} `;
-          li.appendChild(document.createElement('br'));
-          li.appendChild(link);
+          li.textContent = `${row.label} — +${row.amount}`;
+      
+          if (row.url) {
+            li.appendChild(document.createElement('br'));
+            const link = document.createElement('a');
+            link.href = row.url;
+            link.target = '_blank';
+            link.rel = 'noopener noreferrer';
+            link.textContent = row.url;
+            li.appendChild(link);
+          }
+      
+          if (row.comment) {
+            li.appendChild(document.createElement('br'));
+            const span = document.createElement('span');
+            span.className = 'ks-bank-request__comment';
+            span.append(document.createTextNode('Комментарий: '));
+            span.append(linkifyText(row.comment));
+            li.appendChild(span);
+          }
+      
           eList.appendChild(li);
         });
       } else {
@@ -1018,6 +1048,7 @@
         label: row.label || row.id,
         amount: Number(row.amount) || 0,
         url: row.url || '',
+        comment: row.comment || '',
       });
     });
 
@@ -1263,15 +1294,22 @@
     root.addEventListener('input', (evt) => {
       const t = evt.target;
       if (!(t instanceof HTMLElement)) return;
+    
       if (t.classList.contains('ks-bank-cart-row__proof-input')) {
         const rowId = t.dataset.rowId;
-        handleProofInput(rowId, t.value);
+        if (rowId) {
+          handleProofInput(rowId, t.value);
+        }
       }
-
+    
       if (t.classList.contains('ks-bank-cart-row__comment-input')) {
         const id = t.dataset.id;
+        const rowId = t.dataset.rowId;
+    
         if (id) {
           handleSpendComment(id, t.value);
+        } else if (rowId) {
+          handleEarnComment(rowId, t.value);
         }
       }
     });
@@ -1326,6 +1364,7 @@
     start();
   }
 })();
+
 
 
 
