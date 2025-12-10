@@ -89,36 +89,35 @@ body {
 .kindred-info,
 .scroll-rail,
 .kindred-quote,
-.knews {
+.knews,
+.minimal-toggle {
   display: none;
 }
 
 .ks-bank {
-  --ks-bank-bg: rgba(255, 255, 255, 0.9);
-  --ks-bank-bg-elevated: rgba(255, 255, 255, 0.96);
-  --ks-bank-muted-bg: rgba(245, 248, 255, 0.96);
-  --ks-bank-border-soft: rgba(213, 224, 241, 0.9);
-  --ks-bank-border-strong: rgba(185, 206, 236, 0.95);
-  --ks-bank-ink: #1f2836;
-  --ks-bank-ink-soft: #5b6474;
-  --ks-bank-accent: #d9a24b;
-  --ks-bank-accent-soft: #f5dfb5;
-  --ks-bank-accent-deep: #b67c2d;
-  --ks-bank-positive: #1f8a5b;
-  --ks-bank-negative: #c0392b;
-  --ks-bank-info: #2574a9;
-  color: var(--ks-bank-ink);
-  max-width: 1120px;
-  margin: 0 auto;
-  padding: 24px 24px 32px;
-  border-radius: 24px;
-  background: linear-gradient(145deg, var(--ks-bank-bg), rgba(255, 255, 255, 0.99));
-  border: 1px solid rgba(255, 255, 255, 0.9);
-  box-shadow:
-    0 26px 60px rgba(12, 27, 63, 0.32),
-    0 0 0 1px rgba(255, 255, 255, 0.65);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+    --ks-bank-bg: rgba(255, 255, 255, 0.9);
+    --ks-bank-bg-elevated: rgba(255, 255, 255, 0.96);
+    --ks-bank-muted-bg: rgba(245, 248, 255, 0.96);
+    --ks-bank-border-soft: rgba(213, 224, 241, 0.9);
+    --ks-bank-border-strong: rgba(185, 206, 236, 0.95);
+    --ks-bank-ink: #1f2836;
+    --ks-bank-ink-soft: #5b6474;
+    --ks-bank-accent: #d9a24b;
+    --ks-bank-accent-soft: #f5dfb5;
+    --ks-bank-accent-deep: #b67c2d;
+    --ks-bank-positive: #1f8a5b;
+    --ks-bank-negative: #c0392b;
+    --ks-bank-info: #2574a9;
+    color: var(--ks-bank-ink);
+    max-width: 1120px;
+    margin: 0 auto;
+    padding: 24px 24px 32px;
+    /* border-radius: 24px; */
+    background: linear-gradient(145deg, var(--ks-bank-bg), rgba(255, 255, 255, 0.99));
+    border: 4px double var(--ks-bank-border-strong);
+    box-shadow: 0 26px 60px rgba(12, 27, 63, 0.32), 0 0 0 1px rgba(255, 255, 255, 0.65);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
 }
 
 .ks-bank,
@@ -130,6 +129,21 @@ body {
   margin-top: 32px;
 }
 
+.back-to-forum a {
+    color: #2574a9 !important;
+}
+
+.back-to-forum a {
+    color: #2574a9 !important;
+}
+
+.back-to-forum {
+  text-align: center;
+  font-size: 36px;
+  margin: 0 0 10px;
+  font-family: var(--sec-font);    
+}
+
 .ks-bank__heading {
   font-size: 1.25rem !important;
   line-height: 1.3 !important;
@@ -137,6 +151,7 @@ body {
   font-weight: 700 !important;
   letter-spacing: 0.02em !important;
   color: var(--ks-bank-ink) !important;
+  font-family: var(--sec-font) !important;
 }
 
 .ks-bank__subheading {
@@ -177,6 +192,7 @@ body {
     box-shadow 0.18s ease,
     transform 0.08s ease;
   white-space: nowrap;
+  font-family: var(--sec-font) !important;
 }
 
 .ks-bank__tab-btn:hover {
@@ -223,16 +239,13 @@ body {
 }
 
 .ks-bank__cart {
-  min-width: 0;
-  padding: 16px 18px 18px;
-  border-radius: 18px;
-  background: linear-gradient(145deg, var(--ks-bank-bg-elevated), rgba(248, 250, 255, 0.98));
-  border: 1px solid var(--ks-bank-border-strong);
-  box-shadow:
-    0 18px 36px rgba(25, 41, 79, 0.3),
-    0 0 0 1px rgba(255, 255, 255, 0.8);
-  position: sticky;
-  top: 16px;
+    min-width: 0;
+    padding: 16px 18px 18px;
+    background: linear-gradient(145deg, var(--ks-bank-bg-elevated), rgba(248, 250, 255, 0.98));
+    box-shadow: 0 18px 36px rgba(25, 41, 79, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.8);
+    position: sticky;
+    top: 16px;
+    border: 4px double var(--ks-bank-border-strong);
 }
 
 @media (max-width: 980px) {
@@ -267,10 +280,9 @@ body {
 }
 
 .ks-bank-group {
-  padding: 10px 12px 12px;
-  border-radius: 16px;
-  background: radial-gradient(circle at top left, rgba(255, 255, 255, 0.97), rgba(241, 246, 255, 0.98));
-  border: 1px solid var(--ks-bank-border-soft);
+    padding: 10px 12px 12px;
+    background: radial-gradient(circle at top left, rgba(255, 255, 255, 0.97), rgba(241, 246, 255, 0.98));
+    border: 4px double var(--ks-bank-border-strong);
 }
 
 .ks-bank-group__title {
@@ -278,7 +290,7 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--ks-bank-ink-soft);
-  margin-bottom: 8px;
+  margin: 8px;
 }
 
 .ks-bank-group__items {
@@ -293,7 +305,6 @@ body {
   align-items: flex-start;
   gap: 10px;
   padding: 10px 12px;
-  border-radius: 12px;
   background: var(--ks-bank-muted-bg);
   border: 1px solid rgba(222, 230, 247, 0.95);
   box-shadow: 0 6px 14px rgba(159, 176, 211, 0.28);
@@ -302,6 +313,8 @@ body {
 .ks-bank-item__info {
   flex: 1 1 auto;
   min-width: 0;
+  display: grid;
+  gap: 10px;
 }
 
 .ks-bank-item__label {
@@ -319,11 +332,13 @@ body {
 }
 
 .ks-bank-item__meta {
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--ks-bank-ink-soft);
-  margin-top: 4px;
+    font-size: 0.75rem;
+    text-transform: lowercase;
+    letter-spacing: 0.08em;
+    color: var(--ks-bank-ink-soft);
+    margin-top: 4px;
+    font-style: italic;
+    font-family: auto;
 }
 
 .ks-bank-item__actions {
@@ -431,7 +446,6 @@ body {
 
 .ks-bank-cart-row {
   padding: 8px 10px;
-  border-radius: 10px;
   background: rgba(248, 250, 255, 0.98);
   border: 1px solid rgba(215, 226, 245, 0.96);
 }
@@ -515,12 +529,11 @@ body {
 }
 
 .ks-bank__balance {
-  margin-top: 8px;
-  padding: 10px 10px 8px;
-  border-radius: 12px;
-  background: rgba(238, 244, 255, 0.95);
-  border: 1px solid rgba(206, 218, 242, 0.96);
-  font-size: 0.9rem;
+    margin-top: 8px;
+    padding: 10px 10px 8px;
+    background: rgba(238, 244, 255, 0.95);
+    font-size: 0.9rem;
+    border: 4px double var(--ks-bank-border-strong);
 }
 
 .ks-bank__balance p {
@@ -534,7 +547,6 @@ body {
 .ks-bank__summary {
   margin-top: 10px;
   padding: 9px 10px 8px;
-  border-radius: 12px;
   background: rgba(248, 250, 255, 0.96);
   border-left: 4px solid rgba(190, 203, 226, 0.96);
   font-size: 0.9rem;
@@ -590,9 +602,6 @@ body {
   text-transform: uppercase;
   background: linear-gradient(135deg, var(--ks-bank-accent), var(--ks-bank-accent-deep));
   color: #fff;
-  box-shadow:
-    0 16px 30px rgba(182, 124, 45, 0.6),
-    0 0 0 1px rgba(255, 255, 255, 0.9);
   transition:
     transform 0.08s ease,
     box-shadow 0.16s ease,
@@ -615,19 +624,18 @@ body {
 }
 
 .ks-bank__requests {
-  margin-top: 28px;
-  padding: 14px 16px 16px;
-  border-radius: 18px;
-  background: radial-gradient(circle at top left, rgba(255, 255, 255, 0.98), rgba(240, 246, 255, 0.99));
-  border: 1px solid var(--ks-bank-border-soft);
+    margin-top: 28px;
+    padding: 14px 16px 16px;
+    background: radial-gradient(circle at top left, rgba(255, 255, 255, 0.98), rgba(240, 246, 255, 0.99));
+    border: 4px double var(--ks-bank-border-strong);
 }
 
 .ks-bank__requests-title {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin: 0;
-  gap: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: 0 5px !important;
+    gap: 8px;
 }
 
 .ks-bank__requests-title-text {
@@ -636,17 +644,15 @@ body {
 }
 
 .ks-bank__requests-toggle {
-  border: none;
-  background: rgba(235, 242, 255, 0.98);
-  border-radius: 999px;
-  padding: 4px 8px;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  transition:
-    background-color 0.16s ease,
-    transform 0.08s ease;
+    border: none;
+    background: rgba(235, 242, 255, 0.98);
+    border-radius: 50%;
+    padding: 8px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.16s ease, transform 0.08s ease;
 }
 
 .ks-bank__requests-toggle:hover {
@@ -668,7 +674,7 @@ body {
 
 .ks-bank__requests:not(.ks-bank__requests--collapsed)
   .ks-bank__requests-toggle-icon {
-  transform: rotate(90deg);
+  transform: rotate(0deg);
 }
 
 .ks-bank__requests-body {
@@ -676,11 +682,12 @@ body {
 }
 
 .ks-bank__requests-controls {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px 16px;
-  margin-bottom: 10px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 16px;
+    margin-bottom: 10px;
+    justify-content: space-between;
 }
 
 .ks-bank__requests-reload {
@@ -708,13 +715,12 @@ body {
   margin-bottom: 8px;
   font-size: 0.86rem;
   padding: 6px 8px;
-  border-radius: 8px;
 }
 
 .ks-bank__requests-messages--info {
-  background: rgba(230, 245, 255, 0.96);
-  border: 1px solid rgba(160, 205, 234, 0.9);
-  color: var(--ks-bank-info);
+    background: rgba(230, 245, 255, 0.96);
+    color: var(--ks-bank-info);
+    border: 4px double var(--ks-bank-border-strong);
 }
 
 .ks-bank__requests-messages--error {
@@ -736,9 +742,8 @@ body {
 
 .ks-bank-request {
   padding: 14px 16px;
-  border-radius: 14px;
   background: rgba(248, 250, 255, 0.98);
-  border-left: 4px solid rgba(191, 204, 228, 0.96);
+  border-left: 8px solid rgba(191, 204, 228, 0.96);
   border-right: 1px solid rgba(216, 226, 244, 0.96);
   border-top: 1px solid rgba(216, 226, 244, 0.96);
   border-bottom: 1px solid rgba(216, 226, 244, 0.96);
@@ -790,6 +795,7 @@ body {
 .ks-bank-request__status--pending {
   background: rgba(255, 245, 224, 0.98);
   color: #a56a0a;
+  padding: 5px;
 }
 
 .ks-bank-request__status--approved,
@@ -845,7 +851,7 @@ body {
 .ks-bank-request__edit {
     border-radius: 999px;
     border: 1px solid rgba(189, 207, 237, 0.96);
-    padding: 8px 12px;
+    padding: 12px;
     font-size: 0.82rem;
     cursor: pointer;
     text-transform: uppercase;
@@ -853,11 +859,11 @@ body {
     font-weight: 600;
     background: linear-gradient(135deg, var(--ks-bank-accent), var(--ks-bank-accent-deep));
     color: #fff;
-    box-shadow: 0 16px 30px rgba(182, 124, 45, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.9);
 }
 
 .ks-bank-request__edit:hover {
   background: rgba(229, 239, 255, 0.98);
+  color: var(--ks-bank-accent-deep);
 }
 
 @media (max-width: 640px) {
@@ -876,4 +882,52 @@ span.ks-bank__requests-title-text {
 
 span#ks-bank-requests-toggle-icon {
   font-size: 21px !important;
+}
+
+.ks-bank-item {
+  align-items: stretch;
+}
+
+.ks-bank-item__actions {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: flex-end;
+  min-width: 120px;
+  gap: 0;
+}
+
+@media (max-width: 640px) {
+  .ks-bank-item__actions {
+    justify-content: flex-start;
+    align-items: stretch;
+    gap: 6px;
+  }
+}
+
+.ks-bank-item__qty-btn,
+.ks-bank-item__add-btn {
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  padding: 0;
+  line-height: 1;
+}
+
+.ks-bank-item__qty-btn i {
+  pointer-events: none;
+}
+
+.ks-bank-cart-row {
+    padding: 8px 10px;
+    background: rgba(248, 250, 255, 0.98);
+    border: 4px double var(--ks-bank-border-strong);
+}
+
+.ks-bank-cart-row__remove-btn i {
+  pointer-events: none;
+}
+
+input.ks-bank-cart-row__comment-input {
+    background-color: var(--ks-bank-muted-bg);
 }
