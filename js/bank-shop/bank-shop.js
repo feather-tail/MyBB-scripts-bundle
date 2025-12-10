@@ -1062,13 +1062,6 @@
   const submitRequest = async () => {
     setMessage('', '');
 
-    const data = buildRequestData();
-
-    if (!data.spend.length && !data.earn.length) {
-      setMessage('Корзина пуста. Добавьте покупки или начисления.', 'error');
-      return;
-    }
-
     const inputs = $$('.ks-bank-cart-row__proof-input');
     let hasInvalid = false;
     
@@ -1104,6 +1097,13 @@
         'Некоторые ссылки выглядят некорректно.',
         'error',
       );
+      return;
+    }
+
+    const data = buildRequestData();
+
+    if (!data.spend.length && !data.earn.length) {
+      setMessage('Корзина пуста. Добавьте покупки или начисления.', 'error');
       return;
     }
 
@@ -1258,8 +1258,9 @@
         if (id) handleDecreaseSpend(id);
       }
 
-      if (t.classList.contains('ks-bank-cart-row__remove-btn')) {
-        const type = t.dataset.type;
+      const btnRemove = t.closest('.ks-bank-cart-row__remove-btn');
+      if (btnRemove) {
+        const type = btnRemove.dataset.type;
         if (type === 'spend') {
           const id = t.dataset.id;
           if (id) handleRemoveSpend(id);
@@ -1356,6 +1357,7 @@
     start();
   }
 })();
+
 
 
 
