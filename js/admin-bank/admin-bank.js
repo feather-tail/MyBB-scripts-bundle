@@ -96,12 +96,22 @@
   const MULT_SIGN = '\u00D7';
   const DELTA_SIGN = '\u0394';
 
-  const linkifyText = (text) => {
+  const encodeNonAscii = (s) =>
+    String(s).replace(/[\u0080-\uFFFF]/g, (ch) => `&#${ch.charCodeAt(0)};`);
+
+  const roundVal = (v, d) => {
+    const n = Number(v) || 0;
+    if (!Number.isFinite(n)) return 0;
+    if (!d) return Math.trunc(n);
+    const p = 10 ** d;
+    return Math.round(n * p) / p;
+  };
+
+    const linkifyText = (text) => {
     const frag = document.createDocumentFragment();
     const str = String(text || '');
     if (!str) return frag;
 
-    // Ищем только http/https — обычный текст не трогаем
     const urlRegex = /(https?:\/\/[^\s]+)/gi;
     let lastIndex = 0;
     let match;
@@ -131,17 +141,6 @@
     }
 
     return frag;
-  };
-
-  const encodeNonAscii = (s) =>
-    String(s).replace(/[\u0080-\uFFFF]/g, (ch) => `&#${ch.charCodeAt(0)};`);
-
-  const roundVal = (v, d) => {
-    const n = Number(v) || 0;
-    if (!Number.isFinite(n)) return 0;
-    if (!d) return Math.trunc(n);
-    const p = 10 ** d;
-    return Math.round(n * p) / p;
   };
 
   const fetchDoc = async (url) => {
@@ -478,28 +477,14 @@
       
           if (row.comment) {
             li.appendChild(document.createElement('br'));
-      
             const span = document.createElement('span');
             span.className = 'ks-bank-admin__comment';
-      
-            const comment = String(row.comment).trim();
-            const url = getPureUrlOrNull(comment);
-      
-            if (url) {
-              span.append('Комментарий: ');
-              const link = document.createElement('a');
-              link.href = url;
-              link.target = '_blank';
-              link.rel = 'noopener noreferrer';
-              link.textContent = url;
-              span.appendChild(link);
-            } else {
-              span.textContent = `Комментарий: ${comment}`;
-            }
-      
+
+            span.append(document.createTextNode('Комментарий: '));
+            span.append(linkifyText(row.comment));
+
             li.appendChild(span);
-          }
-      
+          }      
           sList.appendChild(li);
         });
       } else {
@@ -534,7 +519,7 @@
           if (row.comment) {
             li.appendChild(document.createElement('br'));
             const span = document.createElement('span');
-            span.className = 'ks-bank-request__comment';
+            span.className = 'ks-bank-admin__comment';
             span.append(document.createTextNode('Комментарий: '));
             span.append(linkifyText(row.comment));
             li.appendChild(span);
@@ -876,6 +861,7 @@
     start();
   }
 })();
+
 
 
 
