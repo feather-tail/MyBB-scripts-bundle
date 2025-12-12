@@ -40,7 +40,11 @@
 
   const userInfo = helpers.getUserInfo
     ? helpers.getUserInfo()
-    : { id: 0, name: (window.UserLogin || '').trim(), group: 0 };
+    : {
+        id: Number(window.UserID) || 0,
+        name: (window.UserLogin || '').trim(),
+        group: 0,
+      };
 
   const MULT_SIGN = '\u00D7';
   const DELTA_SIGN = '\u0394';
@@ -69,6 +73,8 @@
     (SETTINGS.endpoints && SETTINGS.endpoints.apiUrl) ||
     DEFAULT_CONFIG.endpoints.apiUrl;
 
+  const MONEY_TRANSFER_ID = 'money_transfer';
+
   const state = {
     currencyName: 'валюта',
     currentBalance: 0,
@@ -83,8 +89,10 @@
     cart: {
       spend: {},
       earn: [],
+      transfers: [],
     },
     nextEarnRowId: 1,
+    nextTransferRowId: 1,
     editingRequestId: null,
   };
 
@@ -119,9 +127,7 @@
       const url = match[0];
 
       if (index > lastIndex) {
-        frag.appendChild(
-          document.createTextNode(str.slice(lastIndex, index)),
-        );
+        frag.appendChild(document.createTextNode(str.slice(lastIndex, index)));
       }
 
       const a = document.createElement('a');
@@ -159,23 +165,6 @@
     }
   };
 
-  const sumSpend = () => {
-    let total = 0;
-    Object.keys(state.cart.spend).forEach((id) => {
-      const row = state.cart.spend[id];
-      total += row.cost * row.qty;
-    });
-    return total;
-  };
-
-  const sumEarn = () => {
-    let total = 0;
-    state.cart.earn.forEach((row) => {
-      total += row.amount || 0;
-    });
-    return total;
-  };
-
   const saveCartToStorage = () => {
     try {
       const dataToSave = {
@@ -184,6 +173,7 @@
           earn: state.cart.earn,
         },
         nextEarnRowId: state.nextEarnRowId,
+        nextTransferRowId: state.nextTransferRowId,
         editingRequestId: state.editingRequestId,
       };
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
@@ -219,7 +209,7 @@
       return base + val;
     }
 
-    if (/^(viewtopic|viewforum)\.php/i.test(val)) {
+    if (/^(viewtopic|viewforum|profile)\.php/i.test(val)) {
       return base + '/' + val;
     }
 
@@ -234,6 +224,21 @@
       return u.protocol === 'http:' || u.protocol === 'https:';
     } catch (e) {
       return false;
+    }
+  };
+
+  const parseUserIdFromProfileUrl = (url) => {
+    const raw = (url || '').trim();
+    if (!raw) return null;
+    try {
+      const u = new URL(raw);
+      const pathOk = /\/profile\.php$/i.test(u.pathname);
+      if (!pathOk) return null;
+      const id = Number(u.searchParams.get('id') || '');
+      if (!Number.isFinite(id) || id <= 0) return null;
+      return id;
+    } catch (e) {
+      return null;
     }
   };
 
@@ -324,6 +329,40 @@
     normalizeSection(earnRaw, 'earn');
   };
 
+  const sumMoneyTransfers = () => {
+    const row = state.cart.spend[MONEY_TRANSFER_ID];
+    const transfers = row && Array.isArray(row.transfers) ? row.transfers : [];
+    let total = 0;
+    transfers.forEach((t) => {
+      total += Number(t.amount) || 0;
+    });
+    return total;
+  };
+
+  const sumSpend = () => {
+    let total = 0;
+    Object.keys(state.cart.spend).forEach((id) => {
+      const row = state.cart.spend[id];
+      if (!row) return;
+
+      if (id === MONEY_TRANSFER_ID) {
+        total += sumMoneyTransfers();
+        return;
+      }
+
+      total += (Number(row.cost) || 0) * (Number(row.qty) || 0);
+    });
+    return total;
+  };
+
+  const sumEarn = () => {
+    let total = 0;
+    state.cart.earn.forEach((row) => {
+      total += row.amount || 0;
+    });
+    return total;
+  };
+
   const createCatalogCard = (kind, id) => {
     const collection = state.catalog[kind];
     const item = collection[id];
@@ -363,48 +402,82 @@
     actions.className = 'ks-bank-item__actions';
 
     if (kind === 'spend') {
-      const existing = state.cart.spend[id];
-      const currentQty = existing ? existing.qty : 0;
-      const limit = item.maxPerOrder;
-      const limitReached = limit && currentQty >= limit;
+      if (id === MONEY_TRANSFER_ID) {
+        const existing = state.cart.spend[MONEY_TRANSFER_ID];
+        const transfers =
+          existing && Array.isArray(existing.transfers) ? existing.transfers : [];
+        const currentCount = transfers.length;
+        const limit = item.maxPerOrder;
+        const limitReached = limit && currentCount >= limit;
 
-      const price = document.createElement('div');
-      price.className = 'ks-bank-item__price';
-      price.textContent = item.cost + ' ' + state.currencyName;
+        const price = document.createElement('div');
+        price.className = 'ks-bank-item__price';
+        price.textContent = item.cost + ' ' + state.currencyName;
 
-      const controls = document.createElement('div');
-      controls.className = 'ks-bank-item__qty';
+        const controls = document.createElement('div');
+        controls.className = 'ks-bank-item__qty';
 
-      const minusBtn = document.createElement('button');
-      minusBtn.type = 'button';
-      minusBtn.className = 'ks-bank-item__qty-btn';
-      minusBtn.dataset.id = item.id;
-      minusBtn.title =
-        currentQty > 0 ? 'Уменьшить количество на 1' : 'Нечего уменьшать';
-      minusBtn.innerHTML =
-        '<i class="fa-solid fa-minus" aria-hidden="true"></i>';
-      minusBtn.setAttribute('aria-label', 'Уменьшить количество на 1');
-      minusBtn.disabled = currentQty <= 0;
+        const qtySpan = document.createElement('span');
+        qtySpan.className = 'ks-bank-item__qty-value';
+        qtySpan.textContent = String(currentCount);
 
-      const qtySpan = document.createElement('span');
-      qtySpan.className = 'ks-bank-item__qty-value';
-      qtySpan.textContent = String(currentQty);
+        const plusBtn = document.createElement('button');
+        plusBtn.type = 'button';
+        plusBtn.className = 'ks-bank-item__add-btn';
+        plusBtn.textContent = '+';
+        plusBtn.dataset.type = 'spend';
+        plusBtn.dataset.id = item.id;
+        plusBtn.title = limitReached
+          ? 'Достигнут лимит по переводам'
+          : 'Добавить строку перевода';
+        if (limitReached) plusBtn.disabled = true;
 
-      const plusBtn = document.createElement('button');
-      plusBtn.type = 'button';
-      plusBtn.className = 'ks-bank-item__add-btn';
-      plusBtn.textContent = '+';
-      plusBtn.dataset.type = 'spend';
-      plusBtn.dataset.id = item.id;
-      plusBtn.title = limitReached
-        ? 'Достигнут лимит по этому товару'
-        : 'Добавить в корзину';
-      if (limitReached) {
-        plusBtn.disabled = true;
+        controls.append(qtySpan, plusBtn);
+        actions.append(price, controls);
+      } else {
+        const existing = state.cart.spend[id];
+        const currentQty = existing ? existing.qty : 0;
+        const limit = item.maxPerOrder;
+        const limitReached = limit && currentQty >= limit;
+
+        const price = document.createElement('div');
+        price.className = 'ks-bank-item__price';
+        price.textContent = item.cost + ' ' + state.currencyName;
+
+        const controls = document.createElement('div');
+        controls.className = 'ks-bank-item__qty';
+
+        const minusBtn = document.createElement('button');
+        minusBtn.type = 'button';
+        minusBtn.className = 'ks-bank-item__qty-btn';
+        minusBtn.dataset.id = item.id;
+        minusBtn.title =
+          currentQty > 0 ? 'Уменьшить количество на 1' : 'Нечего уменьшать';
+        minusBtn.innerHTML =
+          '<i class="fa-solid fa-minus" aria-hidden="true"></i>';
+        minusBtn.setAttribute('aria-label', 'Уменьшить количество на 1');
+        minusBtn.disabled = currentQty <= 0;
+
+        const qtySpan = document.createElement('span');
+        qtySpan.className = 'ks-bank-item__qty-value';
+        qtySpan.textContent = String(currentQty);
+
+        const plusBtn = document.createElement('button');
+        plusBtn.type = 'button';
+        plusBtn.className = 'ks-bank-item__add-btn';
+        plusBtn.textContent = '+';
+        plusBtn.dataset.type = 'spend';
+        plusBtn.dataset.id = item.id;
+        plusBtn.title = limitReached
+          ? 'Достигнут лимит по этому товару'
+          : 'Добавить в корзину';
+        if (limitReached) {
+          plusBtn.disabled = true;
+        }
+
+        controls.append(minusBtn, qtySpan, plusBtn);
+        actions.append(price, controls);
       }
-
-      controls.append(minusBtn, qtySpan, plusBtn);
-      actions.append(price, controls);
     } else {
       const limit = item.maxPerOrder;
       let currentCount = 0;
@@ -485,7 +558,88 @@
 
     Object.keys(state.cart.spend).forEach((id) => {
       const rowData = state.cart.spend[id];
-      if (!rowData || !rowData.qty) return;
+      if (!rowData) return;
+
+      if (id === MONEY_TRANSFER_ID) {
+        const transfers = Array.isArray(rowData.transfers)
+          ? rowData.transfers
+          : [];
+        if (!transfers.length) return;
+
+        const row = document.createElement('div');
+        row.className = 'ks-bank-cart-row';
+        row.dataset.type = 'spend';
+        row.dataset.id = MONEY_TRANSFER_ID;
+
+        const top = document.createElement('div');
+        top.className = 'ks-bank-cart-row__top';
+
+        const name = document.createElement('div');
+        name.className = 'ks-bank-cart-row__name';
+        name.textContent = rowData.label || 'Перевод средств';
+
+        const total = sumMoneyTransfers();
+        const summary = document.createElement('div');
+        summary.className = 'ks-bank-cart-row__summary';
+        summary.textContent = `Сумма переводов: ${total} ${state.currencyName}`;
+
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'ks-bank-cart-row__remove-btn';
+        removeBtn.dataset.type = 'spend';
+        removeBtn.dataset.id = MONEY_TRANSFER_ID;
+        removeBtn.title = 'Удалить все переводы из корзины';
+        removeBtn.innerHTML =
+          '<i class="fa-solid fa-xmark" aria-hidden="true"></i>';
+        removeBtn.setAttribute('aria-label', 'Удалить');
+
+        top.append(name, summary, removeBtn);
+        row.append(top);
+
+        const list = document.createElement('div');
+        list.className = 'ks-bank-transfer-list';
+
+        transfers.forEach((t) => {
+          const line = document.createElement('div');
+          line.className = 'ks-bank-transfer-row';
+          line.dataset.rowId = t.rowId;
+
+          const inpProfile = document.createElement('input');
+          inpProfile.type = 'url';
+          inpProfile.className = 'ks-bank-transfer-row__profile';
+          inpProfile.placeholder = 'Ссылка на профиль получателя (profile.php?id=...)';
+          inpProfile.value = t.profileUrl || '';
+          inpProfile.dataset.rowId = t.rowId;
+          inpProfile.dataset.field = 'profile';
+
+          const inpAmount = document.createElement('input');
+          inpAmount.type = 'number';
+          inpAmount.className = 'ks-bank-transfer-row__amount';
+          inpAmount.placeholder = 'Сумма';
+          inpAmount.min = '1';
+          inpAmount.step = '1';
+          inpAmount.value = String(Number(t.amount) || '');
+          inpAmount.dataset.rowId = t.rowId;
+          inpAmount.dataset.field = 'amount';
+
+          const del = document.createElement('button');
+          del.type = 'button';
+          del.className = 'ks-bank-transfer-row__remove';
+          del.innerHTML = '<i class="fa-solid fa-xmark" aria-hidden="true"></i>';
+          del.setAttribute('aria-label', 'Удалить перевод');
+          del.dataset.action = 'removeTransfer';
+          del.dataset.rowId = t.rowId;
+
+          line.append(inpProfile, inpAmount, del);
+          list.appendChild(line);
+        });
+
+        row.appendChild(list);
+        root.appendChild(row);
+        return;
+      }
+
+      if (!rowData.qty) return;
 
       const sum = rowData.cost * rowData.qty;
 
@@ -518,7 +672,6 @@
       top.append(name, summary, removeBtn);
       row.append(top);
 
-      // ====== блок с несколькими ссылками ======
       const proofsBox = document.createElement('div');
       proofsBox.className = 'ks-bank-cart-row__proofs';
       proofsBox.dataset.id = rowData.id;
@@ -536,9 +689,7 @@
         proofInput.type = 'url';
         proofInput.className = 'ks-bank-cart-row__proof-input';
         proofInput.placeholder =
-          index === 0
-            ? 'Ссылка (пост, эпизод и т.д.)'
-            : 'Дополнительная ссылка';
+          index === 0 ? 'Ссылка (пост, эпизод и т.д.)' : 'Дополнительная ссылка';
         proofInput.value = val || '';
         proofInput.dataset.id = rowData.id;
         proofInput.dataset.proofIndex = String(index);
@@ -552,7 +703,6 @@
       addProofBtn.dataset.type = 'spend';
       addProofBtn.dataset.id = rowData.id;
       proofsBox.appendChild(addProofBtn);
-      // ====== /блок ссылок ======
 
       const commentInput = document.createElement('input');
       commentInput.type = 'text';
@@ -619,9 +769,7 @@
         proofInput.type = 'url';
         proofInput.className = 'ks-bank-cart-row__proof-input';
         proofInput.placeholder =
-          index === 0
-            ? 'Ссылка (пост, эпизод и т.д.)'
-            : 'Дополнительная ссылка';
+          index === 0 ? 'Ссылка (пост, эпизод и т.д.)' : 'Дополнительная ссылка';
         proofInput.value = val || '';
         proofInput.dataset.rowId = row.rowId;
         proofInput.dataset.proofIndex = String(index);
@@ -714,6 +862,48 @@
     const item = state.catalog.spend[id];
     if (!item) return;
 
+    if (id === MONEY_TRANSFER_ID) {
+      const existing = state.cart.spend[MONEY_TRANSFER_ID];
+      const transfers =
+        existing && Array.isArray(existing.transfers) ? existing.transfers : [];
+      const newCount = transfers.length + 1;
+
+      if (item.maxPerOrder && newCount > item.maxPerOrder) {
+        setMessage(
+          `Нельзя добавить больше ${item.maxPerOrder} переводов за один раз.`,
+          'error',
+        );
+        return;
+      }
+
+      if (!existing) {
+        state.cart.spend[MONEY_TRANSFER_ID] = {
+          id: item.id,
+          label: item.label,
+          cost: item.cost,
+          comment: '',
+          transfers: [],
+          nextTransferRowId: 1,
+        };
+      }
+
+      const box = state.cart.spend[MONEY_TRANSFER_ID];
+      if (!Number.isFinite(Number(box.nextTransferRowId))) {
+        box.nextTransferRowId = 1;
+      }
+
+      box.transfers.push({
+        rowId: `t${box.nextTransferRowId++}`,
+        profileUrl: '',
+        targetUserId: null,
+        amount: 0,
+      });
+
+      setMessage('', '');
+      updateCartUI();
+      return;
+    }
+
     const existing = state.cart.spend[id];
     const currentQty = existing ? existing.qty : 0;
     const newQty = currentQty + 1;
@@ -780,6 +970,8 @@
   };
 
   const handleDecreaseSpend = (id) => {
+    if (id === MONEY_TRANSFER_ID) return;
+
     const row = state.cart.spend[id];
     if (!row) return;
 
@@ -850,6 +1042,36 @@
     saveCartToStorage();
   };
 
+  const handleTransferField = (rowId, field, value) => {
+    const box = state.cart.spend[MONEY_TRANSFER_ID];
+    if (!box || !Array.isArray(box.transfers)) return;
+
+    const row = box.transfers.find((x) => x.rowId === rowId);
+    if (!row) return;
+
+    if (field === 'profile') {
+      row.profileUrl = value;
+      const uid = parseUserIdFromProfileUrl(value);
+      row.targetUserId = uid;
+    } else if (field === 'amount') {
+      const n = Number(String(value || '').replace(',', '.'));
+      row.amount = Number.isFinite(n) ? Math.max(0, Math.trunc(n)) : 0;
+    }
+    saveCartToStorage();
+    renderSummary();
+    renderCartSpend();
+  };
+
+  const handleRemoveTransferRow = (rowId) => {
+    const box = state.cart.spend[MONEY_TRANSFER_ID];
+    if (!box || !Array.isArray(box.transfers)) return;
+    box.transfers = box.transfers.filter((x) => x.rowId !== rowId);
+    if (!box.transfers.length) {
+      delete state.cart.spend[MONEY_TRANSFER_ID];
+    }
+    updateCartUI();
+  };
+
   const initTabsLocal = (root) => {
     const buttons = $$('.ks-bank__tab-btn', root);
 
@@ -872,54 +1094,87 @@
   };
 
   const buildRequestData = () => {
-    const spend = Object.values(state.cart.spend).map((row) => {
+    const spend = [];
+  
+    Object.values(state.cart.spend).forEach((row) => {
+      if (!row || !row.id) return;
+  
+      if (row.id === MONEY_TRANSFER_ID) {
+        const transfers = Array.isArray(row.transfers) ? row.transfers : [];
+  
+        transfers.forEach((t) => {
+          const profileUrl = normalizeUrl(String(t.profileUrl || '').trim());
+          const uid = parseUserIdFromProfileUrl(profileUrl);
+          const amount = Number(t.amount) || 0;
+          const cleanAmount = Math.max(0, Math.trunc(amount));
+  
+          if (!uid || cleanAmount <= 0) return;
+  
+          spend.push({
+            id: MONEY_TRANSFER_ID,
+            label: row.label || 'Перевод средств',
+            qty: 1,
+            cost: cleanAmount,
+            sum: cleanAmount,
+            url: profileUrl,
+            urls: profileUrl ? [profileUrl] : [],
+            comment: row.comment || '',
+            meta: {
+              toUserId: uid,
+              toProfileUrl: profileUrl,
+            },
+          });
+        });
+  
+        return;
+      }
+  
       const rawProofs = Array.isArray(row.proofs)
         ? row.proofs
         : typeof row.url === 'string'
         ? [row.url]
         : [];
-      const urls = rawProofs
-        .map((u) => String(u || '').trim())
-        .filter(Boolean);
-
-      return {
+  
+      const urls = rawProofs.map((u) => normalizeUrl(String(u || '').trim())).filter(Boolean);
+  
+      spend.push({
         id: row.id,
         label: row.label,
-        qty: row.qty,
-        cost: row.cost,
-        sum: row.cost * row.qty,
+        qty: Number(row.qty) || 0,
+        cost: Number(row.cost) || 0,
+        sum: (Number(row.cost) || 0) * (Number(row.qty) || 0),
         url: urls[0] || '',
         urls,
         comment: row.comment || '',
-      };
+      });
     });
-
+  
     const earn = state.cart.earn.map((row) => {
       const rawProofs = Array.isArray(row.proofs)
         ? row.proofs
         : typeof row.url === 'string'
         ? [row.url]
         : [];
-      const urls = rawProofs
-        .map((u) => String(u || '').trim())
-        .filter(Boolean);
-
+  
+      const urls = rawProofs.map((u) => normalizeUrl(String(u || '').trim())).filter(Boolean);
+  
       return {
         id: row.id,
         label: row.label,
-        amount: row.amount,
+        amount: Number(row.amount) || 0,
         url: urls[0] || '',
         urls,
         comment: row.comment || '',
       };
     });
-
+  
     const totals = {
       spend: sumSpend(),
       earn: sumEarn(),
+      moneyTransfers: sumMoneyTransfers(),
     };
     totals.delta = totals.earn - totals.spend;
-
+  
     return {
       userLogin: userInfo.name || 'Unknown',
       userId: userInfo.id || null,
@@ -1010,13 +1265,37 @@
       if (spendRows.length) {
         spendRows.forEach((row) => {
           const li = document.createElement('li');
+
+          if (row.id === MONEY_TRANSFER_ID && Array.isArray(row.transfers)) {
+            const sum = row.sum != null ? row.sum : '';
+            li.textContent = `${row.label || 'Перевод средств'} — строк: ${
+              row.qty || row.transfers.length
+            } (сумма: ${sum})`;
+
+            row.transfers.forEach((t) => {
+              li.appendChild(document.createElement('br'));
+              const txt = document.createElement('span');
+              const uid = t.targetUserId ? `uid ${t.targetUserId}` : 'uid ?';
+              txt.textContent = `→ ${uid} : ${t.amount || 0}`;
+              li.appendChild(txt);
+              if (t.profileUrl) {
+                li.appendChild(document.createTextNode(' '));
+                const link = document.createElement('a');
+                link.href = t.profileUrl;
+                link.target = '_blank';
+                link.rel = 'noopener noreferrer';
+                link.textContent = t.profileUrl;
+                li.appendChild(link);
+              }
+            });
+
+            sList.appendChild(li);
+            return;
+          }
+
           li.textContent = `${row.label} — ${row.qty} шт. ${MULT_SIGN} ${row.cost} = ${row.sum}`;
 
-          const urls = Array.isArray(row.urls)
-            ? row.urls
-            : row.url
-            ? [row.url]
-            : [];
+          const urls = Array.isArray(row.urls) ? row.urls : row.url ? [row.url] : [];
 
           urls.forEach((u) => {
             if (!u) return;
@@ -1035,7 +1314,6 @@
             span.className = 'ks-bank-request__comment';
             span.append(document.createTextNode('Комментарий: '));
             span.append(linkifyText(row.comment));
-
             li.appendChild(span);
           }
           sList.appendChild(li);
@@ -1052,18 +1330,14 @@
       const eTitle = document.createElement('h4');
       eTitle.textContent = 'Начисления';
       earnBlock.appendChild(eTitle);
-      
+
       const eList = document.createElement('ul');
       if (earnRows.length) {
         earnRows.forEach((row) => {
           const li = document.createElement('li');
           li.textContent = `${row.label} — +${row.amount}`;
-      
-          const urls = Array.isArray(row.urls)
-            ? row.urls
-            : row.url
-            ? [row.url]
-            : [];
+
+          const urls = Array.isArray(row.urls) ? row.urls : row.url ? [row.url] : [];
 
           urls.forEach((u) => {
             if (!u) return;
@@ -1075,7 +1349,7 @@
             link.textContent = u;
             li.appendChild(link);
           });
-      
+
           if (row.comment) {
             li.appendChild(document.createElement('br'));
             const span = document.createElement('span');
@@ -1084,7 +1358,7 @@
             span.append(linkifyText(row.comment));
             li.appendChild(span);
           }
-      
+
           eList.appendChild(li);
         });
       } else {
@@ -1165,14 +1439,50 @@
     if (!numericId) return;
     const item = myRequests.find((r) => r.id === numericId);
     if (!item || item.status !== 'pending') return;
-
+  
     const payload = item.payload || {};
     const spendRows = Array.isArray(payload.spend) ? payload.spend : [];
     const earnRows = Array.isArray(payload.earn) ? payload.earn : [];
-
+  
     state.cart.spend = {};
+    state.cart.earn = [];
+    state.nextEarnRowId = 1;
+  
+    const transferBox = {
+      id: MONEY_TRANSFER_ID,
+      label: 'Перевод средств',
+      cost: 0,
+      comment: '',
+      transfers: [],
+      nextTransferRowId: 1,
+    };
+  
     spendRows.forEach((row) => {
-      if (!row.id) return;
+      if (!row || !row.id) return;
+  
+      if (row.id === MONEY_TRANSFER_ID) {
+        const meta = row.meta || {};
+        const profileUrl = String(meta.toProfileUrl || row.url || '').trim();
+        const normalized = profileUrl ? normalizeUrl(profileUrl) : '';
+        const uid =
+          Number(meta.toUserId) ||
+          parseUserIdFromProfileUrl(normalized) ||
+          null;
+  
+        const amount = Number(row.sum) || Number(row.cost) || 0;
+  
+        transferBox.label = row.label || transferBox.label;
+        if (row.comment && !transferBox.comment) transferBox.comment = row.comment;
+  
+        transferBox.transfers.push({
+          rowId: `t${transferBox.nextTransferRowId++}`,
+          profileUrl: normalized,
+          targetUserId: uid,
+          amount: Math.max(0, Math.trunc(amount)),
+        });
+        return;
+      }
+  
       const rawProofs = Array.isArray(row.urls)
         ? row.urls
         : Array.isArray(row.proofs)
@@ -1180,6 +1490,7 @@
         : row.url
         ? [row.url]
         : [];
+  
       state.cart.spend[row.id] = {
         id: row.id,
         label: row.label || row.id,
@@ -1189,9 +1500,11 @@
         comment: row.comment || '',
       };
     });
-
-    state.cart.earn = [];
-    state.nextEarnRowId = 1;
+  
+    if (transferBox.transfers.length) {
+      state.cart.spend[MONEY_TRANSFER_ID] = transferBox;
+    }
+  
     earnRows.forEach((row) => {
       const rawProofs = Array.isArray(row.urls)
         ? row.urls
@@ -1200,6 +1513,7 @@
         : row.url
         ? [row.url]
         : [];
+  
       state.cart.earn.push({
         rowId: `e${state.nextEarnRowId++}`,
         id: row.id,
@@ -1209,7 +1523,7 @@
         comment: row.comment || '',
       });
     });
-
+  
     state.editingRequestId = numericId;
     setMessage(
       `Редактирование заявки №${numericId}. После отправки она будет обновлена.`,
@@ -1217,6 +1531,29 @@
     );
     updateSubmitButtonLabel();
     updateCartUI();
+  };
+
+  const validateMoneyTransfersBeforeSubmit = () => {
+    const box = state.cart.spend[MONEY_TRANSFER_ID];
+    if (!box || !Array.isArray(box.transfers)) return { ok: true };
+
+    const bad = [];
+    box.transfers.forEach((t) => {
+      const url = normalizeUrl(String(t.profileUrl || '').trim());
+      t.profileUrl = url;
+
+      const uid = parseUserIdFromProfileUrl(url);
+      const amount = Number(t.amount) || 0;
+
+      if (!uid || amount <= 0) {
+        bad.push(t.rowId);
+      } else {
+        t.targetUserId = uid;
+        t.amount = Math.trunc(amount);
+      }
+    });
+
+    return { ok: bad.length === 0, badRowIds: bad };
   };
 
   const submitRequest = async () => {
@@ -1261,8 +1598,18 @@
     });
 
     if (hasInvalid) {
+      setMessage('Некоторые ссылки выглядят некорректно.', 'error');
+      return;
+    }
+
+    const mtCheck = validateMoneyTransfersBeforeSubmit();
+    if (!mtCheck.ok) {
+      const badSet = new Set(mtCheck.badRowIds || []);
+      $$('.ks-bank-transfer-row').forEach((row) => {
+        row.classList.toggle('ks-bank-transfer-row--error', badSet.has(row.dataset.rowId));
+      });
       setMessage(
-        'Некоторые ссылки выглядят некорректно.',
+        'В переводах средств заполните корректную ссылку на профиль (profile.php?id=...) и сумму > 0.',
         'error',
       );
       return;
@@ -1320,15 +1667,9 @@
 
       const id = json.id;
       if (state.editingRequestId) {
-        setMessage(
-          `Заявка №${id} обновлена. Ожидайте обработки мастером.`,
-          'info',
-        );
+        setMessage(`Заявка №${id} обновлена. Ожидайте обработки мастером.`, 'info');
       } else {
-        setMessage(
-          `Заявка №${id} отправлена. Ожидайте обработки мастером.`,
-          'info',
-        );
+        setMessage(`Заявка №${id} отправлена. Ожидайте обработки мастером.`, 'info');
       }
 
       state.cart.spend = {};
@@ -1341,10 +1682,7 @@
       loadMyRequests();
     } catch (err) {
       console.error(err);
-      setMessage(
-        'Не удалось отправить заявку.',
-        'error',
-      );
+      setMessage('Не удалось отправить заявку.', 'error');
     } finally {
       const btn = $(SELECTORS.generateBtn);
       if (btn) {
@@ -1376,43 +1714,65 @@
   const init = async () => {
     const root = $(SELECTORS.root);
     if (!root) return;
-
+  
     initTabsLocal(root);
-
+  
     const rawBalance = window.UserFld4;
     const parsed =
-      typeof rawBalance === 'string'
-        ? parseInt(rawBalance, 10)
-        : Number(rawBalance);
+      typeof rawBalance === 'string' ? parseInt(rawBalance, 10) : Number(rawBalance);
     state.currentBalance = Number.isFinite(parsed) ? parsed : 0;
-
+  
     const saved = loadCartStateFromStorage();
     if (saved && saved.cart) {
       const hasCart =
         (saved.cart.spend && Object.keys(saved.cart.spend).length > 0) ||
         (Array.isArray(saved.cart.earn) && saved.cart.earn.length > 0);
+  
       if (hasCart) {
         const msg = SETTINGS.restorePrompt || DEFAULT_CONFIG.restorePrompt;
         const confirmRestore = window.confirm(msg);
+  
         if (confirmRestore) {
           state.cart.spend = saved.cart.spend || {};
-          state.cart.earn = Array.isArray(saved.cart.earn)
-            ? saved.cart.earn
-            : [];
+          state.cart.earn = Array.isArray(saved.cart.earn) ? saved.cart.earn : [];
+  
           state.nextEarnRowId =
             typeof saved.nextEarnRowId === 'number' ? saved.nextEarnRowId : 1;
+  
+          state.nextTransferRowId =
+            typeof saved.nextTransferRowId === 'number' ? saved.nextTransferRowId : 1;
+  
           state.editingRequestId = saved.editingRequestId || null;
+  
+          const mt = state.cart.spend[MONEY_TRANSFER_ID];
+          if (mt) {
+            if (!Array.isArray(mt.transfers)) mt.transfers = [];
+            if (!Number.isFinite(Number(mt.nextTransferRowId))) {
+              const maxNum = mt.transfers
+                .map((x) => String(x.rowId || ''))
+                .map((s) => (s.startsWith('t') ? parseInt(s.slice(1), 10) : 0))
+                .reduce((m, n) => (Number.isFinite(n) ? Math.max(m, n) : m), 0);
+              mt.nextTransferRowId = maxNum + 1;
+            }
+            mt.transfers.forEach((t) => {
+              t.profileUrl = String(t.profileUrl || '').trim();
+              t.targetUserId =
+                t.targetUserId || parseUserIdFromProfileUrl(normalizeUrl(t.profileUrl)) || null;
+              t.amount = Math.max(0, Math.trunc(Number(t.amount) || 0));
+            });
+          }
+  
           updateSubmitButtonLabel();
         } else {
           clearCartStorage();
         }
       }
     }
-
+  
     root.addEventListener('click', (evt) => {
       const t = evt.target;
       if (!(t instanceof HTMLElement)) return;
-
+  
       if (t.classList.contains('ks-bank-item__add-btn')) {
         const type = t.dataset.type;
         const id = t.dataset.id;
@@ -1420,12 +1780,12 @@
         if (type === 'spend') handleAddSpend(id);
         if (type === 'earn') handleAddEarn(id);
       }
-
+  
       if (t.classList.contains('ks-bank-item__qty-btn')) {
         const id = t.dataset.id;
         if (id) handleDecreaseSpend(id);
       }
-
+  
       const btnRemove = t.closest('.ks-bank-cart-row__remove-btn');
       if (btnRemove) {
         const type = btnRemove.dataset.type;
@@ -1437,16 +1797,22 @@
           if (rowId) handleRemoveEarn(rowId);
         }
       }
-
-            if (t.classList.contains('ks-bank-cart-row__proof-add')) {
+  
+      const transferRemove = t.closest('[data-action="removeTransfer"]');
+      if (transferRemove) {
+        const rowId = transferRemove.dataset.rowId;
+        if (rowId) handleRemoveTransferRow(rowId);
+      }
+  
+      if (t.classList.contains('ks-bank-cart-row__proof-add')) {
         const type = t.dataset.type;
-
+  
         if (type === 'spend') {
           const id = t.dataset.id;
           if (!id) return;
           const row = state.cart.spend[id];
           if (!row) return;
-
+  
           if (!Array.isArray(row.proofs)) {
             const initial = [];
             if (typeof row.url === 'string' && row.url.trim()) {
@@ -1462,7 +1828,7 @@
           if (!rowId) return;
           const row = state.cart.earn.find((r) => r.rowId === rowId);
           if (!row) return;
-
+  
           if (!Array.isArray(row.proofs)) {
             const initial = [];
             if (typeof row.url === 'string' && row.url.trim()) {
@@ -1475,7 +1841,7 @@
           updateCartUI();
         }
       }
-
+  
       if (t.classList.contains('ks-bank-request__edit')) {
         const id = t.dataset.id;
         if (id) {
@@ -1483,33 +1849,40 @@
           window.scrollTo({ top: root.offsetTop, behavior: 'smooth' });
         }
       }
-
+  
       if (t.id === 'ks-bank-requests-reload') {
         evt.preventDefault();
         loadMyRequests();
       }
     });
-
+  
     root.addEventListener('input', (evt) => {
       const t = evt.target;
       if (!(t instanceof HTMLElement)) return;
-
+  
+      if (t.classList.contains('ks-bank-transfer-row__profile')) {
+        handleTransferField(t.dataset.rowId, 'profile', t.value);
+      }
+      if (t.classList.contains('ks-bank-transfer-row__amount')) {
+        handleTransferField(t.dataset.rowId, 'amount', t.value);
+      }
+  
       if (t.classList.contains('ks-bank-cart-row__proof-input')) {
         const id = t.dataset.id;
         const rowId = t.dataset.rowId;
         const proofIndex = t.dataset.proofIndex;
-
+  
         if (id) {
           handleSpendProof(id, proofIndex, t.value);
         } else if (rowId) {
           handleEarnProof(rowId, proofIndex, t.value);
         }
       }
-
+  
       if (t.classList.contains('ks-bank-cart-row__comment-input')) {
         const id = t.dataset.id;
         const rowId = t.dataset.rowId;
-
+  
         if (id) {
           handleSpendComment(id, t.value);
         } else if (rowId) {
@@ -1517,13 +1890,13 @@
         }
       }
     });
-
+  
     const submitBtn = $(SELECTORS.generateBtn);
     if (submitBtn) {
       updateSubmitButtonLabel();
       submitBtn.addEventListener('click', submitRequest);
     }
-
+  
     const requestsToggle = $(SELECTORS.requestsToggle);
     if (requestsToggle) {
       setRequestsCollapsed(true);
@@ -1536,7 +1909,7 @@
         setRequestsCollapsed(!isCollapsed);
       });
     }
-
+  
     try {
       const cfg = await loadBankConfig();
       normalizeConfig(cfg);
@@ -1548,7 +1921,7 @@
         'error',
       );
     }
-
+  
     loadMyRequests();
   };
 
@@ -1568,14 +1941,3 @@
     start();
   }
 })();
-
-
-
-
-
-
-
-
-
-
-
