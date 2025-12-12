@@ -1051,7 +1051,6 @@
     }
     saveCartToStorage();
     renderSummary();
-    renderCartSpend();
   };
 
   const initTabsLocal = (root) => {
@@ -1917,4 +1916,5 @@
     start();
   }
 })();
+
 
