@@ -75,7 +75,7 @@
     },
     balanceTool: {
       ui: {
-        insertAfterSelector: '.post-rating',
+        insertAfterSelector: '.rsp_wrap',
         openButtonText: 'Баланс',
         runButtonText: 'Выполнить',
         labels: { type: 'Тип операции', amount: 'Количество' },
@@ -1110,6 +1110,7 @@
     },
   };
 })();
+
 
 
 
