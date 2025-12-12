@@ -621,16 +621,8 @@
           inpAmount.value = String(Number(t.amount) || '');
           inpAmount.dataset.rowId = t.rowId;
           inpAmount.dataset.field = 'amount';
-
-          const del = document.createElement('button');
-          del.type = 'button';
-          del.className = 'ks-bank-transfer-row__remove';
-          del.innerHTML = '<i class="fa-solid fa-xmark" aria-hidden="true"></i>';
-          del.setAttribute('aria-label', 'Удалить перевод');
-          del.dataset.action = 'removeTransfer';
-          del.dataset.rowId = t.rowId;
-
-          line.append(inpProfile, inpAmount, del);
+          
+          line.append(inpProfile, inpAmount);
           list.appendChild(line);
         });
 
@@ -1060,16 +1052,6 @@
     saveCartToStorage();
     renderSummary();
     renderCartSpend();
-  };
-
-  const handleRemoveTransferRow = (rowId) => {
-    const box = state.cart.spend[MONEY_TRANSFER_ID];
-    if (!box || !Array.isArray(box.transfers)) return;
-    box.transfers = box.transfers.filter((x) => x.rowId !== rowId);
-    if (!box.transfers.length) {
-      delete state.cart.spend[MONEY_TRANSFER_ID];
-    }
-    updateCartUI();
   };
 
   const initTabsLocal = (root) => {
@@ -1798,12 +1780,6 @@
         }
       }
   
-      const transferRemove = t.closest('[data-action="removeTransfer"]');
-      if (transferRemove) {
-        const rowId = transferRemove.dataset.rowId;
-        if (rowId) handleRemoveTransferRow(rowId);
-      }
-  
       if (t.classList.contains('ks-bank-cart-row__proof-add')) {
         const type = t.dataset.type;
   
@@ -1941,3 +1917,4 @@
     start();
   }
 })();
+
