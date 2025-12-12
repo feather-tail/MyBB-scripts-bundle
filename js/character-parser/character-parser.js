@@ -346,10 +346,10 @@
   
     if (occRoot) {
       const statusEls = occRoot.querySelectorAll(
-        '.custom_tag_charstatus p, .char-status p, .custom_tag_charstatus, .char-status',
+        '.custom_tag_charstatus > p, .char-status > p',
       );
       const roleEls = occRoot.querySelectorAll(
-        '.custom_tag_charrole p, .char-role p, .custom_tag_charrole, .char-role',
+        '.custom_tag_charrole > p, .char-role > p',
       );
   
       const max = Math.max(statusEls.length, roleEls.length);
@@ -362,10 +362,10 @@
   
     if (!occupations.length) {
       const statusSingle = textFrom(
-        doc.querySelector('.custom_tag_charstatus p, .char-status p'),
+        doc.querySelector('.custom_tag_charstatus > p, .char-status > p'),
       );
       const roleSingle = textFrom(
-        doc.querySelector('.custom_tag_charrole p, .char-role p'),
+        doc.querySelector('.custom_tag_charrole > p, .char-role > p'),
       );
       if (statusSingle || roleSingle) {
         occupations.push({ status: statusSingle || '', role: roleSingle || '' });
@@ -1373,6 +1373,7 @@
   helpers.runOnceOnReady(init);
   helpers.register('charactersParser', { init });
 })();
+
 
 
 
