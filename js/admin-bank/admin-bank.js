@@ -373,7 +373,7 @@
     const root = $(SELECTORS.list);
     if (!root) return;
     root.innerHTML = '';
-
+  
     if (!items.length) {
       const div = document.createElement('div');
       div.className = 'ks-bank-admin__empty';
@@ -381,7 +381,7 @@
       root.appendChild(div);
       return;
     }
-
+  
     items.forEach((item) => {
       const art = document.createElement('article');
       art.className = 'ks-bank-admin__item';
@@ -389,28 +389,28 @@
       if (item.user_id != null) {
         art.dataset.userId = String(item.user_id);
       }
-
+  
       const header = document.createElement('div');
       header.className = 'ks-bank-admin__item-header';
-
+  
       const meta = document.createElement('div');
       meta.className = 'ks-bank-admin__item-meta';
-
+  
       const line1 = document.createElement('div');
       const userLabel =
         item.user_login || (item.user_id != null ? `uid ${item.user_id}` : '—');
       line1.innerHTML = `<strong>#${item.id}</strong> — ${userLabel}`;
-
+  
       const line2 = document.createElement('div');
       line2.textContent = `Создано: ${formatTs(item.created_at)}`;
-
+  
       const line3 = document.createElement('div');
       const deltaVal =
         Number(item.delta) ||
         (Number(item.total_earn) || 0) - (Number(item.total_spend) || 0);
       const deltaSign = deltaVal >= 0 ? '+' : '';
       line3.textContent = `Итоги: -${item.total_spend} / +${item.total_earn} (${DELTA_SIGN} ${deltaSign}${deltaVal})`;
-
+  
       const line4 = document.createElement('div');
       if (typeof item.user_balance === 'number') {
         const after = item.user_balance + deltaVal;
@@ -418,69 +418,102 @@
       } else {
         line4.textContent = 'Баланс: –';
       }
-
+  
       meta.append(line1, line2, line3, line4);
-
+  
       const actions = document.createElement('div');
       actions.className = 'ks-bank-admin__item-actions';
-
+  
       const balanceBtn = document.createElement('button');
       balanceBtn.type = 'button';
       balanceBtn.className = 'ks-bank-admin__btn ks-bank-admin__btn--balance';
       balanceBtn.textContent = 'Изменить баланс';
       balanceBtn.dataset.action = 'balance';
       balanceBtn.dataset.id = String(item.id);
-
+  
       if (item.balanceApplied) {
         balanceBtn.disabled = true;
         balanceBtn.textContent = 'Изменено';
         balanceBtn.classList.add('ks-bank-admin__btn--done');
       }
-
+  
       const okBtn = document.createElement('button');
       okBtn.type = 'button';
       okBtn.className = 'ks-bank-admin__btn ks-bank-admin__btn--ok';
       okBtn.textContent = 'Обработано';
       okBtn.dataset.action = 'processed';
       okBtn.dataset.id = String(item.id);
-
+  
       const rejBtn = document.createElement('button');
       rejBtn.type = 'button';
       rejBtn.className = 'ks-bank-admin__btn ks-bank-admin__btn--reject';
       rejBtn.textContent = 'Отклонено';
       rejBtn.dataset.action = 'rejected';
       rejBtn.dataset.id = String(item.id);
-
+  
       actions.append(balanceBtn, okBtn, rejBtn);
-
+  
       header.append(meta, actions);
       art.appendChild(header);
-
+  
       const details = document.createElement('div');
       details.className = 'ks-bank-admin__details';
-
+  
       const payload = item.payload || {};
       const spend = Array.isArray(payload.spend) ? payload.spend : [];
       const earn = Array.isArray(payload.earn) ? payload.earn : [];
-
+  
       const spendBlock = document.createElement('div');
       spendBlock.className = 'ks-bank-admin__subsection';
       const sTitle = document.createElement('h4');
       sTitle.textContent = 'Покупки';
       spendBlock.appendChild(sTitle);
-
+  
       const sList = document.createElement('ul');
       if (spend.length) {
         spend.forEach((row) => {
           const li = document.createElement('li');
+  
+          if (row && row.id === 'money_transfer') {
+            const amount = Number(row.sum) || Number(row.cost) || 0;
+            const meta = row.meta || {};
+            const toId = Number(meta.toUserId) || null;
+            const url =
+              String(meta.toProfileUrl || row.url || (Array.isArray(row.urls) ? row.urls[0] : '') || '')
+                .trim();
+  
+            li.textContent = `${row.label || 'Перевод средств'} — ${amount}`;
+  
+            if (toId) {
+              li.appendChild(document.createTextNode(` → uid ${toId}`));
+            }
+  
+            if (url) {
+              li.appendChild(document.createElement('br'));
+              const link = document.createElement('a');
+              link.href = url;
+              link.target = '_blank';
+              link.rel = 'noopener noreferrer';
+              link.textContent = url;
+              li.appendChild(link);
+            }
+  
+            if (row.comment) {
+              li.appendChild(document.createElement('br'));
+              const span = document.createElement('span');
+              span.className = 'ks-bank-admin__comment';
+              span.append(document.createTextNode('Комментарий: '));
+              span.append(linkifyText(row.comment));
+              li.appendChild(span);
+            }
+  
+            sList.appendChild(li);
+            return;
+          }
+  
           li.textContent = `${row.label} — ${row.qty} шт. ${MULT_SIGN} ${row.cost} = ${row.sum}`;
-
-          const urls = Array.isArray(row.urls)
-            ? row.urls
-            : row.url
-            ? [row.url]
-            : [];
-
+  
+          const urls = Array.isArray(row.urls) ? row.urls : row.url ? [row.url] : [];
           urls.forEach((u) => {
             if (!u) return;
             li.appendChild(document.createElement('br'));
@@ -491,18 +524,16 @@
             link.textContent = u;
             li.appendChild(link);
           });
-
+  
           if (row.comment) {
             li.appendChild(document.createElement('br'));
             const span = document.createElement('span');
             span.className = 'ks-bank-admin__comment';
-
             span.append(document.createTextNode('Комментарий: '));
             span.append(linkifyText(row.comment));
-
             li.appendChild(span);
           }
-
+  
           sList.appendChild(li);
         });
       } else {
@@ -511,25 +542,20 @@
         sList.appendChild(li);
       }
       spendBlock.appendChild(sList);
-
+  
       const earnBlock = document.createElement('div');
       earnBlock.className = 'ks-bank-admin__subsection';
       const eTitle = document.createElement('h4');
       eTitle.textContent = 'Начисления';
       earnBlock.appendChild(eTitle);
-      
+  
       const eList = document.createElement('ul');
       if (earn.length) {
         earn.forEach((row) => {
-           const li = document.createElement('li');
+          const li = document.createElement('li');
           li.textContent = `${row.label} — +${row.amount}`;
-
-          const urls = Array.isArray(row.urls)
-            ? row.urls
-            : row.url
-            ? [row.url]
-            : [];
-
+  
+          const urls = Array.isArray(row.urls) ? row.urls : row.url ? [row.url] : [];
           urls.forEach((u) => {
             if (!u) return;
             li.appendChild(document.createElement('br'));
@@ -540,7 +566,7 @@
             link.textContent = u;
             li.appendChild(link);
           });
-
+  
           if (row.comment) {
             li.appendChild(document.createElement('br'));
             const span = document.createElement('span');
@@ -549,7 +575,7 @@
             span.append(linkifyText(row.comment));
             li.appendChild(span);
           }
-
+  
           eList.appendChild(li);
         });
       } else {
@@ -558,6 +584,7 @@
         eList.appendChild(li);
       }
       earnBlock.appendChild(eList);
+  
       details.append(spendBlock, earnBlock);
       art.appendChild(details);
       root.appendChild(art);
@@ -567,12 +594,20 @@
   const enrichUserBalances = async (items) => {
     const balanceByUserId = new Map();
     const userIdByName = new Map();
-
+  
     for (const item of items) {
       try {
+        if (typeof item.user_balance === 'number') {
+          const uid = item.user_id || item.userId || null;
+          if (uid && !balanceByUserId.has(uid)) {
+            balanceByUserId.set(uid, item.user_balance);
+          }
+          continue;
+        }
+  
         let userId = item.user_id || item.userId || null;
         const username = item.user_login || null;
-
+  
         if (!userId && username) {
           if (userIdByName.has(username)) {
             userId = userIdByName.get(username);
@@ -583,20 +618,18 @@
             userId = fetchedId;
           }
         }
-
+  
         if (!userId) continue;
-
+  
         if (!balanceByUserId.has(userId)) {
           const { form } = await fetchProfileForm(userId);
-          const inp = form.querySelector(
-            `input[name="${CSS.escape(MONEY_FIELD_NAME)}"]`,
-          );
+          const inp = form.querySelector(`input[name="${CSS.escape(MONEY_FIELD_NAME)}"]`);
           if (!inp) continue;
-
+  
           const current = parseFloat(String(inp.value).replace(',', '.')) || 0;
           balanceByUserId.set(userId, current);
         }
-
+  
         const bal = balanceByUserId.get(userId);
         if (typeof bal === 'number') {
           item.user_balance = bal;
@@ -608,42 +641,74 @@
   };
 
   const applyBalanceForRequest = async (item) => {
+    const applyDeltaToUser = async (userId, delta) => {
+      const { form, actionUrl } = await fetchProfileForm(userId);
+      const inp = form.querySelector(`input[name="${CSS.escape(MONEY_FIELD_NAME)}"]`);
+      if (!inp) {
+        throw new Error(`Поле баланса "${MONEY_FIELD_NAME}" не найдено в форме профиля (uid ${userId}).`);
+      }
+  
+      const current = parseFloat(String(inp.value).replace(',', '.')) || 0;
+      const next = roundVal(current + delta, DECIMALS);
+  
+      const params = buildProfileParams(form, MONEY_FIELD_NAME, next);
+      await postForm(actionUrl, params, actionUrl);
+  
+      return { before: current, after: next, delta };
+    };
+  
     let userId = item.user_id || item.userId || null;
-
     if (!userId && item.user_login) {
       userId = await getUserIdByUsername(item.user_login);
     }
     if (!userId) {
       throw new Error('Не удалось определить ID пользователя для этой заявки.');
     }
-
+  
     const delta =
       Number(item.delta) ||
       (Number(item.total_earn) || 0) - (Number(item.total_spend) || 0);
-
-    if (!delta) {
-      return { before: null, after: null, delta: 0 };
+  
+    const payload = item.payload || {};
+    const spendRows = Array.isArray(payload.spend) ? payload.spend : [];
+  
+    const transfersMap = new Map();
+    spendRows.forEach((r) => {
+      if (!r || r.id !== 'money_transfer') return;
+  
+      const meta = r.meta || {};
+      const url =
+        String(meta.toProfileUrl || r.url || (Array.isArray(r.urls) ? r.urls[0] : '') || '')
+          .trim();
+  
+      const toId =
+        Number(meta.toUserId) ||
+        (url ? parseUserIdFromProfileUrl(url) : null);
+  
+      const amount = Number(r.sum) || Number(r.cost) || 0;
+      const cleanAmount = Math.max(0, Math.trunc(amount));
+  
+      if (!toId || cleanAmount <= 0) return;
+  
+      transfersMap.set(toId, (transfersMap.get(toId) || 0) + cleanAmount);
+    });
+  
+    if (!delta && transfersMap.size === 0) {
+      return { before: null, after: null, delta: 0, recipients: [] };
     }
-
-    const { form, actionUrl } = await fetchProfileForm(userId);
-    const inp = form.querySelector(
-      `input[name="${CSS.escape(MONEY_FIELD_NAME)}"]`,
-    );
-    if (!inp) {
-      throw new Error(
-        `Поле баланса "${MONEY_FIELD_NAME}" не найдено в форме профиля.`,
-      );
+  
+    const senderResult = delta ? await applyDeltaToUser(userId, delta) : { before: null, after: null, delta: 0 };
+  
+    const recipients = [];
+    for (const [toUserId, amount] of transfersMap.entries()) {
+      if (toUserId === userId) continue;
+      const r = await applyDeltaToUser(toUserId, amount);
+      recipients.push({ userId: toUserId, ...r });
     }
-
-    const current = parseFloat(String(inp.value).replace(',', '.')) || 0;
-    const next = roundVal(current + delta, DECIMALS);
-
-    const params = buildProfileParams(form, MONEY_FIELD_NAME, next);
-    await postForm(actionUrl, params, actionUrl);
-
-    return { before: current, after: next, delta };
+  
+    return { ...senderResult, recipients };
   };
-
+  
   const applyFiltersAndRender = () => {
     let items = lastItems;
     const query = ((searchInput && searchInput.value) || '')
@@ -885,6 +950,7 @@
     start();
   }
 })();
+
 
 
 
