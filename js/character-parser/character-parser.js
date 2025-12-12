@@ -252,39 +252,46 @@
   
     if (faceProtoBlocks && faceProtoBlocks.length) {
       faceProtoBlocks.forEach((block) => {
-        const fandomRaw = textFrom(
-          block.querySelector('.custom_tag_charfacefandom p, .char-face-fandom p, .custom_tag_charfacefandom, .char-face-fandom'),
+        const fandomEls = block.querySelectorAll(
+          '.custom_tag_charfacefandom p, .char-face-fandom p, .custom_tag_charfacefandom, .char-face-fandom',
         );
-        const canonRaw = textFrom(
-          block.querySelector('.custom_tag_charfacecanon p, .char-face-canon p, .custom_tag_charfacecanon, .char-face-canon'),
+        const canonEls = block.querySelectorAll(
+          '.custom_tag_charfacecanon p, .char-face-canon p, .custom_tag_charfacecanon, .char-face-canon',
         );
-  
-        const fandom = normFandomLabel(fandomRaw);
-        let canon = String(canonRaw || '').trim();
-  
-        if (String(fandom).toLowerCase() === 'original') canon = '';
-  
-        if (!fandom && !canon) {
+    
+        const max = Math.max(fandomEls.length, canonEls.length);
+    
+        for (let i = 0; i < max; i++) {
+          const fandomRaw = textFrom(fandomEls[i]);
+          const canonRaw = textFrom(canonEls[i]);
+    
+          const fandom = normFandomLabel(fandomRaw);
+          let canon = String(canonRaw || '').trim();
+    
+          if (String(fandom).toLowerCase() === 'original') canon = '';
+    
+          if (!fandom && !canon) continue;
+    
+          faces.push({
+            fandom: fandom || '',
+            canon: canon || '',
+            proto: fandom
+              ? (String(fandom).toLowerCase() === 'original'
+                  ? '[original]'
+                  : String(fandom).toLowerCase() === 'real'
+                  ? (canon ? `[real] ${canon}` : '[real]')
+                  : (canon ? `[${fandom}] ${canon}` : `[${fandom}]`))
+              : '',
+          });
+        }
+    
+        if (!fandomEls.length && !canonEls.length) {
           const protoRaw = textFrom(block.querySelector('p')) || textFrom(block);
           if (protoRaw) {
             const { fandom: f2, canon: c2 } = parseLegacyFace(protoRaw);
             if (f2 || c2) faces.push({ fandom: f2, canon: c2, proto: protoRaw });
-            return;
           }
-          return;
         }
-  
-        faces.push({
-          fandom: fandom || '',
-          canon: canon || '',
-          proto: fandom
-            ? (String(fandom).toLowerCase() === 'original'
-                ? '[original]'
-                : String(fandom).toLowerCase() === 'real'
-                ? (canon ? `[real] ${canon}` : '[real]')
-                : (canon ? `[${fandom}] ${canon}` : `[${fandom}]`))
-            : '',
-        });
       });
     } else {
       const faceProtoRaw = textFrom(
@@ -1366,4 +1373,5 @@
   helpers.runOnceOnReady(init);
   helpers.register('charactersParser', { init });
 })();
+
 
