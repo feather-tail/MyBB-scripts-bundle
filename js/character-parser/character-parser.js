@@ -253,10 +253,10 @@
     if (faceProtoBlocks && faceProtoBlocks.length) {
       faceProtoBlocks.forEach((block) => {
         const fandomEls = block.querySelectorAll(
-          '.custom_tag_charfacefandom p, .char-face-fandom p, .custom_tag_charfacefandom, .char-face-fandom',
+          '.custom_tag_charfacefandom > p, .char-face-fandom > p',
         );
         const canonEls = block.querySelectorAll(
-          '.custom_tag_charfacecanon p, .char-face-canon p, .custom_tag_charfacecanon, .char-face-canon',
+          '.custom_tag_charfacecanon > p, .char-face-canon > p',
         );
     
         const max = Math.max(fandomEls.length, canonEls.length);
@@ -1373,5 +1373,6 @@
   helpers.runOnceOnReady(init);
   helpers.register('charactersParser', { init });
 })();
+
 
 
