@@ -3,31 +3,30 @@
   window.ScriptConfig = {
     adminBank: {
       endpoints: {
-        bankApiUrl: "https://feathertail.ru/ks/bank/bank-api.php",
-        forumApiBase: "/api.php",
+        bankApiUrl: 'https://feathertail.ru/ks/bank/bank-api.php',
+        forumApiBase: '/api.php',
         profileUrl: (uid) => `/profile.php?section=fields&id=${uid}`,
-        profileFormSelector:
-          'form[action*="profile.php"][method="post"]',
+        profileFormSelector: 'form[action*="profile.php"][method="post"]',
       },
       profile: {
-        moneyFieldName: "form[fld4]",
+        moneyFieldName: 'form[fld4]',
         decimals: 2,
       },
       requestTimeoutMs: 15000,
       selectors: {
-        root: "#ks-bank-admin-root",
-        messages: "#ks-bank-admin-messages",
-        summaryBox: "#ks-bank-admin-summary",
-        list: "#ks-bank-admin-list",
-        reloadBtn: "#ks-bank-admin-reload",
-        statusFilter: "#ks-bank-admin-status",
-        searchInput: "#ks-bank-admin-search",
+        root: '#ks-bank-admin-root',
+        messages: '#ks-bank-admin-messages',
+        summaryBox: '#ks-bank-admin-summary',
+        list: '#ks-bank-admin-list',
+        reloadBtn: '#ks-bank-admin-reload',
+        statusFilter: '#ks-bank-admin-status',
+        searchInput: '#ks-bank-admin-search',
       },
     },
     adminGamepostRecount: {
       forumIds: [10, 13, 11, 12, 17],
       includeFirstPost: false,
-      apiBase: "/api.php",
+      apiBase: '/api.php',
       topicsPerRequest: 100,
       postsPerRequest: 100,
       delayBetweenRequestsMs: 200,
@@ -35,22 +34,22 @@
       retryBaseDelayMs: 800,
       logToConsole: true,
       selectors: {
-        runButton: "#ks-recount-run",
-        saveButton: "#ks-recount-save",
-        logBox: "#ks-recount-result",
-        summaryBox: "#ks-recount-progress",
+        runButton: '#ks-recount-run',
+        saveButton: '#ks-recount-save',
+        logBox: '#ks-recount-result',
+        summaryBox: '#ks-recount-progress',
       },
       backend: {
-        endpoint: "https://feathertail.ru/gamestats/index.php",
-        method: "recalc",
-        subscription: "ks_forum_stats",
-        tableKey: "gameposts",
+        endpoint: 'https://feathertail.ru/gamestats/index.php',
+        method: 'recalc',
+        subscription: 'ks_forum_stats',
+        tableKey: 'gameposts',
       },
     },
     adminGamepostReward: {
       forumIds: [10, 11, 12, 13, 17],
       includeFirstPost: false,
-      apiBase: "/api.php",
+      apiBase: '/api.php',
       topicsPerRequest: 100,
       postsPerRequest: 100,
       delayBetweenRequestsMs: 200,
@@ -62,15 +61,15 @@
       fastThresholdSeconds: 24 * 3600,
       episodeForumId: 17,
       endpoints: {
-        bankApiUrl: "https://feathertail.ru/ks/bank/bank-api.php",
+        bankApiUrl: 'https://feathertail.ru/ks/bank/bank-api.php',
       },
       selectors: {
-        runButton: "#ks-gpreward-run",
-        applyButton: "#ks-gpreward-apply",
-        warningBox: "#ks-gpreward-warning",
-        errorBox: "#ks-gpreward-error",
-        previewBox: "#ks-gpreward-preview",
-        summaryBox: "#ks-gpreward-summary",
+        runButton: '#ks-gpreward-run',
+        applyButton: '#ks-gpreward-apply',
+        warningBox: '#ks-gpreward-warning',
+        errorBox: '#ks-gpreward-error',
+        previewBox: '#ks-gpreward-preview',
+        summaryBox: '#ks-gpreward-summary',
       },
     },
     balanceTool: {
@@ -105,7 +104,7 @@
       },
       requestTimeoutMs: 15000,
       toastDurationMs: 2200,
-    }, 
+    },
     bankShop: {
       forumBaseUrl: 'https://kindredspirits.ru/',
       storageKeyPrefix: 'ks-bank-cart-',
@@ -131,7 +130,7 @@
       },
       restorePrompt:
         'Обнаружена незавершённая заявка банка. Восстановить корзину?',
-    },    
+    },
     bbcodeMask: {
       blockTag: 'mask',
       defaultAvatar: 'https://i.imgur.com/bQuC3S1.png',
@@ -513,7 +512,7 @@
         0: 'https://forumstatic.ru/files/001c/82/f2/23507.jpg',
         3: 'https://forumstatic.ru/files/001c/82/f2/50471.jpg',
       },
-    },    
+    },
     dice: {
       maxDice: 9,
       maxSides: 100,
@@ -521,7 +520,7 @@
       buttonAfterSelector: '#button-addition',
       buttonSelector: '#dice-roll-btn',
       buttonIcon: '/i/blank.gif',
-    },    
+    },
     domWrappers: {
       groups: [
         {
@@ -555,7 +554,7 @@
           wrapperClass: 'sty',
         },
       ],
-    },    
+    },
     episodeTracker: {
       allowedGroupIds: [1, 2, 6],
       oneDayMs: 86400000,
@@ -572,7 +571,7 @@
         { selector: '.pa-posts .fld-name', title: 'сообщения' },
         { selector: '.pa-respect .fld-name', title: 'репутация' },
       ],
-    },    
+    },
     fontResizer: {
       fontSelector: '.post-content, #main-reply',
       extraSelectors: [
@@ -586,7 +585,7 @@
       defaultSize: 14,
       insertAfterSelector: '',
       defaultAnchorSelector: '.post h3 strong',
-    },    
+    },
     forumAccessGuard: {
       enabled: true,
       allowedGroupIds: ['1', '2', '4', '6'],
@@ -651,6 +650,30 @@
       },
       settingsMenuSection: 'settings',
       toggleInsertAfter: '',
+    },
+    giftsTool: {
+      access: {
+        adminAllowedTopicIds: ['233'],
+        adminAllowedGroupIds: [1],
+      },
+      currency: {
+        label: 'талеров',
+        profileFieldKey: 'fld4',
+        decimals: 2,
+      },
+      order: {
+        marker: 'KS_GIFT_ORDER:',
+        version: 1,
+        maxCommentLen: 255,
+      },
+      send: {
+        delayMs: 650,
+      },
+      endpoints: {
+        profileFieldsUrl: (uid) => `/profile.php?section=fields&id=${uid}`,
+      },
+      giftsUrl: 'https://feathertail.ru/ks/bank/gifts.json',
+      gifts: [],
     },
     guestAddress: {
       selector: '.pa-author',
@@ -1110,8 +1133,3 @@
     },
   };
 })();
-
-
-
-
-
