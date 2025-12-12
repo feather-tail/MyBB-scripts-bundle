@@ -134,6 +134,28 @@
 
   const mainName = (it) => it.name_en || it.name || '(без имени)';
 
+  function faceSortKey(it) {
+    const faces = Array.isArray(it.faces) ? it.faces : [];
+    const keys = faces
+      .map((f) => {
+        const fandom = String(f?.fandom || '').trim();
+        const canon = String(f?.canon || '').trim();
+        const proto = String(f?.proto || '').trim();
+        return normKey((fandom && canon) ? `[${fandom}] ${canon}` : (proto || canon || fandom));
+      })
+      .filter(Boolean);
+  
+    const fallback = normKey(
+      it.faceproto ||
+      ((it.face_fandom || it.face_canon) ? `[${it.face_fandom || ''}] ${it.face_canon || ''}`.trim() : '') ||
+      ''
+    );
+    if (!keys.length) return fallback;
+  
+    keys.sort((a, b) => a.localeCompare(b, 'ru'));
+    return keys[0];
+  }
+
   async function getTopics(forumIds) {
     const url =
       `${apiBase}?method=topic.get&forum_id=${forumIds.join(',')}` +
@@ -181,7 +203,7 @@
   function parseProfileFromHtml(html) {
     if (!html) return null;
     const doc = htmlToDom(html);
-
+  
     const imgEls = doc.querySelectorAll(
       '[class^="custom_tag_charimg"] img.postimg, .char-image img.postimg, .char-image .postimg',
     );
@@ -189,26 +211,16 @@
       .map((el) => String(el.getAttribute('src') || '').trim())
       .filter(Boolean)
       .slice(0, 3);
-
+  
     const img = images[0] || '';
-
+  
     const nameRu = textFrom(
       doc.querySelector('.custom_tag_charname p, .char-name-ru p'),
     );
     const nameEn = textFrom(
       doc.querySelector('.custom_tag_charnameen p, .char-name-en p'),
     );
-
-    const faceProtoRaw = textFrom(
-      doc.querySelector('.custom_tag_charfaceproto p, .char-face-proto p'),
-    );
-    const faceFandomRaw = textFrom(
-      doc.querySelector('.custom_tag_charfacefandom p, .char-face-fandom p'),
-    );
-    const faceCanonRaw = textFrom(
-      doc.querySelector('.custom_tag_charfacecanon p, .char-face-canon p'),
-    );
-
+  
     function normFandomLabel(s) {
       const v = String(s || '').trim();
       if (!v) return '';
@@ -217,7 +229,7 @@
       if (k === 'real' || k === 'реал' || k === 'реальный') return 'real';
       return v;
     }
-
+  
     function parseLegacyFace(s) {
       const str = String(s || '').trim();
       const m = str.match(/^\s*\[([^\]]+)\]\s*(.*)$/);
@@ -232,23 +244,81 @@
       }
       return { fandom: fandomLabel, canon: tail };
     }
-
-    let face_fandom = '';
-    let face_canon = '';
-
-    if (faceFandomRaw) {
-      const f = normFandomLabel(faceFandomRaw);
-      face_fandom = f;
-      face_canon = String(faceCanonRaw || '').trim();
-      if (String(f).toLowerCase() === 'original') {
-        face_canon = '';
+  
+    const faces = [];
+    const faceProtoBlocks = doc.querySelectorAll(
+      '.custom_tag_charfaceproto, .char-face-proto',
+    );
+  
+    if (faceProtoBlocks && faceProtoBlocks.length) {
+      faceProtoBlocks.forEach((block) => {
+        const fandomRaw = textFrom(
+          block.querySelector('.custom_tag_charfacefandom p, .char-face-fandom p, .custom_tag_charfacefandom, .char-face-fandom'),
+        );
+        const canonRaw = textFrom(
+          block.querySelector('.custom_tag_charfacecanon p, .char-face-canon p, .custom_tag_charfacecanon, .char-face-canon'),
+        );
+  
+        const fandom = normFandomLabel(fandomRaw);
+        let canon = String(canonRaw || '').trim();
+  
+        if (String(fandom).toLowerCase() === 'original') canon = '';
+  
+        if (!fandom && !canon) {
+          const protoRaw = textFrom(block.querySelector('p')) || textFrom(block);
+          if (protoRaw) {
+            const { fandom: f2, canon: c2 } = parseLegacyFace(protoRaw);
+            if (f2 || c2) faces.push({ fandom: f2, canon: c2, proto: protoRaw });
+            return;
+          }
+          return;
+        }
+  
+        faces.push({
+          fandom: fandom || '',
+          canon: canon || '',
+          proto: fandom
+            ? (String(fandom).toLowerCase() === 'original'
+                ? '[original]'
+                : String(fandom).toLowerCase() === 'real'
+                ? (canon ? `[real] ${canon}` : '[real]')
+                : (canon ? `[${fandom}] ${canon}` : `[${fandom}]`))
+            : '',
+        });
+      });
+    } else {
+      const faceProtoRaw = textFrom(
+        doc.querySelector('.custom_tag_charfaceproto p, .char-face-proto p'),
+      );
+      if (faceProtoRaw) {
+        const { fandom, canon } = parseLegacyFace(faceProtoRaw);
+        if (fandom || canon) {
+          faces.push({ fandom, canon, proto: faceProtoRaw });
+        }
+      } else {
+        const faceFandomRaw = textFrom(
+          doc.querySelector('.custom_tag_charfacefandom p, .char-face-fandom p'),
+        );
+        const faceCanonRaw = textFrom(
+          doc.querySelector('.custom_tag_charfacecanon p, .char-face-canon p'),
+        );
+        const fandom = normFandomLabel(faceFandomRaw);
+        const canon = String(faceCanonRaw || '').trim();
+        if (fandom || canon) {
+          faces.push({
+            fandom,
+            canon: String(fandom).toLowerCase() === 'original' ? '' : canon,
+            proto: '',
+          });
+        }
       }
-    } else if (faceProtoRaw) {
-      const { fandom, canon } = parseLegacyFace(faceProtoRaw);
-      face_fandom = fandom;
-      face_canon = canon;
     }
-
+  
+    const primaryFace = faces[0] || { fandom: '', canon: '', proto: '' };
+    const faceproto = primaryFace.proto || '';
+    const face_fandom = primaryFace.fandom || '';
+    const face_canon = primaryFace.canon || '';
+  
     const age = toIntOrNull(
       textFrom(doc.querySelector('.custom_tag_charage p, .char-age p')),
     );
@@ -258,55 +328,85 @@
     const race = textFrom(
       doc.querySelector('.custom_tag_charrace p, .char-race p'),
     );
-
-    const status = textFrom(
-      doc.querySelector('.custom_tag_charstatus p, .char-status p'),
-    );
+  
     const gift = textFrom(
       doc.querySelector('.custom_tag_chargift p, .char-gift p'),
     );
-
-    const role = textFrom(
-      doc.querySelector('.custom_tag_charrole p, .char-role p'),
-    );
-
+  
+    const occupations = [];
+    const occRoot =
+      doc.querySelector('.custom_tag_charoccupation, .char-occupation');
+  
+    if (occRoot) {
+      const statusEls = occRoot.querySelectorAll(
+        '.custom_tag_charstatus p, .char-status p, .custom_tag_charstatus, .char-status',
+      );
+      const roleEls = occRoot.querySelectorAll(
+        '.custom_tag_charrole p, .char-role p, .custom_tag_charrole, .char-role',
+      );
+  
+      const max = Math.max(statusEls.length, roleEls.length);
+      for (let i = 0; i < max; i++) {
+        const st = textFrom(statusEls[i]);
+        const rl = textFrom(roleEls[i]);
+        if (st || rl) occupations.push({ status: st || '', role: rl || '' });
+      }
+    }
+  
+    if (!occupations.length) {
+      const statusSingle = textFrom(
+        doc.querySelector('.custom_tag_charstatus p, .char-status p'),
+      );
+      const roleSingle = textFrom(
+        doc.querySelector('.custom_tag_charrole p, .char-role p'),
+      );
+      if (statusSingle || roleSingle) {
+        occupations.push({ status: statusSingle || '', role: roleSingle || '' });
+      }
+    }
+  
+    const primaryOcc = occupations[0] || { status: '', role: '' };
+    const status = primaryOcc.status || '';
+    const role = primaryOcc.role || '';
+  
     const pair_name = textFrom(
       doc.querySelector(
         '.custom_tag_charpair p, .char-pair p, .custom_tag_charpair, .char-pair',
       ),
     );
     const pair_link = '';
-
+  
     const hasAny =
       img ||
       nameRu ||
       nameEn ||
-      faceProtoRaw ||
-      face_fandom ||
-      face_canon ||
+      faces.length ||
       age !== null ||
       gender ||
       race ||
       status ||
       gift ||
       role ||
+      occupations.length ||
       pair_name;
-
+  
     if (!hasAny) return null;
-
+  
     return {
       images,
       img: img || '',
       name: nameRu || '',
       name_en: nameEn || '',
-      faceproto: faceProtoRaw || '',
-      face_fandom: face_fandom || '',
-      face_canon: face_canon || '',
+      faces,
+      faceproto,
+      face_fandom,
+      face_canon,
+      occupations,
       age: age,
       gender: gender || '',
       race: race || '',
-      status: status || '',
-      role: role || '',
+      status,
+      role,
       gift: gift || '',
       pair_name: pair_name || '',
       pair_link: pair_link,
@@ -353,7 +453,7 @@
     return out;
   }
 
-  const CACHE_VERSION = 'v6-images';
+  const CACHE_VERSION = 'v7-faces-occupations';
   const CACHE_KEY_DATA = `charactersCatalogData_${CACHE_VERSION}`;
   const CACHE_KEY_TIME = `charactersCatalogTime_${CACHE_VERSION}`;
 
@@ -390,7 +490,16 @@
 
     for (const it of items) {
       if (it.gender) genders.add(it.gender.trim());
-      if (it.status) statuses.add(it.status.trim());
+    
+      const occs = Array.isArray(it.occupations) ? it.occupations : [];
+      if (occs.length) {
+        occs.forEach((o) => {
+          if (o && o.status) statuses.add(String(o.status).trim());
+        });
+      } else if (it.status) {
+        statuses.add(it.status.trim());
+      }
+    
       if (it.race) {
         const canon = raceCanonicalKey(it.race);
         if (!raceLabelByKey.has(canon)) {
@@ -431,13 +540,22 @@
 
     return items.filter((it) => {
       if (nameNeedle) {
+        const faces = Array.isArray(it.faces) ? it.faces : [];
+        const faceFields = faces.flatMap((f) => [
+          normKey(f?.fandom),
+          normKey(f?.canon),
+          normKey(f?.proto),
+        ]);
+      
         const fields = [
           normKey(it.name),
           normKey(it.name_en),
           normKey(it.faceproto),
           normKey(it.face_fandom),
           normKey(it.face_canon),
+          ...faceFields,
         ];
+      
         if (!fields.some((s) => s && s.includes(nameNeedle))) return false;
       }
       if (f.gender !== 'all' && normKey(it.gender) !== normKey(f.gender))
@@ -448,8 +566,14 @@
         if (itemRaceKey !== f.race) return false;
       }
 
-      if (f.status !== 'all' && normKey(it.status) !== normKey(f.status))
-        return false;
+      if (f.status !== 'all') {
+        const needle = normKey(f.status);
+        const occs = Array.isArray(it.occupations) ? it.occupations : [];
+        const hay = occs.length
+          ? occs.map((o) => normKey(o?.status)).filter(Boolean)
+          : [normKey(it.status)];
+        if (!hay.some((s) => s === needle)) return false;
+      }
 
       if (f.hasPair === 'with' && !it.pair_name) return false;
       if (f.hasPair === 'without' && it.pair_name) return false;
@@ -476,14 +600,11 @@
         (mainName(b) || '').localeCompare(mainName(a) || '', 'ru'),
       );
     } else if (mode === 'faceAZ') {
-      arr.sort((a, b) =>
-        (a.faceproto || '').localeCompare(b.faceproto || '', 'ru'),
-      );
+      arr.sort((a, b) => faceSortKey(a).localeCompare(faceSortKey(b), 'ru'));
     } else if (mode === 'faceZA') {
-      arr.sort((a, b) =>
-        (b.faceproto || '').localeCompare(a.faceproto || '', 'ru'),
-      );
+      arr.sort((a, b) => faceSortKey(b).localeCompare(faceSortKey(a), 'ru'));
     }
+    
     return arr;
   }
 
@@ -640,35 +761,28 @@
     return 'Other';
   }
 
-  function makeFaceLine(it) {
-    function getFaceMeta(item) {
-      const fandom = String(item.face_fandom || '').trim();
-      const canon = String(item.face_canon || '').trim();
-
-      if (fandom || canon) {
-        return { fandom, canon };
-      }
-
-      const s = String(item.faceproto || '').trim();
+  function makeFaceLine(entry) {
+    const ch = entry._char || {};
+    const { fandom, canon } = (function getFaceMeta(e) {
+      const f = String(e.fandom || '').trim();
+      const c = String(e.canon || '').trim();
+      if (f || c) return { fandom: f, canon: c };
+  
+      const s = String(e.proto || '').trim();
       const m = s.match(/^\s*\[([^\]]+)\]\s*(.*)$/);
       if (m) {
-        const f = String(m[1] || '').trim();
+        const ff = String(m[1] || '').trim();
         const name = String(m[2] || '').trim();
-        const fk = f.toLowerCase();
-        if (fk === 'original' || fk === 'оригинал')
-          return { fandom: 'original', canon: '' };
-        if (fk === 'real' || fk === 'реал' || fk === 'реальный')
-          return { fandom: 'real', canon: name };
-        return { fandom: f, canon: name };
+        const fk = ff.toLowerCase();
+        if (fk === 'original' || fk === 'оригинал') return { fandom: 'original', canon: '' };
+        if (fk === 'real' || fk === 'реал' || fk === 'реальный') return { fandom: 'real', canon: name };
+        return { fandom: ff, canon: name };
       }
-
       return { fandom: '', canon: '' };
-    }
-
-    const { fandom, canon } = getFaceMeta(it);
-
+    })(entry);
+  
     const row = helpers.createEl('div', { className: 'chars__line' });
-
+  
     const left = helpers.createEl('span', { className: 'chars__line-left' });
     let leftText = '';
     if (fandom) {
@@ -680,24 +794,19 @@
         leftText = canon ? `[${fandom}] ${canon}` : `[${fandom}]`;
       }
     } else {
-      leftText = it.faceproto || '—';
+      leftText = entry.proto || '—';
     }
     left.textContent = leftText;
-
+  
     const mid = helpers.createEl('span', { text: ' — ' });
-
+  
     const right = helpers.createEl('span', { className: 'chars__line-right' });
-    const link = it.link
-      ? helpers.createEl('a', {
-          href: it.link,
-          text: it.name_en || it.name || '(без имени)',
-        })
-      : helpers.createEl('span', {
-          text: it.name_en || it.name || '(без имени)',
-        });
-    if (it.link) link.target = '_self';
+    const link = ch.link
+      ? helpers.createEl('a', { href: ch.link, text: ch.name_en || ch.name || '(без имени)' })
+      : helpers.createEl('span', { text: ch.name_en || ch.name || '(без имени)' });
+    if (ch.link) link.target = '_self';
     right.appendChild(link);
-
+  
     row.appendChild(left);
     row.appendChild(mid);
     row.appendChild(right);
@@ -706,6 +815,28 @@
 
   function renderByFace(mount, items) {
     const wrap = helpers.createEl('div', { className: 'chars__byface' });
+    const faceEntries = [];
+    for (const ch of items) {
+      const faces = Array.isArray(ch.faces) ? ch.faces : [];
+      if (faces.length) {
+        faces.forEach((f) => {
+          faceEntries.push({
+            _char: ch,
+            fandom: String(f?.fandom || '').trim(),
+            canon: String(f?.canon || '').trim(),
+            proto: String(f?.proto || '').trim() || '',
+          });
+        });
+      } else if (ch.faceproto || ch.face_fandom || ch.face_canon) {
+        faceEntries.push({
+          _char: ch,
+          fandom: String(ch.face_fandom || '').trim(),
+          canon: String(ch.face_canon || '').trim(),
+          proto: String(ch.faceproto || '').trim(),
+        });
+      } else {}
+    }
+
     wrap.style.display = 'grid';
     wrap.style.gridTemplateColumns = '1fr';
     wrap.style.gap = '16px';
@@ -749,21 +880,19 @@
     wrap.appendChild(colsWrap);
     mount.appendChild(wrap);
 
-    function faceMeta(item) {
-      const fandom = String(item.face_fandom || '').trim();
-      const canon = String(item.face_canon || '').trim();
+    function faceMeta(entry) {
+      const fandom = String(entry.fandom || '').trim();
+      const canon = String(entry.canon || '').trim();
       if (fandom || canon) return { fandom, canon };
-
-      const s = String(item.faceproto || '').trim();
+    
+      const s = String(entry.proto || '').trim();
       const m = s.match(/^\s*\[([^\]]+)\]\s*(.*)$/);
       if (m) {
         const f = String(m[1] || '').trim();
         const name = String(m[2] || '').trim();
         const fk = f.toLowerCase();
-        if (fk === 'original' || fk === 'оригинал')
-          return { fandom: 'original', canon: '' };
-        if (fk === 'real' || fk === 'реал' || fk === 'реальный')
-          return { fandom: 'real', canon: name };
+        if (fk === 'original' || fk === 'оригинал') return { fandom: 'original', canon: '' };
+        if (fk === 'real' || fk === 'реал' || fk === 'реальный') return { fandom: 'real', canon: name };
         return { fandom: f, canon: name };
       }
       return { fandom: '', canon: '' };
@@ -788,9 +917,9 @@
       const ac = normKey(A.canon);
       const bc = normKey(B.canon);
       if (ac !== bc) return ac.localeCompare(bc, 'ru');
+      const an = ((a._char?.name_en || a._char?.name || '')).trim();
+      const bn = ((b._char?.name_en || b._char?.name || '')).trim();
 
-      const an = (a.name_en || a.name || '').trim();
-      const bn = (b.name_en || b.name || '').trim();
       return an.localeCompare(bn, 'ru');
     }
 
@@ -798,20 +927,23 @@
       if (!needle) return true;
       const { fandom, canon } = faceMeta(item);
       return (
-        normKey(fandom).includes(needle) || normKey(canon).includes(needle)
+        normKey(fandom).includes(needle) ||
+        normKey(canon).includes(needle) ||
+        normKey(item.proto).includes(needle)
       );
     }
 
     function buildColumn(col, arr) {
       const groups = new Map();
 
-      for (const it of arr) {
-        const { fandom, canon } = faceMeta(it);
-        const keySource = fandom || canon || it.name_en || it.name || '';
-        const ch = firstAZChar(keySource);
-        const bucket = getAZBucket(ch);
+      for (const e of arr) {
+        const { fandom, canon } = faceMeta(e);
+        const ch = e._char || {};
+        const keySource = fandom || canon || ch.name_en || ch.name || '';
+        const chAz = firstAZChar(keySource);
+        const bucket = getAZBucket(chAz);
         if (!groups.has(bucket)) groups.set(bucket, []);
-        groups.get(bucket).push(it);
+        groups.get(bucket).push(e);
       }
 
       const keys = ['A–G', 'H–N', 'O–U', 'V–Z', 'Other'].filter((k) =>
@@ -828,7 +960,7 @@
         groups
           .get(k)
           .sort(cmpByFandomThenCanonThenPlayer)
-          .forEach((it) => list.appendChild(makeFaceLine(it)));
+          .forEach((e) => list.appendChild(makeFaceLine(e)));
 
         sec.appendChild(list);
         col.appendChild(sec);
@@ -851,13 +983,13 @@
 
       const q = normKey(state.faceQuery);
 
-      const males = items
-        .filter((x) => normKey(x.gender) === 'мужской')
-        .filter((x) => passFaceSearch(x, q));
-
-      const females = items
-        .filter((x) => normKey(x.gender) === 'женский')
-        .filter((x) => passFaceSearch(x, q));
+      const males = faceEntries
+        .filter((e) => normKey(e._char?.gender) === 'мужской')
+        .filter((e) => passFaceSearch(e, q));
+      
+      const females = faceEntries
+        .filter((e) => normKey(e._char?.gender) === 'женский')
+        .filter((e) => passFaceSearch(e, q));
 
       buildColumn(colM, males);
       buildColumn(colF, females);
@@ -925,39 +1057,53 @@
 
   function renderRoleGrid(mount, items) {
     const wrap = helpers.createEl('div', { className: 'chars__roles' });
-
+  
     const byStatus = new Map();
-    for (const it of items) {
-      const key = it.status || '—';
-      if (!byStatus.has(key)) byStatus.set(key, []);
-      byStatus.get(key).push(it);
+  
+    for (const ch of items) {
+      const occs = Array.isArray(ch.occupations) ? ch.occupations : [];
+      const list = occs.length ? occs : [{ status: ch.status || '—', role: ch.role || '' }];
+  
+      for (const o of list) {
+        const st = String(o?.status || '—').trim() || '—';
+        const rl = String(o?.role || '').trim();
+  
+        if (!byStatus.has(st)) byStatus.set(st, []);
+        byStatus.get(st).push({ _char: ch, status: st, role: rl });
+      }
     }
-
-    const statusKeys = [...byStatus.keys()].sort((a, b) =>
-      a.localeCompare(b, 'ru'),
-    );
+  
+    const statusKeys = [...byStatus.keys()].sort((a, b) => a.localeCompare(b, 'ru'));
+  
     statusKeys.forEach((k) => {
       const sec = helpers.createEl('section', { className: 'chars__sec' });
       sec.appendChild(
         helpers.createEl('h4', { className: 'chars__sec-title', text: k }),
       );
+  
       const grid = helpers.createEl('div', { className: 'chars__mini-grid' });
       grid.style.display = 'grid';
       grid.style.gridTemplateColumns = 'repeat(auto-fill, minmax(140px, 1fr))';
       grid.style.gap = '8px';
+  
       byStatus
         .get(k)
         .sort((a, b) =>
-          (a.name_en || a.name || '').localeCompare(
-            b.name_en || b.name || '',
+          ((a._char?.name_en || a._char?.name || '')).localeCompare(
+            (b._char?.name_en || b._char?.name || ''),
             'ru',
           ),
         )
-        .forEach((it) => grid.appendChild(makeMini(it)));
+        .forEach((e) => {
+          const ch = e._char || {};
+          const it = { ...ch, status: e.status, role: e.role };
+          grid.appendChild(makeMini(it));
+        });
+  
       sec.appendChild(grid);
       wrap.appendChild(sec);
     });
-
+  
     mount.appendChild(wrap);
   }
 
@@ -1220,3 +1366,4 @@
   helpers.runOnceOnReady(init);
   helpers.register('charactersParser', { init });
 })();
+
