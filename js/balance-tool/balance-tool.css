@@ -1,73 +1,143 @@
-:root {
-  --bt-font: 13px/1.4 system-ui, -apple-system, Segoe UI, Roboto, Arial,
-    sans-serif;
-  --bt-bg: #fafafa;
-  --bt-border: #d0d0d0;
-  --bt-muted: #666;
-  --bt-error: #b00020;
-  --bt-ok: #0a7f2e;
-}
 .balance-tool {
-  margin-top: 0.5rem;
-  font: var(--bt-font);
+  margin-top: 8px;
+  font-family: var(--main-font, sans-serif);
+  color: var(--text-color);
 }
+
 .balance-tool__open,
 .balance-tool__run {
-  padding: 0.35rem 0.6rem;
-  border: 1px solid var(--bt-border);
-  background: #f7f7f7;
-  border-radius: 0.35rem;
+  padding: 6px 10px;
+  border: 1px solid var(--panel-border);
+  background: var(--button-bg);
+  color: var(--button-text);
+  border-radius: var(--radius);
   cursor: pointer;
+  line-height: 1.2;
+  transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.05s ease;
 }
+
 .balance-tool__open {
-  margin-right: 0.5rem;
+  margin-right: 8px;
 }
+
+.balance-tool__open:hover,
+.balance-tool__run:hover {
+  background: var(--primary-hover);
+  border-color: var(--dark-bord);
+}
+
+.balance-tool__open:active,
+.balance-tool__run:active {
+  transform: translateY(1px);
+}
+
+.balance-tool__open:focus-visible,
+.balance-tool__run:focus-visible {
+  outline: 2px solid var(--input-focus);
+  outline-offset: 2px;
+}
+
+.balance-tool__run[aria-disabled="true"],
+.balance-tool__run:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  background: var(--panel-bg-light);
+  color: var(--muted-color);
+  border-color: var(--panel-border);
+}
+
 .balance-tool__panel {
-  margin-top: 0.5rem;
-  padding: 0.6rem 0.75rem;
-  border: 1px solid var(--bt-border);
-  border-radius: 0.4rem;
-  background: var(--bt-bg);
+  margin-top: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius);
+  background: var(--dialog-bg);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.06);
 }
+
 .balance-tool__row {
   display: flex;
-  gap: 0.5rem;
+  gap: var(--small-gap);
   align-items: center;
-  margin: 0.3rem 0;
+  margin: 6px 0;
 }
+
 .balance-tool__label {
-  color: var(--bt-muted);
-  min-width: 8.5rem;
+  min-width: 140px;
+  color: var(--muted-color);
+  font-size: 12.5px;
 }
+
 .balance-tool__select,
 .balance-tool__amount {
-  max-width: 240px;
+  width: min(260px, 100%);
+  max-width: 260px;
+  padding: 6px 8px;
+  border: 1px solid var(--input-border);
+  border-radius: var(--radius);
+  background: var(--form-bg);
+  color: var(--text-color);
+  font-family: var(--main-font, sans-serif);
+  line-height: 1.2;
 }
+
+.balance-tool__select:focus,
+.balance-tool__amount:focus {
+  outline: 2px solid var(--input-focus);
+  outline-offset: 1px;
+  border-color: var(--input-focus);
+}
+
 .balance-tool__status-area {
-  margin-top: 0.5rem;
+  margin-top: 10px;
 }
+
 .balance-tool__error {
-  color: var(--bt-error);
-  font-weight: 600;
+  color: var(--error-color);
+  font-weight: 700;
+  margin: 6px 0 0;
 }
+
 .balance-tool__report {
-  margin-top: 0.5rem;
-  border-left: 3px solid #d9d9d9;
-  padding: 0.5rem 0.6rem;
-  background: #fff;
+  margin-top: 10px;
+  border-left: 3px solid var(--accent);
+  padding: 8px 10px;
+  background: var(--panel-bg-light);
+  border-radius: var(--radius);
 }
+
 .balance-tool__kv {
   display: grid;
   grid-template-columns: max-content 1fr;
-  gap: 0.25rem 0.75rem;
-}
-.balance-tool__kv dt {
-  color: var(--bt-muted);
-}
-.balance-tool__kv dd {
+  gap: 6px 12px;
   margin: 0;
 }
+
+.balance-tool__kv dt {
+  color: var(--muted-color);
+  font-weight: 600;
+}
+
+.balance-tool__kv dd {
+  margin: 0;
+  color: var(--text-color);
+}
+
 .balance-tool.is-busy {
-  opacity: 0.7;
+  opacity: 0.75;
   pointer-events: none;
+}
+
+@media (max-width: 520px) {
+  .balance-tool__row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .balance-tool__label {
+    min-width: 0;
+  }
+  .balance-tool__select,
+  .balance-tool__amount {
+    max-width: 100%;
+  }
 }
