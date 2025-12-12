@@ -672,7 +672,7 @@
       endpoints: {
         profileFieldsUrl: (uid) => `/profile.php?section=fields&id=${uid}`,
       },
-      giftsUrl: 'https://feathertail.ru/ks/bank/gifts.json',
+      giftsUrl: 'https://feathertail.ru/ks/bank/gifts.php',
       gifts: [],
     },
     guestAddress: {
@@ -1133,3 +1133,4 @@
     },
   };
 })();
+
