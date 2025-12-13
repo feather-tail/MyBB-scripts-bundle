@@ -672,6 +672,11 @@
       endpoints: {
         profileFieldsUrl: (uid) => `/profile.php?section=fields&id=${uid}`,
       },
+      groups: {
+        order: ['Новогодние', 'Дни рождения', 'Любовь'],
+        otherTitle: 'Другое',
+        rememberState: true,
+      },
       giftsUrl: 'https://feathertail.ru/ks/bank/gifts.php',
       gifts: [],
     },
@@ -1133,4 +1138,5 @@
     },
   };
 })();
+
 
