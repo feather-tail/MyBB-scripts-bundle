@@ -52,9 +52,9 @@
       apiBase: '/api.php',
       topicsPerRequest: 100,
       postsPerRequest: 100,
-      delayBetweenRequestsMs: 200,
-      retryAttempts: 2,
-      retryBaseDelayMs: 800,
+      delayBetweenRequestsMs: 250,
+      retryAttempts: 3,
+      retryBaseDelayMs: 900,
       logToConsole: true,
       baseReward: 10,
       fastMultiplier: 1.5,
@@ -64,12 +64,16 @@
         bankApiUrl: 'https://feathertail.ru/ks/bank/bank-api.php',
       },
       selectors: {
-        runButton: '#ks-gpreward-run',
-        applyButton: '#ks-gpreward-apply',
-        warningBox: '#ks-gpreward-warning',
-        errorBox: '#ks-gpreward-error',
-        previewBox: '#ks-gpreward-preview',
-        summaryBox: '#ks-gpreward-summary',
+        runButton: '#ks-recount-run',
+        applyButton: '#ks-recount-save',
+        previewBox: '#ks-recount-result',
+        summaryBox: '#ks-recount-progress',
+        warningBox: '#ks-recount-warning',
+        errorBox: '#ks-recount-error',
+      },
+      safety: {
+        maxTopicPages: 5000,
+        maxPostPagesPerTopic: 20000,
       },
     },
     balanceTool: {
@@ -1138,6 +1142,7 @@
     },
   };
 })();
+
 
 
 
