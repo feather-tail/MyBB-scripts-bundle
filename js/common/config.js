@@ -62,6 +62,7 @@
       episodeForumId: 17,
       endpoints: {
         bankApiUrl: 'https://feathertail.ru/ks/bank/bank-api.php',
+        stateApiUrl: 'https://feathertail.ru/ks/rewards/rewards-state-api.php',
       },
       selectors: {
         runButton: '#ks-recount-run',
@@ -1142,10 +1143,3 @@
     },
   };
 })();
-
-
-
-
-
-
-
