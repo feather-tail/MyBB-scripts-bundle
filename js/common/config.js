@@ -41,9 +41,9 @@
       },
       backend: {
         endpoint: 'https://feathertail.ru/gamestats/index.php',
-        method: 'recalc',
+        method: 'set_total_bulk',
         subscription: 'KSPIRITS-TEST',
-        tableKey: 'gameposts',
+        tableKey: 'ks-global',
       },
     },
     adminGamepostReward: {
@@ -1138,6 +1138,7 @@
     },
   };
 })();
+
 
 
 
