@@ -41,7 +41,7 @@
       },
       backend: {
         endpoint: 'https://feathertail.ru/gamestats/index.php',
-        method: 'set_total_bulk',
+        method: 'recalc',
         subscription: 'KSPIRITS-TEST',
         tableKey: 'ks-global',
       },
@@ -1138,6 +1138,7 @@
     },
   };
 })();
+
 
 
 
