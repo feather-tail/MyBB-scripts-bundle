@@ -383,13 +383,16 @@
       BACKEND.endpoint +
       (BACKEND.method ? `?method=${encodeURIComponent(BACKEND.method)}` : '');
 
-    const res = await helpers
-      .request(url, {
-        method: 'POST',
-        data: JSON.stringify(payload),
-        headers: { 'Content-Type': 'application/json' },
-        responseType: 'json',
-      })
+    const res = await helpers.request(url, {
+      method: 'POST',
+      data: JSON.stringify(payload),
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest',
+      },
+      responseType: 'json',
+    })
       .catch((err) => {
         throw new Error(
           `Ошибка сети при обращении к бэкенду: ${
@@ -531,3 +534,4 @@
     start();
   }
 })();
+
