@@ -65,12 +65,12 @@
         stateApiUrl: 'https://feathertail.ru/ks/rewards/rewards-state-api.php',
       },
       selectors: {
-        runButton: '#ks-recount-run',
-        applyButton: '#ks-recount-save',
-        previewBox: '#ks-recount-result',
-        summaryBox: '#ks-recount-progress',
-        warningBox: '#ks-recount-warning',
-        errorBox: '#ks-recount-error',
+        runButton: '#ks-gpreward-run',
+        applyButton: '#ks-gpreward-apply',
+        previewBox: '#ks-gpreward-preview',
+        summaryBox: '#ks-gpreward-summary',
+        warningBox: '#ks-gpreward-warning',
+        errorBox: '#ks-gpreward-error',
       },
       safety: {
         maxTopicPages: 5000,
@@ -1143,3 +1143,4 @@
     },
   };
 })();
+
