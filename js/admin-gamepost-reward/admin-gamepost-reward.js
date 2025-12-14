@@ -9,43 +9,36 @@
   const CONFIG_NAME = 'adminGamepostReward';
 
   const DEFAULT_CONFIG = {
-    forumIds: [10, 13, 11, 12, 17],
+    siteKey: 'kindredspirits',
+    forumIds: [10, 11, 12, 13, 17],
     includeFirstPost: false,
-
     apiBase: '/api.php',
-
     topicsPerRequest: 100,
     postsPerRequest: 100,
-
     delayBetweenRequestsMs: 250,
-
     retryAttempts: 3,
     retryBaseDelayMs: 900,
-
     logToConsole: true,
-
     baseReward: 10,
     fastMultiplier: 1.5,
     fastThresholdSeconds: 24 * 3600,
-
     episodeForumId: 17,
-
-    endpoints: {
-      bankApiUrl: 'https://feathertail.ru/ks/bank/bank-api.php',
-    },
-
-    selectors: {
-      runButton: '#ks-gpreward-run',
-      applyButton: '#ks-gpreward-apply',
-      warningBox: '#ks-gpreward-warning',
-      errorBox: '#ks-gpreward-error',
-      previewBox: '#ks-gpreward-preview',
-      summaryBox: '#ks-gpreward-summary',
-    },
-
+    safetyOverlapPosts: 6,
     safety: {
       maxTopicPages: 5000,
       maxPostPagesPerTopic: 20000,
+    },
+    endpoints: {
+      bankApiUrl: 'https://feathertail.ru/ks/bank/bank-api.php',
+      stateApiUrl: 'https://feathertail.ru/ks/rewards/rewards-state-api.php',
+    },
+    selectors: {
+      runButton: '#ks-recount-run',
+      applyButton: '#ks-recount-save',
+      previewBox: '#ks-recount-result',
+      summaryBox: '#ks-recount-progress',
+      warningBox: '#ks-recount-warning',
+      errorBox: '#ks-recount-error',
     },
   };
 
@@ -54,36 +47,14 @@
       ? getConfig(CONFIG_NAME, DEFAULT_CONFIG)
       : DEFAULT_CONFIG;
 
-  const SELECTORS =
-    SETTINGS.selectors || SETTINGS.DOM_SELECTORS || DEFAULT_CONFIG.selectors;
-
+  const SELECTORS = SETTINGS.selectors || DEFAULT_CONFIG.selectors;
   const ENDPOINTS = SETTINGS.endpoints || DEFAULT_CONFIG.endpoints;
-  const BANK_API_URL =
-    ENDPOINTS.bankApiUrl || DEFAULT_CONFIG.endpoints.bankApiUrl;
 
-  (() => {
-    if (!Array.isArray(SETTINGS.forumIds)) SETTINGS.forumIds = [];
-    SETTINGS.forumIds = SETTINGS.forumIds
-      .map((v) => Number(v))
-      .filter((v) => Number.isFinite(v) && v > 0);
-
-    if (!SETTINGS.forumIds.length) {
-      SETTINGS.forumIds = DEFAULT_CONFIG.forumIds.slice();
-    }
-
-    if (
-      typeof SETTINGS.episodeForumId === 'number' &&
-      SETTINGS.episodeForumId > 0 &&
-      !SETTINGS.forumIds.includes(SETTINGS.episodeForumId)
-    ) {
-      SETTINGS.forumIds.push(SETTINGS.episodeForumId);
-    }
-  })();
+  const BANK_API_URL = ENDPOINTS.bankApiUrl || DEFAULT_CONFIG.endpoints.bankApiUrl;
+  const STATE_API_URL = ENDPOINTS.stateApiUrl || DEFAULT_CONFIG.endpoints.stateApiUrl;
 
   const sleep = (ms) =>
-    ms > 0
-      ? new Promise((resolve) => setTimeout(resolve, ms))
-      : Promise.resolve();
+    ms > 0 ? new Promise((r) => setTimeout(r, ms)) : Promise.resolve();
 
   const safeText = (v) => String(v == null ? '' : v);
 
@@ -96,14 +67,10 @@
         const resp = await fetch(url, { credentials: 'same-origin' });
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         const data = await resp.json();
-        if (!data || (!data.response && !data.error)) {
-          throw new Error('Некорректный ответ API');
-        }
+        if (!data || (!data.response && !data.error)) throw new Error('Некорректный ответ API');
         if (data.error) {
           throw new Error(
-            `API error (${label}): ${
-              data.error.message || data.error.code || 'unknown'
-            }`,
+            `API error (${label}): ${data.error.message || data.error.code || 'unknown'}`,
           );
         }
         return data;
@@ -111,27 +78,88 @@
         lastError = err;
         if (attempt < retryAttempts) {
           const delayMs = retryBaseDelayMs * (attempt + 1);
-          if (logToConsole) {
-            console.warn(
-              `[${label}] Ошибка (попытка ${attempt + 1}/${
-                retryAttempts + 1
-              }):`,
-              err,
-              `— повтор через ${delayMs} мс`,
-            );
-          }
+          if (logToConsole) console.warn(`[${label}] retry через ${delayMs}мс`, err);
           await sleep(delayMs);
         }
       }
     }
-
     throw lastError || new Error(`Запрос ${label} не удался`);
   }
 
-  // ---------- Надёжная загрузка тем (пагинация topic.get) ----------
+  async function postJson(url, payload, label = 'post') {
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    let json = null;
+    try {
+      json = await resp.json();
+    } catch (_) {}
+    if (!resp.ok) {
+      throw new Error(`${label}: HTTP ${resp.status}`);
+    }
+    if (!json || json.ok === false) {
+      throw new Error(`${label}: ${json && json.error ? json.error : 'UNKNOWN_ERROR'}`);
+    }
+    return json;
+  }
+
+  async function getStateFromDb(log) {
+    const siteKey = SETTINGS.siteKey || 'kindredspirits';
+    const forumIds = Array.isArray(SETTINGS.forumIds) ? SETTINGS.forumIds : [];
+    log(`state.getState: siteKey=${siteKey}, forumIds=[${forumIds.join(',')}]`);
+    return postJson(
+      STATE_API_URL,
+      { action: 'getState', data: { siteKey, forumIds, includeUserStates: true } },
+      'state.getState',
+    );
+  }
+
+  async function saveStateToDb(cursorsArr, log) {
+    const siteKey = SETTINGS.siteKey || 'kindredspirits';
+    log(`state.saveState: cursors=${cursorsArr.length}`);
+    return postJson(
+      STATE_API_URL,
+      { action: 'saveState', data: { siteKey, cursors: cursorsArr } },
+      'state.saveState',
+    );
+  }
+
+  const userIdCache = new Map();
+
+  async function getUserIdByUsername(username, log) {
+    const name = (username || '').trim();
+    if (!name) return null;
+
+    const key = name.toLowerCase();
+    if (userIdCache.has(key)) return userIdCache.get(key);
+
+    const url = `${SETTINGS.apiBase}?method=users.get&username=${encodeURIComponent(
+      name,
+    )}&fields=user_id`;
+
+    log(`users.get: "${name}"`);
+    try {
+      const data = await fetchJsonWithRetry(url, `users.get "${name}"`);
+      const users = Array.isArray(data?.response?.users) ? data.response.users : [];
+      if (!users.length) {
+        userIdCache.set(key, null);
+        return null;
+      }
+      const uid = Number(users[0].user_id);
+      const ok = Number.isFinite(uid) && uid > 0 ? uid : null;
+      userIdCache.set(key, ok);
+      await sleep(SETTINGS.delayBetweenRequestsMs);
+      return ok;
+    } catch (e) {
+      userIdCache.set(key, null);
+      return null;
+    }
+  }
+
   async function getAllTopicsForForums(forumIds, log) {
-    const { apiBase, topicsPerRequest, delayBetweenRequestsMs, safety } =
-      SETTINGS;
+    const { apiBase, topicsPerRequest, delayBetweenRequestsMs, safety } = SETTINGS;
 
     const out = [];
     let skip = 0;
@@ -140,14 +168,12 @@
     for (;;) {
       page += 1;
       if (page > (safety?.maxTopicPages || DEFAULT_CONFIG.safety.maxTopicPages)) {
-        throw new Error(
-          `topic.get: превышен лимит страниц (${page}). Проверь, что API нормально отдаёт пагинацию.`,
-        );
+        throw new Error(`topic.get: превышен лимит страниц (${page})`);
       }
 
       const url =
         `${apiBase}?method=topic.get&forum_id=${forumIds.join(',')}` +
-        `&fields=id,subject,forum_id,first_post,init_post,link` +
+        `&fields=id,forum_id,subject,first_post,init_post,link,last_post,last_post_id,last_posted_ts` +
         `&limit=${topicsPerRequest}&skip=${skip}`;
 
       log(`topic.get: skip=${skip}`);
@@ -158,10 +184,12 @@
       for (const raw of rows) {
         const t = {
           id: Number(raw.id),
-          subject: safeText(raw.subject),
           forum_id: Number(raw.forum_id ?? raw.forum ?? 0),
+          subject: safeText(raw.subject),
           first_post: Number(raw.init_post ?? raw.first_post ?? 0) || 0,
           link: safeText(raw.link),
+          last_post_id: Number(raw.last_post_id ?? raw.last_post ?? 0) || 0,
+          last_posted_ts: Number(raw.last_posted_ts ?? 0) || 0,
         };
         if (t.id && forumIds.includes(t.forum_id)) out.push(t);
       }
@@ -171,82 +199,84 @@
       await sleep(delayBetweenRequestsMs);
     }
 
-    // уникализация на всякий
-    const byId = new Map();
-    for (const t of out) byId.set(t.id, t);
+    const map = new Map();
+    for (const t of out) map.set(t.id, t);
+    const topics = Array.from(map.values());
 
-    const topics = Array.from(byId.values());
-    const byForum = topics.reduce((acc, t) => {
-      acc[t.forum_id] = (acc[t.forum_id] || 0) + 1;
-      return acc;
-    }, {});
-
-    log(
-      `topic.get: найдено ${topics.length} тем. По форумам: ` +
-        Object.entries(byForum)
-          .map(([fid, n]) => `#${fid}: ${n}`)
-          .join(', '),
-    );
-
+    log(`topic.get: тем найдено ${topics.length}`);
     return topics;
   }
 
-  // ---------- Надёжная загрузка постов по 1 теме (пагинация post.get) ----------
-  async function getAllPostsForTopic(topicId, log) {
-    const {
-      apiBase,
-      postsPerRequest,
-      delayBetweenRequestsMs,
-      safety,
-    } = SETTINGS;
+  async function getPostsDescPage(topicId, skip, limit, log) {
+    const url =
+      `${SETTINGS.apiBase}?method=post.get&topic_id=${topicId}` +
+      `&fields=id,topic_id,username,link,posted,posted_unix,posted_ts,timestamp,user_id` +
+      `&sort_by=id&sort_dir=desc` +
+      `&limit=${limit}&skip=${skip}`;
+
+    log(`post.get(desc): topic=${topicId}, skip=${skip}`);
+    const data = await fetchJsonWithRetry(url, `post.get desc topic=${topicId}`);
+    const rows = Array.isArray(data?.response) ? data.response : [];
 
     const out = [];
-    const seenIds = new Set();
+    for (const r of rows) {
+      const postedRaw = r.posted_unix ?? r.posted_ts ?? r.posted ?? r.timestamp ?? 0;
+      const posted = Number(postedRaw) || 0;
+      const id = Number(r.id) || 0;
+      if (id <= 0) continue;
+
+      out.push({
+        id,
+        topic_id: Number(r.topic_id) || topicId,
+        username: safeText(r.username).trim(),
+        link: safeText(r.link).trim(),
+        posted,
+        userId: Number.isFinite(Number(r.user_id)) ? Number(r.user_id) : null,
+      });
+    }
+    return out;
+  }
+
+  async function getAllPostsForTopicAsc(topicId, log) {
+    const { postsPerRequest, delayBetweenRequestsMs, safety } = SETTINGS;
+
+    const out = [];
+    const seen = new Set();
 
     let skip = 0;
     let page = 0;
 
     for (;;) {
       page += 1;
-      if (
-        page >
-        (safety?.maxPostPagesPerTopic ||
-          DEFAULT_CONFIG.safety.maxPostPagesPerTopic)
-      ) {
-        throw new Error(
-          `post.get: превышен лимит страниц по теме ${topicId} (${page}). Проверь API/пагинацию.`,
-        );
+      if (page > (safety?.maxPostPagesPerTopic || DEFAULT_CONFIG.safety.maxPostPagesPerTopic)) {
+        throw new Error(`post.get: превышен лимит страниц по теме ${topicId} (${page})`);
       }
 
-      // Никаких мульти topic_id — только одна тема
-      // sort_by/sort_dir: если API поддержит — отлично. Если нет — мы всё равно отсортируем позже.
       const url =
-        `${apiBase}?method=post.get&topic_id=${topicId}` +
+        `${SETTINGS.apiBase}?method=post.get&topic_id=${topicId}` +
         `&fields=id,topic_id,username,link,posted,posted_unix,posted_ts,timestamp,user_id` +
         `&sort_by=id&sort_dir=asc` +
         `&limit=${postsPerRequest}&skip=${skip}`;
 
-      log(`post.get: topic=${topicId}, skip=${skip}`);
-      const data = await fetchJsonWithRetry(url, `post.get topic=${topicId}`);
+      log(`post.get(asc): topic=${topicId}, skip=${skip}`);
+      const data = await fetchJsonWithRetry(url, `post.get asc topic=${topicId}`);
       const rows = Array.isArray(data?.response) ? data.response : [];
       if (!rows.length) break;
 
       for (const r of rows) {
-        const postedRaw =
-          r.posted_unix ?? r.posted_ts ?? r.posted ?? r.timestamp ?? null;
-        const posted = postedRaw != null ? Number(postedRaw) : 0;
+        const id = Number(r.id) || 0;
+        if (id <= 0 || seen.has(id)) continue;
+        seen.add(id);
 
-        const id = Number(r.id);
-        if (!Number.isFinite(id) || id <= 0) continue;
-        if (seenIds.has(id)) continue;
-        seenIds.add(id);
+        const postedRaw = r.posted_unix ?? r.posted_ts ?? r.posted ?? r.timestamp ?? 0;
+        const posted = Number(postedRaw) || 0;
 
         out.push({
           id,
           topic_id: Number(r.topic_id) || topicId,
           username: safeText(r.username).trim(),
           link: safeText(r.link).trim(),
-          posted: Number.isFinite(posted) ? posted : 0,
+          posted,
           userId: Number.isFinite(Number(r.user_id)) ? Number(r.user_id) : null,
         });
       }
@@ -256,342 +286,56 @@
       await sleep(delayBetweenRequestsMs);
     }
 
-    // ВАЖНО: сортируем сами, чтобы fast-логика была стабильной
-    out.sort((a, b) => {
-      if (a.posted !== b.posted) return a.posted - b.posted;
-      return a.id - b.id;
-    });
-
-    log(`post.get: topic=${topicId} — итого постов: ${out.length}`);
+    out.sort((a, b) => (a.id - b.id) || (a.posted - b.posted));
+    log(`post.get(asc): topic=${topicId} — постов ${out.length}`);
     return out;
   }
 
-  // ---------- user_id по username (fallback), с кэшем ----------
-  const userIdCache = new Map(); // key: usernameLower -> userId|null
-
-  async function getUserIdByUsername(username, log) {
-    const { apiBase, delayBetweenRequestsMs } = SETTINGS;
-    const name = (username || '').trim();
-    if (!name) return null;
-
-    const key = name.toLowerCase();
-    if (userIdCache.has(key)) return userIdCache.get(key);
-
-    const encoded = encodeURIComponent(name);
-    const url = `${apiBase}?method=users.get&username=${encoded}&fields=user_id`;
-
-    log(`users.get: username="${name}"`);
-    try {
-      const data = await fetchJsonWithRetry(url, `users.get "${name}"`);
-      const users = Array.isArray(data?.response?.users)
-        ? data.response.users
-        : [];
-      if (!users.length) {
-        log(`? Пользователь не найден: "${name}"`);
-        userIdCache.set(key, null);
-        return null;
-      }
-      const rawId = users[0].user_id;
-      const uid = Number(rawId);
-      if (!Number.isFinite(uid) || uid <= 0) {
-        log(`? Некорректный user_id "${rawId}" для "${name}"`);
-        userIdCache.set(key, null);
-        return null;
-      }
-      await sleep(delayBetweenRequestsMs);
-      userIdCache.set(key, uid);
-      return uid;
-    } catch (err) {
-      log(`? Ошибка users.get для "${name}": ${err.message || err}`);
-      userIdCache.set(key, null);
-      return null;
-    }
-  }
-
-  async function resolveUserIds(usersArr, log) {
-    for (const u of usersArr) {
-      if (u.userId != null && Number.isFinite(u.userId) && u.userId > 0) continue;
-      u.userId = await getUserIdByUsername(u.username, log);
-    }
-  }
-
-  // ---------- Основной пересчёт: сканируем темы, по каждой теме — посты ----------
-  async function recalcGamepostRewards(log) {
-    log('=== Старт пересчёта наград за игровые посты + эпизоды (SAFE FULL SCAN) ===');
-    log(
-      `Форумы: [${SETTINGS.forumIds.join(', ')}], ` +
-        `учитывать первый пост: ${SETTINGS.includeFirstPost ? 'да' : 'нет'}, ` +
-        `форум эпизодов: #${SETTINGS.episodeForumId}`,
-    );
-
-    const topics = await getAllTopicsForForums(SETTINGS.forumIds, log);
-    if (!topics.length) {
-      log('Тем в указанных форумах не найдено, пересчёт прерван.');
-      return null;
-    }
-
-    const topicForumMap = new Map();
-    for (const t of topics) topicForumMap.set(t.id, t.forum_id);
-
-    log(`Всего тем для пересчёта: ${topics.length}`);
-
-    const statsByName = new Map(); // key: usernameLower -> {userId, username, totalPosts, fastPosts, episodesTotal}
-    const episodesByName = new Map(); // key: usernameLower -> episodesTotal
-
-    const fastThreshold = SETTINGS.fastThresholdSeconds;
-    const includeFirstPost = !!SETTINGS.includeFirstPost;
-    const episodeForumId = Number(SETTINGS.episodeForumId) || 0;
-
-    let processedTopics = 0;
-
-    for (const t of topics) {
-      processedTopics += 1;
-      log(`--- Тема ${processedTopics}/${topics.length}: #${t.id} (форум #${t.forum_id}) ---`);
-
-      const posts = await getAllPostsForTopic(t.id, log);
-      if (!posts.length) continue;
-
-      // эпизоды: считаем уникальных участников в теме (1 тема = 1 эпизод)
-      if (episodeForumId > 0 && t.forum_id === episodeForumId) {
-        const usersInTopic = new Map(); // key -> username
-        for (const p of posts) {
-          const name = (p.username || '').trim();
-          if (!name) continue;
-          const k = name.toLowerCase();
-          if (!usersInTopic.has(k)) usersInTopic.set(k, name);
-        }
-        for (const [k, name] of usersInTopic.entries()) {
-          episodesByName.set(k, (episodesByName.get(k) || 0) + 1);
-          // чтобы юзер точно попал в общую карту
-          if (!statsByName.has(k)) {
-            statsByName.set(k, {
-              userId: null,
-              username: name,
-              totalPosts: 0,
-              fastPosts: 0,
-              episodesTotal: 0,
-            });
-          }
-        }
-      }
-
-      // посты + fast
-      let prev = null;
-
-      for (let i = 0; i < posts.length; i += 1) {
-        const p = posts[i];
-
-        // первый пост темы не начисляем, но он нужен как prev для fast
-        if (!includeFirstPost && i === 0) {
-          prev = p;
-          continue;
-        }
-
-        const username = (p.username || '').trim();
-        if (!username) {
-          prev = p;
-          continue;
-        }
-
-        let isFast = false;
-        if (prev && p.posted && prev.posted) {
-          const delta = p.posted - prev.posted;
-          if (delta > 0 && delta < fastThreshold) isFast = true;
-        }
-
-        prev = p;
-
-        const key = username.toLowerCase();
-        let rec = statsByName.get(key);
-        if (!rec) {
-          rec = {
-            userId: p.userId != null ? p.userId : null,
-            username,
-            totalPosts: 0,
-            fastPosts: 0,
-            episodesTotal: 0,
-          };
-          statsByName.set(key, rec);
-        }
-
-        // если API отдало user_id прямо в post.get — используем (экономим users.get)
-        if (
-          rec.userId == null &&
-          p.userId != null &&
-          Number.isFinite(p.userId) &&
-          p.userId > 0
-        ) {
-          rec.userId = p.userId;
-        }
-
-        rec.totalPosts += 1;
-        if (isFast) rec.fastPosts += 1;
-      }
-
-      await sleep(SETTINGS.delayBetweenRequestsMs);
-    }
-
-    // применяем episodesTotal в statsByName
-    for (const [k, n] of episodesByName.entries()) {
-      let rec = statsByName.get(k);
-      if (!rec) {
-        rec = {
-          userId: null,
-          username: k,
-          totalPosts: 0,
-          fastPosts: 0,
-          episodesTotal: 0,
-        };
-        statsByName.set(k, rec);
-      }
-      rec.episodesTotal = n;
-    }
-
-    const usersArr = Array.from(statsByName.values()).sort(
-      (a, b) => (b.totalPosts || 0) - (a.totalPosts || 0),
-    );
-
-    const totalPostsSum = usersArr.reduce((sum, u) => sum + (u.totalPosts || 0), 0);
-    const totalFastSum = usersArr.reduce((sum, u) => sum + (u.fastPosts || 0), 0);
-    const totalEpisodesSum = usersArr.reduce((sum, u) => sum + (u.episodesTotal || 0), 0);
-
-    log(
-      `Итог сканирования: пользователей ${usersArr.length}, ` +
-        `постов ${totalPostsSum} (быстрых ${totalFastSum}), ` +
-        `участий в эпизодах ${totalEpisodesSum}`,
-    );
-
-    if (!usersArr.length) return null;
-
-    // добираем user_id там, где API post.get не отдал user_id
-    await resolveUserIds(usersArr, log);
-
-    const usersWithIds = usersArr.filter(
-      (u) => Number.isFinite(u.userId) && u.userId > 0,
-    );
-    const usersWithoutIds = usersArr.filter(
-      (u) => !Number.isFinite(u.userId) || u.userId <= 0,
-    );
-
-    if (usersWithoutIds.length) {
-      log(
-        `? ${usersWithoutIds.length} пользователей не имеют user_id (будут пропущены при начислении валюты).`,
-      );
-      usersWithoutIds.forEach((u) =>
-        log(
-          `  - "${u.username}" (${u.totalPosts || 0} постов, ${
-            u.episodesTotal || 0
-          } эпизодов)`,
-        ),
-      );
-    }
-
-    if (!usersWithIds.length) {
-      log('Нет пользователей с валидными user_id, начислять некому.');
-      return null;
-    }
-
-    return { users: usersWithIds, usersWithoutIds };
-  }
-
-  // ---------- bank-api calls ----------
   async function callBankApi(action, users, log) {
-    const apiUrl = BANK_API_URL;
+    log(`bank-api: ${action} (posts), users=${users.length}`);
+    const resp = await fetch(BANK_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action,
+        data: {
+          users: users.map((u) => ({
+            userId: u.userId,
+            username: u.username,
+            totalPosts: u.totalPosts || 0,
+            fastPosts: u.fastPosts || 0,
+          })),
+        },
+      }),
+    });
 
-    const body = {
-      action,
-      data: {
-        users: users.map((u) => ({
-          userId: u.userId,
-          username: u.username,
-          totalPosts: u.totalPosts || 0,
-          fastPosts: u.fastPosts || 0,
-        })),
-      },
-    };
-
-    if (typeof log === 'function') {
-      log(`bank-api: ${action} (posts), пользователей: ${body.data.users.length}`);
-    }
-
-    let resp;
-    try {
-      resp = await fetch(apiUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-    } catch (err) {
-      throw new Error(
-        'Не удалось обратиться к bank-api (сетевой уровень / CORS): ' +
-          (err.message || err),
-      );
-    }
-
-    let json;
-    try {
-      json = await resp.json();
-    } catch (_) {
-      throw new Error(`bank-api HTTP ${resp.status} (ответ не JSON)`);
-    }
-
-    if (!resp.ok) {
-      const msg = json && json.error ? json.error : 'unknown';
-      throw new Error(`bank-api HTTP ${resp.status}: ${msg}`);
-    }
-
-    if (!json || json.ok === false) {
-      throw new Error(
-        'bank-api error (posts): ' + (json && json.error ? json.error : 'unknown'),
-      );
-    }
-
-    const items = Array.isArray(json.items) ? json.items : [];
-    if (typeof log === 'function') {
-      log(`bank-api: ${action} (posts) — вернуло записей: ${items.length}`);
-    }
-
-    return items;
+    const json = await resp.json().catch(() => null);
+    if (!resp.ok) throw new Error(`bank-api HTTP ${resp.status}`);
+    if (!json || json.ok === false) throw new Error(json?.error || 'bank-api error');
+    return Array.isArray(json.items) ? json.items : [];
   }
 
   async function callBankApiEpisodes(action, users, log) {
-    const apiUrl = BANK_API_URL;
-
-    const body = {
-      action,
-      data: {
-        users: users.map((u) => ({
-          userId: u.userId,
-          username: u.username,
-          episodesTotal: u.episodesTotal || 0,
-        })),
-      },
-    };
-
-    log(`bank-api: ${action} (episodes), пользователей: ${body.data.users.length}`);
-
-    const resp = await fetch(apiUrl, {
+    log(`bank-api: ${action} (episodes), users=${users.length}`);
+    const resp = await fetch(BANK_API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
+      body: JSON.stringify({
+        action,
+        data: {
+          users: users.map((u) => ({
+            userId: u.userId,
+            username: u.username,
+            episodesTotal: u.episodesTotal || 0,
+          })),
+        },
+      }),
     });
 
-    if (!resp.ok) {
-      throw new Error(`bank-api HTTP ${resp.status}`);
-    }
-
-    const json = await resp.json();
-    if (!json || json.ok === false) {
-      throw new Error(
-        `bank-api error (episodes): ${
-          json && json.error ? json.error : 'UNKNOWN_ERROR'
-        }`,
-      );
-    }
-
-    const items = Array.isArray(json.items) ? json.items : [];
-    log(`bank-api: ${action} (episodes) — вернуло записей: ${items.length}`);
-    return items;
+    const json = await resp.json().catch(() => null);
+    if (!resp.ok) throw new Error(`bank-api HTTP ${resp.status}`);
+    if (!json || json.ok === false) throw new Error(json?.error || 'bank-api error');
+    return Array.isArray(json.items) ? json.items : [];
   }
 
   function mergeRewards(postItems, episodeItems) {
@@ -603,93 +347,65 @@
         const uid = it.user_id != null ? String(it.user_id) : null;
         const uname = (it.username || '').toLowerCase();
         const key = uid ? `id:${uid}` : `name:${uname}`;
-        let rec = byKey.get(key);
-        if (!rec) {
-          rec = {};
-          byKey.set(key, rec);
-        }
+        const rec = byKey.get(key) || {};
         rec[kind] = it;
+        byKey.set(key, rec);
       }
     };
 
     add('posts', postItems);
     add('episodes', episodeItems);
 
-    const combined = [];
-
+    const out = [];
     for (const rec of byKey.values()) {
       const p = rec.posts || {};
       const e = rec.episodes || {};
-
       const user_id = p.user_id ?? e.user_id ?? null;
       const username = p.username ?? e.username ?? '';
 
-      const total_posts = p.total_posts ?? 0;
-      const fast_posts = p.fast_posts ?? 0;
-      const delta_posts = p.delta_posts ?? 0;
-      const delta_fast = p.delta_fast ?? 0;
-
-      const episodes_total = e.episodes_total ?? 0;
-      const delta_episodes = e.delta_episodes ?? 0;
-
-      const post_reward = p.reward ?? 0;
-      const episode_reward = e.reward ?? 0;
-      const reward_total = (post_reward || 0) + (episode_reward || 0);
-
-      const post_request_id = p.request_id ?? null;
-      const episode_request_id = e.request_id ?? null;
-
-      combined.push({
+      out.push({
         user_id,
         username,
-        total_posts,
-        fast_posts,
-        delta_posts,
-        delta_fast,
-        episodes_total,
-        delta_episodes,
-        post_reward,
-        episode_reward,
-        reward_total,
-        post_request_id,
-        episode_request_id,
+
+        total_posts: p.total_posts ?? 0,
+        fast_posts: p.fast_posts ?? 0,
+        delta_posts: p.delta_posts ?? 0,
+        delta_fast: p.delta_fast ?? 0,
+
+        episodes_total: e.episodes_total ?? 0,
+        delta_episodes: e.delta_episodes ?? 0,
+
+        post_reward: p.reward ?? 0,
+        episode_reward: e.reward ?? 0,
+        reward_total: (p.reward ?? 0) + (e.reward ?? 0),
+
+        post_request_id: p.request_id ?? null,
+        episode_request_id: e.request_id ?? null,
       });
     }
 
-    return combined;
+    return out;
   }
 
   function renderPreview(container, items) {
     container.innerHTML = '';
 
     if (!items.length) {
-      const div = document.createElement('div');
-      div.className = 'ks-bank-admin__empty';
-      div.textContent = 'Нет пользователей с изменением награды.';
-      container.appendChild(div);
+      container.textContent = 'Нет данных.';
       return;
     }
 
     const table = document.createElement('table');
-    table.className = 'ks-table ks-gpreward-table';
+    table.className = 'ks-table ks-recount-table';
 
-    const thead = document.createElement('thead');
-    thead.innerHTML =
-      '<tr>' +
-      '<th>Пользователь</th>' +
-      '<th>Всего постов</th>' +
-      '<th>Быстрых постов</th>' +
-      '<th>&#916; постов</th>' +
-      '<th>&#916; быстрых</th>' +
-      '<th>Всего эпизодов</th>' +
-      '<th>&#916; эпизодов</th>' +
-      '<th>Награда за посты</th>' +
-      '<th>Награда за эпизоды</th>' +
-      '<th>Итого</th>' +
-      '<th>Заявка (посты)</th>' +
-      '<th>Заявка (эпизоды)</th>' +
-      '</tr>';
-    table.appendChild(thead);
+    table.innerHTML =
+      `<thead><tr>
+        <th>Пользователь</th>
+        <th>Всего постов</th><th>Быстрых</th><th>Δ постов</th><th>Δ быстрых</th>
+        <th>Эпизодов</th><th>Δ эпизодов</th>
+        <th>Награда (посты)</th><th>Награда (эпизоды)</th><th>Итого</th>
+        <th>Заявка (посты)</th><th>Заявка (эпизоды)</th>
+      </tr></thead>`;
 
     const tbody = document.createElement('tbody');
 
@@ -698,62 +414,19 @@
       .sort((a, b) => (b.reward_total || 0) - (a.reward_total || 0))
       .forEach((it) => {
         const tr = document.createElement('tr');
-
-        const tdUser = document.createElement('td');
-        tdUser.textContent =
-          it.user_id != null ? `${it.username} (uid ${it.user_id})` : it.username;
-        tr.appendChild(tdUser);
-
-        const tdTotalPosts = document.createElement('td');
-        tdTotalPosts.textContent = String(it.total_posts || 0);
-        tr.appendChild(tdTotalPosts);
-
-        const tdFastPosts = document.createElement('td');
-        tdFastPosts.textContent = String(it.fast_posts || 0);
-        tr.appendChild(tdFastPosts);
-
-        const tdDeltaPosts = document.createElement('td');
-        tdDeltaPosts.textContent = String(it.delta_posts || 0);
-        tr.appendChild(tdDeltaPosts);
-
-        const tdDeltaFast = document.createElement('td');
-        tdDeltaFast.textContent = String(it.delta_fast || 0);
-        tr.appendChild(tdDeltaFast);
-
-        const tdEpisodesTotal = document.createElement('td');
-        tdEpisodesTotal.textContent = String(it.episodes_total || 0);
-        tr.appendChild(tdEpisodesTotal);
-
-        const tdDeltaEpisodes = document.createElement('td');
-        tdDeltaEpisodes.textContent = String(it.delta_episodes || 0);
-        tr.appendChild(tdDeltaEpisodes);
-
-        const tdPostReward = document.createElement('td');
-        tdPostReward.textContent = it.post_reward ? `+${it.post_reward}` : '0';
-        tr.appendChild(tdPostReward);
-
-        const tdEpisodeReward = document.createElement('td');
-        tdEpisodeReward.textContent = it.episode_reward ? `+${it.episode_reward}` : '0';
-        tr.appendChild(tdEpisodeReward);
-
-        const tdTotalReward = document.createElement('td');
-        tdTotalReward.textContent = it.reward_total ? `+${it.reward_total}` : '0';
-        tr.appendChild(tdTotalReward);
-
-        const tdPostReq = document.createElement('td');
-        tdPostReq.textContent =
-          it.post_request_id != null && it.post_request_id > 0
-            ? `#${it.post_request_id}`
-            : '–';
-        tr.appendChild(tdPostReq);
-
-        const tdEpisodeReq = document.createElement('td');
-        tdEpisodeReq.textContent =
-          it.episode_request_id != null && it.episode_request_id > 0
-            ? `#${it.episode_request_id}`
-            : '–';
-        tr.appendChild(tdEpisodeReq);
-
+        tr.innerHTML =
+          `<td>${it.user_id ? `${safeText(it.username)} (uid ${it.user_id})` : safeText(it.username)}</td>
+           <td>${it.total_posts || 0}</td>
+           <td>${it.fast_posts || 0}</td>
+           <td>${it.delta_posts || 0}</td>
+           <td>${it.delta_fast || 0}</td>
+           <td>${it.episodes_total || 0}</td>
+           <td>${it.delta_episodes || 0}</td>
+           <td>${it.post_reward ? `+${it.post_reward}` : '0'}</td>
+           <td>${it.episode_reward ? `+${it.episode_reward}` : '0'}</td>
+           <td>${it.reward_total ? `+${it.reward_total}` : '0'}</td>
+           <td>${it.post_request_id ? `#${it.post_request_id}` : '–'}</td>
+           <td>${it.episode_request_id ? `#${it.episode_request_id}` : '–'}</td>`;
         tbody.appendChild(tr);
       });
 
@@ -761,121 +434,467 @@
     container.appendChild(table);
   }
 
-  function initGamepostRewardsTab() {
-    const root = document.getElementById('ks-admin');
-    if (!root) return;
+  function buildBaselineFromUserStates(userStates) {
+    const baseById = new Map();
 
-    const {
-      runButton: runSel,
-      applyButton: applySel,
-      warningBox: warnSel,
-      errorBox: errSel,
-      previewBox: prevSel,
-      summaryBox: summarySel,
-    } = SELECTORS;
+    const gp = Array.isArray(userStates?.gameposts) ? userStates.gameposts : [];
+    for (const r of gp) {
+      const uid = Number(r.user_id) || 0;
+      if (uid <= 0) continue;
+      baseById.set(uid, {
+        userId: uid,
+        username: safeText(r.username),
+        totalPosts: Number(r.total_posts) || 0,
+        fastPosts: Number(r.fast_posts) || 0,
+        episodesTotal: 0,
+      });
+    }
 
-    const runBtn = runSel ? root.querySelector(runSel) : null;
-    const applyBtn = applySel ? root.querySelector(applySel) : null;
-    const warnBox = warnSel ? root.querySelector(warnSel) : null;
-    const errBox = errSel ? root.querySelector(errSel) : null;
-    const previewBox = prevSel ? root.querySelector(prevSel) : null;
-    const summaryBox = summarySel ? root.querySelector(summarySel) : null;
+    const ep = Array.isArray(userStates?.episodes) ? userStates.episodes : [];
+    for (const r of ep) {
+      const uid = Number(r.user_id) || 0;
+      if (uid <= 0) continue;
+      const rec = baseById.get(uid) || {
+        userId: uid,
+        username: safeText(r.username),
+        totalPosts: 0,
+        fastPosts: 0,
+        episodesTotal: 0,
+      };
+      rec.episodesTotal = Number(r.episodes_total) || 0;
+      baseById.set(uid, rec);
+    }
+
+    return baseById;
+  }
+
+  function ensureUser(baseById, uid, username) {
+    if (!uid || uid <= 0) return null;
+    const rec =
+      baseById.get(uid) || {
+        userId: uid,
+        username: username || '',
+        totalPosts: 0,
+        fastPosts: 0,
+        episodesTotal: 0,
+      };
+    if (!rec.username && username) rec.username = username;
+    baseById.set(uid, rec);
+    return rec;
+  }
+
+  async function incrementalScanTopic(topic, cursor, baseById, nextCursors, log) {
+    const overlap = Math.max(0, Number(SETTINGS.safetyOverlapPosts) || 0);
+    const postsPerPage = SETTINGS.postsPerRequest || 100;
+    const fastThreshold = SETTINGS.fastThresholdSeconds || (24 * 3600);
+
+    if (cursor && topic.last_post_id && cursor.lastPostId && topic.last_post_id === cursor.lastPostId) {
+      nextCursors.set(topic.id, cursor);
+      return;
+    }
+
+    if (!cursor || !cursor.lastPostId) {
+      log(`topic#${topic.id}: no cursor → full scan`);
+      const posts = await getAllPostsForTopicAsc(topic.id, log);
+
+      let epParticipants = null;
+      if (topic.forum_id === Number(SETTINGS.episodeForumId)) {
+        epParticipants = {};
+      }
+
+      let prev = null;
+      for (let i = 0; i < posts.length; i += 1) {
+        const p = posts[i];
+
+        if (!SETTINGS.includeFirstPost && i === 0) {
+          prev = p;
+          if (epParticipants) {
+            const uname = (p.username || '').trim();
+            if (uname) {
+              let uid = p.userId;
+              if (!uid) uid = await getUserIdByUsername(uname, log);
+              const key = uid ? String(uid) : `name:${uname.toLowerCase()}`;
+              epParticipants[key] = uname;
+            }
+          }
+          continue;
+        }
+
+        const uname = (p.username || '').trim();
+        if (!uname) {
+          prev = p;
+          continue;
+        }
+
+        let uid = p.userId;
+        if (!uid) uid = await getUserIdByUsername(uname, log);
+        if (!uid) {
+          prev = p;
+          continue;
+        }
+
+        const rec = ensureUser(baseById, uid, uname);
+        if (!rec) {
+          prev = p;
+          continue;
+        }
+
+        rec.totalPosts += 1;
+
+        if (prev && prev.posted && p.posted) {
+          const delta = p.posted - prev.posted;
+          if (delta > 0 && delta < fastThreshold) rec.fastPosts += 1;
+        }
+
+        if (epParticipants) {
+          const key = String(uid);
+          epParticipants[key] = uname;
+        }
+
+        prev = p;
+      }
+
+      const last = posts.length ? posts[posts.length - 1] : null;
+      const newCursor = {
+        topicId: topic.id,
+        forumId: topic.forum_id,
+        lastPostId: last ? last.id : 0,
+        lastPostedTs: last ? (last.posted || 0) : 0,
+        lastPostUsername: last ? (last.username || '') : '',
+        lastPostUserId: last ? (last.userId || null) : null,
+        episodeParticipants: epParticipants,
+        createdAt: Math.floor(Date.now() / 1000),
+        updatedAt: Math.floor(Date.now() / 1000),
+      };
+      nextCursors.set(topic.id, newCursor);
+      return;
+    }
+
+    const targetId = Number(cursor.lastPostId) || 0;
+    const collected = [];
+    let found = false;
+    let keepGoingAfterFound = overlap;
+    let skip = 0;
+    let pages = 0;
+
+    while (true) {
+      pages += 1;
+      if (pages > (SETTINGS.safety?.maxPostPagesPerTopic || DEFAULT_CONFIG.safety.maxPostPagesPerTopic)) {
+        throw new Error(`topic#${topic.id}: exceeded maxPostPagesPerTopic while searching cursor`);
+      }
+
+      const pageRows = await getPostsDescPage(topic.id, skip, postsPerPage, log);
+      if (!pageRows.length) break;
+
+      for (const p of pageRows) {
+        collected.push(p);
+        if (p.id === targetId) {
+          found = true;
+        } else if (found && keepGoingAfterFound > 0) {
+        }
+      }
+
+      if (found) {
+        const idx = collected.findIndex((p) => p.id === targetId);
+        const olderCount = idx >= 0 ? (collected.length - 1 - idx) : 0;
+        if (olderCount >= overlap) break;
+      }
+
+      if (pageRows.length < postsPerPage) break;
+
+      skip += postsPerPage;
+      await sleep(SETTINGS.delayBetweenRequestsMs);
+    }
+
+    if (!found) {
+      log(`topic#${topic.id}: cursor post not found → FULL SCAN fallback`);
+      const fallback = await getAllPostsForTopicAsc(topic.id, log);
+
+      const lastPostedBoundary = Number(cursor.lastPostedTs) || 0;
+      const lastIdBoundary = targetId;
+
+      let epParticipants = cursor.episodeParticipants ? { ...cursor.episodeParticipants } : null;
+      if (topic.forum_id === Number(SETTINGS.episodeForumId)) {
+        if (!epParticipants) epParticipants = {};
+      }
+
+      const newPosts = fallback.filter((p) => p.id > lastIdBoundary).sort((a, b) => a.id - b.id);
+
+      let prevPosted = lastPostedBoundary;
+      for (let i = 0; i < newPosts.length; i += 1) {
+        const p = newPosts[i];
+        const uname = (p.username || '').trim();
+        if (!uname) {
+          prevPosted = p.posted || prevPosted;
+          continue;
+        }
+        let uid = p.userId;
+        if (!uid) uid = await getUserIdByUsername(uname, log);
+        if (!uid) {
+          prevPosted = p.posted || prevPosted;
+          continue;
+        }
+        const rec = ensureUser(baseById, uid, uname);
+        rec.totalPosts += 1;
+
+        if (prevPosted && p.posted) {
+          const delta = p.posted - prevPosted;
+          if (delta > 0 && delta < fastThreshold) rec.fastPosts += 1;
+        }
+        prevPosted = p.posted || prevPosted;
+
+        if (epParticipants) {
+          const key = String(uid);
+          if (!epParticipants[key]) epParticipants[key] = uname;
+        }
+      }
+
+      const last = fallback.length ? fallback[fallback.length - 1] : null;
+      const newCursor = {
+        topicId: topic.id,
+        forumId: topic.forum_id,
+        lastPostId: last ? last.id : cursor.lastPostId,
+        lastPostedTs: last ? (last.posted || 0) : cursor.lastPostedTs,
+        lastPostUsername: last ? (last.username || '') : cursor.lastPostUsername,
+        lastPostUserId: last ? (last.userId || null) : cursor.lastPostUserId,
+        episodeParticipants: epParticipants,
+        createdAt: cursor.createdAt || Math.floor(Date.now() / 1000),
+        updatedAt: Math.floor(Date.now() / 1000),
+      };
+      nextCursors.set(topic.id, newCursor);
+      return;
+    }
+    
+    const all = collected.slice().sort((a, b) => a.id - b.id);
+    const postsNew = all.filter((p) => p.id > targetId);
+
+    if (!postsNew.length) {
+      nextCursors.set(topic.id, cursor);
+      return;
+    }
+
+    let boundaryPosted = Number(cursor.lastPostedTs) || 0;
+    if (!boundaryPosted) {
+      const cursorPost = all.find((p) => p.id === targetId);
+      if (cursorPost && cursorPost.posted) boundaryPosted = cursorPost.posted;
+    }
+
+    let epParticipants = cursor.episodeParticipants ? { ...cursor.episodeParticipants } : null;
+    if (topic.forum_id === Number(SETTINGS.episodeForumId)) {
+      if (!epParticipants) epParticipants = {};
+    }
+
+    let prevPosted = boundaryPosted;
+
+    for (let i = 0; i < postsNew.length; i += 1) {
+      const p = postsNew[i];
+      const uname = (p.username || '').trim();
+      if (!uname) {
+        prevPosted = p.posted || prevPosted;
+        continue;
+      }
+
+      let uid = p.userId;
+      if (!uid) uid = await getUserIdByUsername(uname, log);
+      if (!uid) {
+        prevPosted = p.posted || prevPosted;
+        continue;
+      }
+
+      const rec = ensureUser(baseById, uid, uname);
+      rec.totalPosts += 1;
+
+      if (prevPosted && p.posted) {
+        const delta = p.posted - prevPosted;
+        if (delta > 0 && delta < fastThreshold) rec.fastPosts += 1;
+      }
+      prevPosted = p.posted || prevPosted;
+
+      if (epParticipants) {
+        const key = String(uid);
+        if (!epParticipants[key]) epParticipants[key] = uname;
+      }
+    }
+
+    const newest = all[all.length - 1];
+    const newCursor = {
+      topicId: topic.id,
+      forumId: topic.forum_id,
+      lastPostId: newest ? newest.id : cursor.lastPostId,
+      lastPostedTs: newest ? (newest.posted || 0) : cursor.lastPostedTs,
+      lastPostUsername: newest ? (newest.username || '') : cursor.lastPostUsername,
+      lastPostUserId: newest ? (newest.userId || null) : cursor.lastPostUserId,
+      episodeParticipants: epParticipants,
+      createdAt: cursor.createdAt || Math.floor(Date.now() / 1000),
+      updatedAt: Math.floor(Date.now() / 1000),
+    };
+
+    nextCursors.set(topic.id, newCursor);
+  }
+
+  function applyEpisodeTotalsFromParticipants(baseById, nextCursors, prevCursors, log) {
+    const episodeForumId = Number(SETTINGS.episodeForumId) || 0;
+    if (!episodeForumId) return;
+
+    for (const [topicId, cur] of nextCursors.entries()) {
+      if (!cur || Number(cur.forumId) !== episodeForumId) continue;
+
+      const prev = prevCursors && prevCursors[String(topicId)] ? prevCursors[String(topicId)] : null;
+      const prevSet = prev && prev.episodeParticipants ? prev.episodeParticipants : null;
+      const nextSet = cur.episodeParticipants || null;
+
+      if (!nextSet) continue;
+
+      const prevKeys = prevSet ? new Set(Object.keys(prevSet)) : new Set();
+      const nextKeys = Object.keys(nextSet);
+
+      let newParticipants = 0;
+
+      for (const k of nextKeys) {
+        if (prevKeys.has(k)) continue;
+        if (k.startsWith('name:')) {
+          continue;
+        }
+        const uid = Number(k) || 0;
+        if (uid <= 0) continue;
+
+        const uname = safeText(nextSet[k] || '');
+        const rec = ensureUser(baseById, uid, uname);
+        rec.episodesTotal += 1;
+        newParticipants += 1;
+      }
+
+      if (newParticipants) {
+        log(`episode topic#${topicId}: новых участников ${newParticipants}`);
+      }
+    }
+  }
+
+  function init() {
+    const runBtn = document.querySelector(SELECTORS.runButton);
+    const applyBtn = document.querySelector(SELECTORS.applyButton);
+    const previewBox = document.querySelector(SELECTORS.previewBox);
+    const summaryBox = document.querySelector(SELECTORS.summaryBox);
+    const warningBox = document.querySelector(SELECTORS.warningBox);
+    const errorBox = document.querySelector(SELECTORS.errorBox);
 
     if (!runBtn || !previewBox) return;
 
-    let isRunning = false;
-    let lastUsers = null;
-    let lastPreviewItems = null;
+    let isBusy = false;
 
-    const setWarning = (msg) => {
-      if (!warnBox) return;
-      warnBox.textContent = msg || '';
-      warnBox.style.display = msg ? '' : 'none';
+    let lastUsersForBank = null;
+    let lastNextCursorsArr = null;
+    let lastPrevCursors = null;
+
+    const log = (m) => {
+      if (SETTINGS.logToConsole) console.log('[recount]', m);
     };
 
-    const setError = (msg) => {
-      if (!errBox) return;
-      errBox.textContent = msg || '';
-      errBox.style.display = msg ? '' : 'none';
+    const setText = (el, txt) => {
+      if (!el) return;
+      el.textContent = txt || '';
     };
 
-    const setSummary = (msg) => {
-      if (!summaryBox) return;
-      summaryBox.textContent = msg || '';
+    const show = (el, visible) => {
+      if (!el) return;
+      el.style.display = visible ? '' : 'none';
     };
 
-    const log = (msg) => {
-      if (SETTINGS.logToConsole) {
-        console.log('[Награды за посты/эпизоды]', msg);
+    const setBusy = (b) => {
+      isBusy = b;
+      runBtn.disabled = b;
+      if (applyBtn) applyBtn.disabled = b || !lastUsersForBank;
+      runBtn.textContent = b ? 'Пересчёт…' : 'Пересчитать';
+    };
+
+    async function doRun(isApplyPhase) {
+      const forumIds = Array.isArray(SETTINGS.forumIds) ? SETTINGS.forumIds : [];
+      if (!forumIds.length) throw new Error('forumIds пустой');
+
+      setText(errorBox, '');
+      show(errorBox, false);
+      setText(warningBox, '');
+      show(warningBox, false);
+      setText(summaryBox, 'Загружаю состояние из БД…');
+
+      const state = await getStateFromDb(log);
+      lastPrevCursors = state.cursors || {};
+
+      setText(summaryBox, 'Загружаю темы…');
+      const topics = await getAllTopicsForForums(forumIds, log);
+      setText(summaryBox, `Тем: ${topics.length}. Инкрементальный проход…`);
+
+      const baseById = buildBaselineFromUserStates(state.userStates);
+
+      const nextCursors = new Map();
+
+      for (let i = 0; i < topics.length; i += 1) {
+        const t = topics[i];
+        setText(summaryBox, `Тема ${i + 1}/${topics.length}: #${t.id}`);
+
+        const cursor = lastPrevCursors[String(t.id)] || null;
+        await incrementalScanTopic(t, cursor, baseById, nextCursors, log);
+
+        await sleep(SETTINGS.delayBetweenRequestsMs);
       }
-    };
 
-    const setBusy = (busy) => {
-      isRunning = busy;
-      runBtn.disabled = busy;
-      if (applyBtn) {
-        applyBtn.disabled = busy || !lastPreviewItems || !lastPreviewItems.length;
+      applyEpisodeTotalsFromParticipants(baseById, nextCursors, lastPrevCursors, log);
+
+      const users = Array.from(baseById.values()).filter((u) => Number.isFinite(u.userId) && u.userId > 0);
+
+      const cursorsArr = Array.from(nextCursors.values());
+
+      if (isApplyPhase) {
+        for (const c of cursorsArr) {
+          if (!c || !c.episodeParticipants) continue;
+          const obj = c.episodeParticipants;
+          const keys = Object.keys(obj);
+          for (const k of keys) {
+            if (!k.startsWith('name:')) continue;
+            const uname = safeText(obj[k]);
+            const uid = await getUserIdByUsername(uname, log);
+            if (uid && uid > 0) {
+              delete obj[k];
+              obj[String(uid)] = uname;
+            }
+          }
+        }
       }
-      runBtn.textContent = busy ? 'Пересчёт…' : 'Пересчитать и рассчитать награды';
-    };
+
+      return { users, cursorsArr };
+    }
 
     runBtn.addEventListener('click', async () => {
-      if (isRunning) return;
-
+      if (isBusy) return;
       setBusy(true);
-      setWarning('');
-      setError('');
-      setSummary('');
+
       previewBox.innerHTML = '';
-      lastUsers = null;
-      lastPreviewItems = null;
-      if (applyBtn) {
-        applyBtn.style.display = 'none';
-        applyBtn.disabled = true;
-      }
+      lastUsersForBank = null;
+      lastNextCursorsArr = null;
+      if (applyBtn) applyBtn.disabled = true;
 
       try {
-        const snapshot = await recalcGamepostRewards(log);
-        if (!snapshot || !snapshot.users || !snapshot.users.length) {
-          setSummary('Пересчёт не дал результата (нет тем или постов/эпизодов).');
-          setBusy(false);
-          return;
-        }
+        const { users, cursorsArr } = await doRun(false);
 
-        lastUsers = snapshot.users;
+        setText(summaryBox, `Расчёт наград (bank-api)… пользователей: ${users.length}`);
+        const postItems = await callBankApi('calcGamepostRewards', users, log);
+        const episodeItems = await callBankApiEpisodes('calcEpisodeRewards', users, log);
 
-        const postItems = await callBankApi('calcGamepostRewards', lastUsers, log);
-        const episodeItems = await callBankApiEpisodes(
-          'calcEpisodeRewards',
-          lastUsers,
-          log,
-        );
+        const merged = mergeRewards(postItems, episodeItems);
+        renderPreview(previewBox, merged);
 
-        const items = mergeRewards(postItems, episodeItems);
-        lastPreviewItems = items;
+        const total = merged.reduce((s, it) => s + (Number(it.reward_total) || 0), 0);
+        setText(summaryBox, `Готово. Пользователей: ${merged.length}. Суммарная награда: ${total}.`);
 
-        const withReward = items.filter((it) => (it.reward_total || 0) > 0);
-        const totalReward = items.reduce(
-          (sum, it) => sum + (Number(it.reward_total) || 0),
-          0,
-        );
+        lastUsersForBank = users;
+        lastNextCursorsArr = cursorsArr;
 
-        renderPreview(previewBox, items);
-
-        setSummary(
-          `Пользователей с изменением: ${items.length}. ` +
-            `С ненулевой наградой: ${withReward.length}. ` +
-            `Суммарная награда (посты + эпизоды): ${totalReward}.`,
-        );
-
-        if (applyBtn) {
-          applyBtn.style.display = 'inline-block';
-          applyBtn.disabled = !withReward.length;
-        }
-      } catch (err) {
-        console.error(err);
-        setError('Ошибка при пересчёте или расчёте наград: ' + (err.message || err));
-        setSummary('Произошла ошибка при пересчёте. Подробности — в консоли.');
+        if (applyBtn) applyBtn.disabled = false;
+      } catch (e) {
+        console.error(e);
+        setText(errorBox, `Ошибка: ${e.message || e}`);
+        show(errorBox, true);
+        setText(summaryBox, 'Пересчёт завершился с ошибкой.');
       } finally {
         setBusy(false);
       }
@@ -883,49 +902,31 @@
 
     if (applyBtn) {
       applyBtn.addEventListener('click', async () => {
-        if (isRunning || !lastUsers || !lastUsers.length) return;
+        if (isBusy || !lastUsersForBank || !lastNextCursorsArr) return;
 
-        if (
-          !window.confirm(
-            'Создать заявки в банк на основе текущего расчёта наград (посты + эпизоды)?',
-          )
-        ) {
-          return;
-        }
+        if (!window.confirm('Создать заявки (APPLY) и зафиксировать курсоры в БД?')) return;
 
         setBusy(true);
-        setWarning('');
-        setError('');
-        setSummary('Отправляем заявки в банк…');
-
         try {
-          const postItems = await callBankApi('applyGamepostRewards', lastUsers, log);
-          const episodeItems = await callBankApiEpisodes(
-            'applyEpisodeRewards',
-            lastUsers,
-            log,
-          );
+          setText(summaryBox, 'APPLY: создаю заявки в bank-api…');
 
-          const items = mergeRewards(postItems, episodeItems);
-          lastPreviewItems = items;
+          const postItems = await callBankApi('applyGamepostRewards', lastUsersForBank, log);
+          const episodeItems = await callBankApiEpisodes('applyEpisodeRewards', lastUsersForBank, log);
 
-          const withReward = items.filter((it) => (it.reward_total || 0) > 0);
-          const totalReward = items.reduce(
-            (sum, it) => sum + (Number(it.reward_total) || 0),
-            0,
-          );
+          const merged = mergeRewards(postItems, episodeItems);
+          renderPreview(previewBox, merged);
 
-          renderPreview(previewBox, items);
+          setText(summaryBox, 'APPLY: сохраняю курсоры в БД…');
+          await saveStateToDb(lastNextCursorsArr, log);
 
-          setSummary(
-            `Готово. Создано/обновлено заявок (посты и/или эпизоды): ${withReward.length}, ` +
-              `суммарная награда: ${totalReward}.`,
-          );
-          setWarning('Заявки добавлены во вкладку "Банк". Не забудьте их обработать.');
-        } catch (err) {
-          console.error(err);
-          setError('Ошибка при создании заявок в банк: ' + (err.message || err));
-          setSummary('Не удалось создать заявки. Подробности — в консоли.');
+          const total = merged.reduce((s, it) => s + (Number(it.reward_total) || 0), 0);
+          setText(summaryBox, `Готово. APPLY выполнен. Суммарная награда: ${total}.`);
+          setText(warningBox, 'Курсоры обновлены. Заявки смотри во вкладке "Банк".');
+          show(warningBox, true);
+        } catch (e) {
+          console.error(e);
+          setText(errorBox, `Ошибка APPLY: ${e.message || e}`);
+          show(errorBox, true);
         } finally {
           setBusy(false);
         }
@@ -933,19 +934,7 @@
     }
   }
 
-  const start = () => {
-    try {
-      initGamepostRewardsTab();
-    } catch (err) {
-      console.error('Ошибка инициализации вкладки "Награды за посты":', err);
-    }
-  };
-
-  if (typeof runOnceOnReady === 'function') {
-    runOnceOnReady(start);
-  } else if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', start);
-  } else {
-    start();
-  }
+  if (typeof runOnceOnReady === 'function') runOnceOnReady(init);
+  else if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
 })();
