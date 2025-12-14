@@ -33,12 +33,12 @@
       stateApiUrl: 'https://feathertail.ru/ks/rewards/rewards-state-api.php',
     },
     selectors: {
-      runButton: '#ks-recount-run',
-      applyButton: '#ks-recount-save',
-      previewBox: '#ks-recount-result',
-      summaryBox: '#ks-recount-progress',
-      warningBox: '#ks-recount-warning',
-      errorBox: '#ks-recount-error',
+      runButton: '#ks-gpreward-run',
+      applyButton: '#ks-gpreward-apply',
+      previewBox: '#ks-gpreward-preview',
+      summaryBox: '#ks-gpreward-summary',
+      warningBox: '#ks-gpreward-warning',
+      errorBox: '#ks-gpreward-error',
     },
   };
 
@@ -833,14 +833,28 @@
   }
 
   function init() {
-    const runBtn = document.querySelector(SELECTORS.runButton);
-    const applyBtn = document.querySelector(SELECTORS.applyButton);
-    const previewBox = document.querySelector(SELECTORS.previewBox);
-    const summaryBox = document.querySelector(SELECTORS.summaryBox);
-    const warningBox = document.querySelector(SELECTORS.warningBox);
-    const errorBox = document.querySelector(SELECTORS.errorBox);
-
-    if (!runBtn || !previewBox) return;
+    const pick = (...sels) => {
+      for (const s of sels) {
+        if (!s) continue;
+        const el = document.querySelector(s);
+        if (el) return el;
+      }
+      return null;
+    };
+    
+    const runBtn = pick(SELECTORS.runButton, '#ks-gpreward-run', '#ks-recount-run');
+    const applyBtn = pick(SELECTORS.applyButton, '#ks-gpreward-apply', '#ks-recount-save');
+    const previewBox = pick(SELECTORS.previewBox, '#ks-gpreward-preview', '#ks-recount-result');
+    const summaryBox = pick(SELECTORS.summaryBox, '#ks-gpreward-summary', '#ks-recount-progress');
+    const warningBox = pick(SELECTORS.warningBox, '#ks-gpreward-warning', '#ks-recount-warning');
+    const errorBox = pick(SELECTORS.errorBox, '#ks-gpreward-error', '#ks-recount-error');
+    
+    if (!runBtn || !previewBox) {
+      if (SETTINGS.logToConsole) {
+        console.warn('[recount] UI not found. selectors=', SELECTORS);
+      }
+      return;
+    }
 
     let isBusy = false;
 
@@ -1005,3 +1019,4 @@
   else if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();
 })();
+
