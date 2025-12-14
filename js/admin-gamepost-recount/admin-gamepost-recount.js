@@ -45,7 +45,6 @@
     ...(SETTINGS.backend || SETTINGS.BACKEND || {}),
   };
 
-  // нормализуем список форумов
   (() => {
     let fids = SETTINGS.forumIds;
     if (!Array.isArray(fids)) {
@@ -108,6 +107,29 @@
     throw lastError || new Error(`Запрос ${label} не удался`);
   }
 
+    const gpcConfig = (() => {
+    try {
+      return typeof helpers.getConfig === 'function'
+        ? helpers.getConfig('gamepostCounter', null)
+        : null;
+    } catch {
+      return null;
+    }
+  })();
+
+  function isTopicCountableByGpc(fid, tid) {
+    if (!gpcConfig) return true;
+
+    const r = gpcConfig.forumsRules?.perForum?.get?.(String(fid));
+    const mode = r?.mode || gpcConfig.forumsRules?.defaultMode || 'all';
+    if (mode === 'all') return true;
+
+    const topics = r?.topics || new Set();
+    if (mode === 'include') return topics.has(Number(tid));
+    if (mode === 'exclude') return !topics.has(Number(tid));
+    return false;
+  }
+
   async function getTopicsForForums(forumIds, log) {
     const { apiBase, topicsPerRequest } = SETTINGS;
     const url =
@@ -126,7 +148,8 @@
         first_post: Number(raw.init_post ?? raw.first_post ?? 0) || 0,
         link: safeText(raw.link),
       }))
-      .filter((t) => t.id && SETTINGS.forumIds.includes(t.forum_id));
+      .filter((t) => t.id && SETTINGS.forumIds.includes(t.forum_id))
+      .filter((t) => isTopicCountableByGpc(t.forum_id, t.id));
 
     const byForum = topics.reduce((acc, t) => {
       acc[t.forum_id] = (acc[t.forum_id] || 0) + 1;
@@ -534,4 +557,5 @@
     start();
   }
 })();
+
 
