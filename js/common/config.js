@@ -657,7 +657,7 @@
         adminAllowedGroupIds: [1],
       },
       currency: {
-        label: 'талеров',
+        label: '$',
         profileFieldKey: 'fld4',
         decimals: 2,
       },
@@ -1138,6 +1138,7 @@
     },
   };
 })();
+
 
 
 
