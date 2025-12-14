@@ -42,7 +42,7 @@
       backend: {
         endpoint: 'https://feathertail.ru/gamestats/index.php',
         method: 'recalc',
-        subscription: 'ks_forum_stats',
+        subscription: 'KSPIRITS-TEST',
         tableKey: 'gameposts',
       },
     },
@@ -1138,5 +1138,6 @@
     },
   };
 })();
+
 
 
