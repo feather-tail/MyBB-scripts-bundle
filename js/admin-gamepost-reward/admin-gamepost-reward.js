@@ -881,6 +881,7 @@
       runBtn.disabled = b;
       if (applyBtn) applyBtn.disabled = b || !lastUsersForBank;
       runBtn.textContent = b ? 'Пересчёт…' : 'Пересчитать';
+      if (applyBtn && b) applyBtn.style.display = 'none';
     };
 
     async function doRun(isApplyPhase) {
@@ -969,8 +970,11 @@
 
         lastUsersForBank = users;
         lastNextCursorsArr = cursorsArr;
-
-        if (applyBtn) applyBtn.disabled = false;
+        
+        if (applyBtn) {
+          applyBtn.style.display = users.length ? '' : 'none';
+          applyBtn.disabled = !users.length;
+        }
       } catch (e) {
         console.error(e);
         setText(errorBox, `Ошибка: ${e.message || e}`);
@@ -1019,4 +1023,5 @@
   else if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();
 })();
+
 
