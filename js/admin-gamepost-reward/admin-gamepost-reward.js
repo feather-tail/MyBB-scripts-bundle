@@ -53,6 +53,8 @@
   const BANK_API_URL = ENDPOINTS.bankApiUrl || DEFAULT_CONFIG.endpoints.bankApiUrl;
   const STATE_API_URL = ENDPOINTS.stateApiUrl || DEFAULT_CONFIG.endpoints.stateApiUrl;
 
+  const nowSec = () => Math.floor(Date.now() / 1000);
+
   const sleep = (ms) =>
     ms > 0 ? new Promise((r) => setTimeout(r, ms)) : Promise.resolve();
 
@@ -248,7 +250,7 @@
 
     for (;;) {
       page += 1;
-      if (page > (safety?.maxPostPagesPerTopic || DEFAULT_CONFIG.safety.maxPostPagesPerTopic)) {
+      if (page > (safety?.maxPostPagesPerTopic || DEFAULT_CONFIG.safety.maxTopicPagesPerTopic)) {
         throw new Error(`post.get: превышен лимит страниц по теме ${topicId} (${page})`);
       }
 
@@ -487,12 +489,24 @@
     const overlap = Math.max(0, Number(SETTINGS.safetyOverlapPosts) || 0);
     const postsPerPage = SETTINGS.postsPerRequest || 100;
     const fastThreshold = SETTINGS.fastThresholdSeconds || (24 * 3600);
+    const tsNow = nowSec();
 
-    if (cursor && topic.last_post_id && cursor.lastPostId && topic.last_post_id === cursor.lastPostId) {
-      nextCursors.set(topic.id, cursor);
+    // 1) Быстрая ветка: если last_post_id совпадает — ничего не изменилось
+    if (
+      cursor &&
+      topic.last_post_id &&
+      cursor.lastPostId &&
+      topic.last_post_id === cursor.lastPostId
+    ) {
+      nextCursors.set(topic.id, {
+        ...cursor,
+        forumId: topic.forum_id,
+        updatedAt: tsNow,
+      });
       return;
     }
 
+    // 2) Если курсора нет — полный скан (как и было), но с tsNow
     if (!cursor || !cursor.lastPostId) {
       log(`topic#${topic.id}: no cursor → full scan`);
       const posts = await getAllPostsForTopicAsc(topic.id, log);
@@ -563,23 +577,30 @@
         lastPostUsername: last ? (last.username || '') : '',
         lastPostUserId: last ? (last.userId || null) : null,
         episodeParticipants: epParticipants,
-        createdAt: Math.floor(Date.now() / 1000),
-        updatedAt: Math.floor(Date.now() / 1000),
+        createdAt: tsNow,
+        updatedAt: tsNow,
       };
       nextCursors.set(topic.id, newCursor);
       return;
     }
 
+    // 3) Инкремент: забираем newest→older пока не встретили курсор и не набрали overlap постов старше курсора
     const targetId = Number(cursor.lastPostId) || 0;
-    const collected = [];
+
+    const collectedDesc = []; // в порядке desc (как отдаёт API)
     let found = false;
-    let keepGoingAfterFound = overlap;
+    let olderAfterFound = 0;
+    let done = false;
+
     let skip = 0;
     let pages = 0;
 
-    while (true) {
+    while (!done) {
       pages += 1;
-      if (pages > (SETTINGS.safety?.maxPostPagesPerTopic || DEFAULT_CONFIG.safety.maxPostPagesPerTopic)) {
+      if (
+        pages >
+        (SETTINGS.safety?.maxPostPagesPerTopic || DEFAULT_CONFIG.safety.maxPostPagesPerTopic)
+      ) {
         throw new Error(`topic#${topic.id}: exceeded maxPostPagesPerTopic while searching cursor`);
       }
 
@@ -587,25 +608,34 @@
       if (!pageRows.length) break;
 
       for (const p of pageRows) {
-        collected.push(p);
-        if (p.id === targetId) {
-          found = true;
-        } else if (found && keepGoingAfterFound > 0) {
+        collectedDesc.push(p);
+
+        if (!found) {
+          if (p.id === targetId) {
+            found = true;
+            if (overlap === 0) {
+              done = true;
+              break;
+            }
+          }
+        } else {
+          // мы уже встретили targetId; все последующие p — старее его
+          olderAfterFound += 1;
+          if (olderAfterFound >= overlap) {
+            done = true;
+            break;
+          }
         }
       }
 
-      if (found) {
-        const idx = collected.findIndex((p) => p.id === targetId);
-        const olderCount = idx >= 0 ? (collected.length - 1 - idx) : 0;
-        if (olderCount >= overlap) break;
-      }
-
+      if (done) break;
       if (pageRows.length < postsPerPage) break;
 
       skip += postsPerPage;
       await sleep(SETTINGS.delayBetweenRequestsMs);
     }
 
+    // 4) Если курсорный пост не нашли (удалён/история сломана/сдвиги) — fallback full scan
     if (!found) {
       log(`topic#${topic.id}: cursor post not found → FULL SCAN fallback`);
       const fallback = await getAllPostsForTopicAsc(topic.id, log);
@@ -618,7 +648,8 @@
         if (!epParticipants) epParticipants = {};
       }
 
-      const newPosts = fallback.filter((p) => p.id > lastIdBoundary).sort((a, b) => a.id - b.id);
+      // fallback уже asc, сортировка не нужна
+      const newPosts = fallback.filter((p) => p.id > lastIdBoundary);
 
       let prevPosted = lastPostedBoundary;
       for (let i = 0; i < newPosts.length; i += 1) {
@@ -658,24 +689,56 @@
         lastPostUsername: last ? (last.username || '') : cursor.lastPostUsername,
         lastPostUserId: last ? (last.userId || null) : cursor.lastPostUserId,
         episodeParticipants: epParticipants,
-        createdAt: cursor.createdAt || Math.floor(Date.now() / 1000),
-        updatedAt: Math.floor(Date.now() / 1000),
+        createdAt: cursor.createdAt || tsNow,
+        updatedAt: tsNow,
       };
       nextCursors.set(topic.id, newCursor);
       return;
     }
-    
-    const all = collected.slice().sort((a, b) => a.id - b.id);
-    const postsNew = all.filter((p) => p.id > targetId);
+
+    // collectedDesc уже desc; разворачиваем в asc без сортировки
+    const allAsc = collectedDesc.slice().reverse();
+
+    // ищем позицию cursor поста один раз (вместо findIndex в цикле)
+    let targetPos = -1;
+    for (let i = 0; i < allAsc.length; i += 1) {
+      if (allAsc[i].id === targetId) {
+        targetPos = i;
+        break;
+      }
+    }
+
+    // на всякий случай (хотя found=true)
+    if (targetPos < 0) {
+      log(`topic#${topic.id}: targetPos lost → FULL SCAN fallback`);
+      const fallback = await getAllPostsForTopicAsc(topic.id, log);
+      const last = fallback.length ? fallback[fallback.length - 1] : null;
+      nextCursors.set(topic.id, {
+        ...cursor,
+        forumId: topic.forum_id,
+        lastPostId: last ? last.id : cursor.lastPostId,
+        lastPostedTs: last ? (last.posted || 0) : cursor.lastPostedTs,
+        lastPostUsername: last ? (last.username || '') : cursor.lastPostUsername,
+        lastPostUserId: last ? (last.userId || null) : cursor.lastPostUserId,
+        updatedAt: tsNow,
+      });
+      return;
+    }
+
+    const postsNew = allAsc.slice(targetPos + 1);
 
     if (!postsNew.length) {
-      nextCursors.set(topic.id, cursor);
+      nextCursors.set(topic.id, {
+        ...cursor,
+        forumId: topic.forum_id,
+        updatedAt: tsNow,
+      });
       return;
     }
 
     let boundaryPosted = Number(cursor.lastPostedTs) || 0;
     if (!boundaryPosted) {
-      const cursorPost = all.find((p) => p.id === targetId);
+      const cursorPost = allAsc[targetPos];
       if (cursorPost && cursorPost.posted) boundaryPosted = cursorPost.posted;
     }
 
@@ -716,7 +779,7 @@
       }
     }
 
-    const newest = all[all.length - 1];
+    const newest = allAsc[allAsc.length - 1];
     const newCursor = {
       topicId: topic.id,
       forumId: topic.forum_id,
@@ -725,8 +788,8 @@
       lastPostUsername: newest ? (newest.username || '') : cursor.lastPostUsername,
       lastPostUserId: newest ? (newest.userId || null) : cursor.lastPostUserId,
       episodeParticipants: epParticipants,
-      createdAt: cursor.createdAt || Math.floor(Date.now() / 1000),
-      updatedAt: Math.floor(Date.now() / 1000),
+      createdAt: cursor.createdAt || tsNow,
+      updatedAt: tsNow,
     };
 
     nextCursors.set(topic.id, newCursor);
@@ -752,9 +815,8 @@
 
       for (const k of nextKeys) {
         if (prevKeys.has(k)) continue;
-        if (k.startsWith('name:')) {
-          continue;
-        }
+        if (k.startsWith('name:')) continue;
+
         const uid = Number(k) || 0;
         if (uid <= 0) continue;
 
@@ -840,7 +902,9 @@
 
       applyEpisodeTotalsFromParticipants(baseById, nextCursors, lastPrevCursors, log);
 
-      const users = Array.from(baseById.values()).filter((u) => Number.isFinite(u.userId) && u.userId > 0);
+      const users = Array.from(baseById.values()).filter(
+        (u) => Number.isFinite(u.userId) && u.userId > 0,
+      );
 
       const cursorsArr = Array.from(nextCursors.values());
 
@@ -884,7 +948,10 @@
         renderPreview(previewBox, merged);
 
         const total = merged.reduce((s, it) => s + (Number(it.reward_total) || 0), 0);
-        setText(summaryBox, `Готово. Пользователей: ${merged.length}. Суммарная награда: ${total}.`);
+        setText(
+          summaryBox,
+          `Готово. Пользователей: ${merged.length}. Суммарная награда: ${total}.`,
+        );
 
         lastUsersForBank = users;
         lastNextCursorsArr = cursorsArr;
