@@ -31,7 +31,7 @@
     endpoints: {
       bankApiUrl: 'https://feathertail.ru/ks/bank/bank-api.php',
       stateApiUrl: 'https://feathertail.ru/ks/rewards/rewards-state-api.php',
-      multipliersUrl: '/ks-reward-multipliers.php',
+      multipliersUrl: 'https://feathertail.ru/ks/rewards/ks-reward-multipliers.php',
     },
     multipliers: {
       enabled: true,
@@ -1149,3 +1149,4 @@
   else if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();
 })();
+
