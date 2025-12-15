@@ -19,32 +19,30 @@
     retryAttempts: 3,
     retryBaseDelayMs: 900,
     logToConsole: true,
-
-    // базовые параметры наград (сами награды считает bank-api, но это полезно как документация)
     baseReward: 10,
     fastMultiplier: 1.5,
     fastThresholdSeconds: 24 * 3600,
-
     episodeForumId: 17,
-
     safetyOverlapPosts: 6,
     safety: {
       maxTopicPages: 5000,
       maxPostPagesPerTopic: 20000,
     },
-
     endpoints: {
       bankApiUrl: 'https://feathertail.ru/ks/bank/bank-api.php',
       stateApiUrl: 'https://feathertail.ru/ks/rewards/rewards-state-api.php',
-      multipliersUrl: '/ks-reward-multipliers.php', // <= новый источник множителей
+      multipliersUrl: '/ks-reward-multipliers.php',
     },
-
     multipliers: {
       enabled: true,
       scope: 'gamepost',
       activeOnly: true,
     },
-
+    adminToken: {
+      enabled: true,
+      headerName: 'X-KS-Admin-Token',
+      windowVarName: 'KS_ADMIN_TOKEN',
+    },
     selectors: {
       runButton: '#ks-gpreward-run',
       applyButton: '#ks-gpreward-apply',
@@ -65,10 +63,24 @@
   const STATE_API_URL = ENDPOINTS.stateApiUrl || DEFAULT_CONFIG.endpoints.stateApiUrl;
 
   const nowSec = () => Math.floor(Date.now() / 1000);
-
   const sleep = (ms) => (ms > 0 ? new Promise((r) => setTimeout(r, ms)) : Promise.resolve());
-
   const safeText = (v) => String(v == null ? '' : v);
+
+  function getAdminToken() {
+    const cfg = SETTINGS.adminToken || DEFAULT_CONFIG.adminToken;
+    if (!cfg || cfg.enabled === false) return '';
+    const varName = String(cfg.windowVarName || 'KS_ADMIN_TOKEN');
+    const token = (window && window[varName]) ? String(window[varName]) : '';
+    return token.trim();
+  }
+
+  function buildAdminHeaders() {
+    const cfg = SETTINGS.adminToken || DEFAULT_CONFIG.adminToken;
+    const token = getAdminToken();
+    if (!token) return {};
+    const headerName = String(cfg.headerName || 'X-KS-Admin-Token');
+    return { [headerName]: token };
+  }
 
   async function fetchJsonWithRetry(url, label = 'request') {
     const { retryAttempts, retryBaseDelayMs, logToConsole } = SETTINGS;
@@ -98,10 +110,10 @@
     throw lastError || new Error(`Запрос ${label} не удался`);
   }
 
-  async function postJson(url, payload, label = 'post') {
+  async function postJson(url, payload, label = 'post', extraHeaders = {}) {
     const resp = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...extraHeaders },
       body: JSON.stringify(payload),
     });
 
@@ -138,55 +150,57 @@
     );
   }
 
-  // ====== МНОЖИТЕЛИ (через window.KSMultipliers) ======
   async function loadMultipliersForNow(log) {
     const cfg = SETTINGS.multipliers || DEFAULT_CONFIG.multipliers;
     if (!cfg.enabled) return new Map();
 
-    const km = window.KSMultipliers;
-    if (!km || typeof km.load !== 'function') {
-      log('multipliers: window.KSMultipliers не найден — множители пропущены');
-      return new Map();
-    }
-
     const atTs = nowSec();
-    const endpoint = ENDPOINTS.multipliersUrl || DEFAULT_CONFIG.endpoints.multipliersUrl;
-    const scope = cfg.scope || 'gamepost';
+    const endpointRaw = ENDPOINTS.multipliersUrl || DEFAULT_CONFIG.endpoints.multipliersUrl;
+    const endpoint = new URL(String(endpointRaw), location.origin);
 
-    let items = [];
+    endpoint.searchParams.set('method', 'list');
+    endpoint.searchParams.set('scope', String(cfg.scope || 'gamepost'));
+    if (cfg.activeOnly) endpoint.searchParams.set('active', '1');
+    endpoint.searchParams.set('at_ts', String(atTs));
+
     try {
-      items = await km.load({ endpoint, scope, activeOnly: !!cfg.activeOnly, atTs });
-      log(`multipliers: загружено записей: ${Array.isArray(items) ? items.length : 0}`);
+      const res = await fetch(endpoint.toString(), {
+        headers: { ...buildAdminHeaders() },
+        credentials: 'same-origin',
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data || data.ok !== true) {
+        throw new Error((data && (data.error || data.details)) || `HTTP ${res.status}`);
+      }
+
+      const items = Array.isArray(data.items) ? data.items : [];
+      log(`multipliers: загружено записей: ${items.length}`);
+
+      const map = new Map();
+      for (const it of items) {
+        const uid = Number(it.user_id) || 0;
+        if (!uid) continue;
+
+        const start = Number(it.start_ts) || 0;
+        const end = Number(it.end_ts) || 0;
+        if (!(atTs >= start && atTs < end)) continue;
+
+        const factor = Number(it.factor) || 1;
+        if (!(factor > 0)) continue;
+
+        const prev = map.get(uid);
+        if (!prev || factor > prev.factor) {
+          map.set(uid, { factor, validTo: end || 0 });
+        }
+      }
+
+      return map;
     } catch (e) {
       log(`multipliers: ошибка загрузки: ${e.message || e}`);
       return new Map();
     }
-
-    // Собираем карту userId -> { factor, validTo }
-    const map = new Map();
-    for (const it of Array.isArray(items) ? items : []) {
-      if (String(it.scope || '') && String(it.scope) !== scope) continue;
-
-      const uid = Number(it.user_id) || 0;
-      if (!uid) continue;
-
-      const start = Number(it.start_ts) || 0;
-      const end = Number(it.end_ts) || 0;
-      if (!(atTs >= start && atTs < end)) continue;
-
-      const factor = Number(it.factor) || 1;
-      if (!(factor > 0)) continue;
-
-      const prev = map.get(uid);
-      if (!prev || factor > prev.factor) {
-        map.set(uid, { factor, validTo: end || 0 });
-      }
-    }
-
-    return map;
   }
 
-  // ====== USERS / TOPICS / POSTS ======
   const userIdCache = new Map();
 
   async function getUserIdByUsername(username, log) {
@@ -352,12 +366,14 @@
     return out;
   }
 
-  // ====== BANK API ======
   async function callBankApi(action, users, log) {
     log(`bank-api: ${action} (posts), users=${users.length}`);
+
+    const headers = { 'Content-Type': 'application/json', ...buildAdminHeaders() };
+
     const resp = await fetch(BANK_API_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({
         action,
         data: {
@@ -366,10 +382,6 @@
             username: u.username,
             totalPosts: u.totalPosts || 0,
             fastPosts: u.fastPosts || 0,
-
-            // НОВОЕ: множитель наград за посты
-            rewardMultiplier: Number(u.rewardMultiplier) || 1,
-            rewardMultiplierValidTo: Number(u.rewardMultiplierValidTo) || 0,
           })),
         },
       }),
@@ -383,9 +395,12 @@
 
   async function callBankApiEpisodes(action, users, log) {
     log(`bank-api: ${action} (episodes), users=${users.length}`);
+
+    const headers = { 'Content-Type': 'application/json', ...buildAdminHeaders() };
+
     const resp = await fetch(BANK_API_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({
         action,
         data: {
@@ -438,10 +453,11 @@
         delta_posts: p.delta_posts ?? 0,
         delta_fast: p.delta_fast ?? 0,
 
+        raw_reward: p.raw_reward ?? null,
+        applied_multiplier: p.applied_multiplier ?? null,
+
         episodes_total: e.episodes_total ?? 0,
         delta_episodes: e.delta_episodes ?? 0,
-
-        applied_multiplier: p.applied_multiplier ?? null,
 
         post_reward: p.reward ?? 0,
         episode_reward: e.reward ?? 0,
@@ -472,6 +488,7 @@
         <th>Всего постов</th><th>Быстрых</th><th>Δ постов</th><th>Δ быстрых</th>
         <th>Эпизодов</th><th>Δ эпизодов</th>
         <th>Множитель</th>
+        <th>Raw</th>
         <th>Награда (посты)</th><th>Награда (эпизоды)</th><th>Итого</th>
         <th>Заявка (посты)</th><th>Заявка (эпизоды)</th>
       </tr></thead>`;
@@ -485,8 +502,22 @@
         const uid = Number(it.user_id) || 0;
         const userRec = uid && usersById ? usersById.get(uid) : null;
 
-        const mult = userRec ? Number(userRec.rewardMultiplier) || 1 : 1;
-        const multText = it.applied_multiplier != null ? `×${it.applied_multiplier}` : `×${mult}`;
+        const localMult = userRec ? Number(userRec.rewardMultiplier) || 1 : 1;
+        const localTo = userRec ? Number(userRec.rewardMultiplierValidTo) || 0 : 0;
+
+        const serverMult = it.applied_multiplier != null ? Number(it.applied_multiplier) : null;
+
+        const multText =
+          serverMult != null
+            ? `×${serverMult}`
+            : (localMult && localMult !== 1 ? `×${localMult}` : '×1');
+
+        const multHint =
+          localTo && localMult !== 1
+            ? ` (до ${new Date(localTo * 1000).toLocaleString()})`
+            : '';
+
+        const raw = it.raw_reward != null ? Number(it.raw_reward) || 0 : 0;
 
         const tr = document.createElement('tr');
         tr.innerHTML =
@@ -497,7 +528,8 @@
            <td>${it.delta_fast || 0}</td>
            <td>${it.episodes_total || 0}</td>
            <td>${it.delta_episodes || 0}</td>
-           <td>${multText}</td>
+           <td title="${safeText(multHint)}">${safeText(multText)}${safeText(multHint)}</td>
+           <td>${raw ? `+${raw}` : '0'}</td>
            <td>${it.post_reward ? `+${it.post_reward}` : '0'}</td>
            <td>${it.episode_reward ? `+${it.episode_reward}` : '0'}</td>
            <td>${it.reward_total ? `+${it.reward_total}` : '0'}</td>
@@ -577,7 +609,12 @@
     const tsNow = nowSec();
 
     // 1) Быстрая ветка
-    if (cursor && topic.last_post_id && cursor.lastPostId && topic.last_post_id === cursor.lastPostId) {
+    if (
+      cursor &&
+      topic.last_post_id &&
+      cursor.lastPostId &&
+      topic.last_post_id === cursor.lastPostId
+    ) {
       nextCursors.set(topic.id, { ...cursor, forumId: topic.forum_id, updatedAt: tsNow });
       return;
     }
@@ -657,7 +694,6 @@
       return;
     }
 
-    // 3) Инкремент
     const targetId = Number(cursor.lastPostId) || 0;
 
     const collectedDesc = [];
@@ -670,7 +706,10 @@
 
     while (!done) {
       pages += 1;
-      if (pages > (SETTINGS.safety?.maxPostPagesPerTopic || DEFAULT_CONFIG.safety.maxPostPagesPerTopic)) {
+      if (
+        pages >
+        (SETTINGS.safety?.maxPostPagesPerTopic || DEFAULT_CONFIG.safety.maxPostPagesPerTopic)
+      ) {
         throw new Error(`topic#${topic.id}: exceeded maxPostPagesPerTopic while searching cursor`);
       }
 
@@ -704,7 +743,6 @@
       await sleep(SETTINGS.delayBetweenRequestsMs);
     }
 
-    // 4) Не нашли курсорный пост → FULL SCAN fallback
     if (!found) {
       log(`topic#${topic.id}: cursor post not found → FULL SCAN fallback`);
       const fallback = await getAllPostsForTopicAsc(topic.id, log);
@@ -987,7 +1025,6 @@
         (u) => Number.isFinite(u.userId) && u.userId > 0,
       );
 
-      // применяем множители на момент пересчёта
       const multMap = await loadMultipliersForNow(log);
       let multCount = 0;
       for (const u of users) {
@@ -1006,7 +1043,6 @@
       const cursorsArr = Array.from(nextCursors.values());
 
       if (isApplyPhase) {
-        // нормализуем эпизодных участников (name: -> uid)
         for (const c of cursorsArr) {
           if (!c || !c.episodeParticipants) continue;
           const obj = c.episodeParticipants;
@@ -1070,6 +1106,12 @@
     if (applyBtn) {
       applyBtn.addEventListener('click', async () => {
         if (isBusy || !lastUsersForBank || !lastNextCursorsArr) return;
+
+        const token = getAdminToken();
+        if (!token) {
+          alert('Нет admin token: задай window.KS_ADMIN_TOKEN в HTML админки.');
+          return;
+        }
 
         if (!window.confirm('Создать заявки (APPLY) и зафиксировать курсоры в БД?')) return;
 
