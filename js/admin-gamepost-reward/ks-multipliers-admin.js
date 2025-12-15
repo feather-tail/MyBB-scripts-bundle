@@ -3,7 +3,7 @@
 
   const CFG = {
     panelSelector: '#ks-panel-5',
-    endpoint: '/ks-reward-multipliers.php',
+    endpoint: 'https://feathertail.ru/ks/rewards/ks-reward-multipliers.php',
     scope: 'gamepost',
 
     get adminToken() {
@@ -419,3 +419,4 @@
     mount();
   }
 })();
+
