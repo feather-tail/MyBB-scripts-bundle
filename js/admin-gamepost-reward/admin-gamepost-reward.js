@@ -19,19 +19,32 @@
     retryAttempts: 3,
     retryBaseDelayMs: 900,
     logToConsole: true,
+
+    // базовые параметры наград (сами награды считает bank-api, но это полезно как документация)
     baseReward: 10,
     fastMultiplier: 1.5,
     fastThresholdSeconds: 24 * 3600,
+
     episodeForumId: 17,
+
     safetyOverlapPosts: 6,
     safety: {
       maxTopicPages: 5000,
       maxPostPagesPerTopic: 20000,
     },
+
     endpoints: {
       bankApiUrl: 'https://feathertail.ru/ks/bank/bank-api.php',
       stateApiUrl: 'https://feathertail.ru/ks/rewards/rewards-state-api.php',
+      multipliersUrl: '/ks-reward-multipliers.php', // <= новый источник множителей
     },
+
+    multipliers: {
+      enabled: true,
+      scope: 'gamepost',
+      activeOnly: true,
+    },
+
     selectors: {
       runButton: '#ks-gpreward-run',
       applyButton: '#ks-gpreward-apply',
@@ -43,9 +56,7 @@
   };
 
   const SETTINGS =
-    typeof getConfig === 'function'
-      ? getConfig(CONFIG_NAME, DEFAULT_CONFIG)
-      : DEFAULT_CONFIG;
+    typeof getConfig === 'function' ? getConfig(CONFIG_NAME, DEFAULT_CONFIG) : DEFAULT_CONFIG;
 
   const SELECTORS = SETTINGS.selectors || DEFAULT_CONFIG.selectors;
   const ENDPOINTS = SETTINGS.endpoints || DEFAULT_CONFIG.endpoints;
@@ -55,8 +66,7 @@
 
   const nowSec = () => Math.floor(Date.now() / 1000);
 
-  const sleep = (ms) =>
-    ms > 0 ? new Promise((r) => setTimeout(r, ms)) : Promise.resolve();
+  const sleep = (ms) => (ms > 0 ? new Promise((r) => setTimeout(r, ms)) : Promise.resolve());
 
   const safeText = (v) => String(v == null ? '' : v);
 
@@ -94,13 +104,13 @@
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
+
     let json = null;
     try {
       json = await resp.json();
     } catch (_) {}
-    if (!resp.ok) {
-      throw new Error(`${label}: HTTP ${resp.status}`);
-    }
+
+    if (!resp.ok) throw new Error(`${label}: HTTP ${resp.status}`);
     if (!json || json.ok === false) {
       throw new Error(`${label}: ${json && json.error ? json.error : 'UNKNOWN_ERROR'}`);
     }
@@ -128,6 +138,55 @@
     );
   }
 
+  // ====== МНОЖИТЕЛИ (через window.KSMultipliers) ======
+  async function loadMultipliersForNow(log) {
+    const cfg = SETTINGS.multipliers || DEFAULT_CONFIG.multipliers;
+    if (!cfg.enabled) return new Map();
+
+    const km = window.KSMultipliers;
+    if (!km || typeof km.load !== 'function') {
+      log('multipliers: window.KSMultipliers не найден — множители пропущены');
+      return new Map();
+    }
+
+    const atTs = nowSec();
+    const endpoint = ENDPOINTS.multipliersUrl || DEFAULT_CONFIG.endpoints.multipliersUrl;
+    const scope = cfg.scope || 'gamepost';
+
+    let items = [];
+    try {
+      items = await km.load({ endpoint, scope, activeOnly: !!cfg.activeOnly, atTs });
+      log(`multipliers: загружено записей: ${Array.isArray(items) ? items.length : 0}`);
+    } catch (e) {
+      log(`multipliers: ошибка загрузки: ${e.message || e}`);
+      return new Map();
+    }
+
+    // Собираем карту userId -> { factor, validTo }
+    const map = new Map();
+    for (const it of Array.isArray(items) ? items : []) {
+      if (String(it.scope || '') && String(it.scope) !== scope) continue;
+
+      const uid = Number(it.user_id) || 0;
+      if (!uid) continue;
+
+      const start = Number(it.start_ts) || 0;
+      const end = Number(it.end_ts) || 0;
+      if (!(atTs >= start && atTs < end)) continue;
+
+      const factor = Number(it.factor) || 1;
+      if (!(factor > 0)) continue;
+
+      const prev = map.get(uid);
+      if (!prev || factor > prev.factor) {
+        map.set(uid, { factor, validTo: end || 0 });
+      }
+    }
+
+    return map;
+  }
+
+  // ====== USERS / TOPICS / POSTS ======
   const userIdCache = new Map();
 
   async function getUserIdByUsername(username, log) {
@@ -250,7 +309,7 @@
 
     for (;;) {
       page += 1;
-      if (page > (safety?.maxPostPagesPerTopic || DEFAULT_CONFIG.safety.maxTopicPagesPerTopic)) {
+      if (page > (safety?.maxPostPagesPerTopic || DEFAULT_CONFIG.safety.maxPostPagesPerTopic)) {
         throw new Error(`post.get: превышен лимит страниц по теме ${topicId} (${page})`);
       }
 
@@ -293,6 +352,7 @@
     return out;
   }
 
+  // ====== BANK API ======
   async function callBankApi(action, users, log) {
     log(`bank-api: ${action} (posts), users=${users.length}`);
     const resp = await fetch(BANK_API_URL, {
@@ -306,6 +366,10 @@
             username: u.username,
             totalPosts: u.totalPosts || 0,
             fastPosts: u.fastPosts || 0,
+
+            // НОВОЕ: множитель наград за посты
+            rewardMultiplier: Number(u.rewardMultiplier) || 1,
+            rewardMultiplierValidTo: Number(u.rewardMultiplierValidTo) || 0,
           })),
         },
       }),
@@ -377,6 +441,8 @@
         episodes_total: e.episodes_total ?? 0,
         delta_episodes: e.delta_episodes ?? 0,
 
+        applied_multiplier: p.applied_multiplier ?? null,
+
         post_reward: p.reward ?? 0,
         episode_reward: e.reward ?? 0,
         reward_total: (p.reward ?? 0) + (e.reward ?? 0),
@@ -389,7 +455,7 @@
     return out;
   }
 
-  function renderPreview(container, items) {
+  function renderPreview(container, items, usersById) {
     container.innerHTML = '';
 
     if (!items.length) {
@@ -405,6 +471,7 @@
         <th>Пользователь</th>
         <th>Всего постов</th><th>Быстрых</th><th>Δ постов</th><th>Δ быстрых</th>
         <th>Эпизодов</th><th>Δ эпизодов</th>
+        <th>Множитель</th>
         <th>Награда (посты)</th><th>Награда (эпизоды)</th><th>Итого</th>
         <th>Заявка (посты)</th><th>Заявка (эпизоды)</th>
       </tr></thead>`;
@@ -415,6 +482,12 @@
       .slice()
       .sort((a, b) => (b.reward_total || 0) - (a.reward_total || 0))
       .forEach((it) => {
+        const uid = Number(it.user_id) || 0;
+        const userRec = uid && usersById ? usersById.get(uid) : null;
+
+        const mult = userRec ? Number(userRec.rewardMultiplier) || 1 : 1;
+        const multText = it.applied_multiplier != null ? `×${it.applied_multiplier}` : `×${mult}`;
+
         const tr = document.createElement('tr');
         tr.innerHTML =
           `<td>${it.user_id ? `${safeText(it.username)} (uid ${it.user_id})` : safeText(it.username)}</td>
@@ -424,6 +497,7 @@
            <td>${it.delta_fast || 0}</td>
            <td>${it.episodes_total || 0}</td>
            <td>${it.delta_episodes || 0}</td>
+           <td>${multText}</td>
            <td>${it.post_reward ? `+${it.post_reward}` : '0'}</td>
            <td>${it.episode_reward ? `+${it.episode_reward}` : '0'}</td>
            <td>${it.reward_total ? `+${it.reward_total}` : '0'}</td>
@@ -449,6 +523,9 @@
         totalPosts: Number(r.total_posts) || 0,
         fastPosts: Number(r.fast_posts) || 0,
         episodesTotal: 0,
+
+        rewardMultiplier: 1,
+        rewardMultiplierValidTo: 0,
       });
     }
 
@@ -456,13 +533,18 @@
     for (const r of ep) {
       const uid = Number(r.user_id) || 0;
       if (uid <= 0) continue;
+
       const rec = baseById.get(uid) || {
         userId: uid,
         username: safeText(r.username),
         totalPosts: 0,
         fastPosts: 0,
         episodesTotal: 0,
+
+        rewardMultiplier: 1,
+        rewardMultiplierValidTo: 0,
       };
+
       rec.episodesTotal = Number(r.episodes_total) || 0;
       baseById.set(uid, rec);
     }
@@ -479,6 +561,9 @@
         totalPosts: 0,
         fastPosts: 0,
         episodesTotal: 0,
+
+        rewardMultiplier: 1,
+        rewardMultiplierValidTo: 0,
       };
     if (!rec.username && username) rec.username = username;
     baseById.set(uid, rec);
@@ -488,47 +573,37 @@
   async function incrementalScanTopic(topic, cursor, baseById, nextCursors, log) {
     const overlap = Math.max(0, Number(SETTINGS.safetyOverlapPosts) || 0);
     const postsPerPage = SETTINGS.postsPerRequest || 100;
-    const fastThreshold = SETTINGS.fastThresholdSeconds || (24 * 3600);
+    const fastThreshold = SETTINGS.fastThresholdSeconds || 24 * 3600;
     const tsNow = nowSec();
 
-    // 1) Быстрая ветка: если last_post_id совпадает — ничего не изменилось
-    if (
-      cursor &&
-      topic.last_post_id &&
-      cursor.lastPostId &&
-      topic.last_post_id === cursor.lastPostId
-    ) {
-      nextCursors.set(topic.id, {
-        ...cursor,
-        forumId: topic.forum_id,
-        updatedAt: tsNow,
-      });
+    // 1) Быстрая ветка
+    if (cursor && topic.last_post_id && cursor.lastPostId && topic.last_post_id === cursor.lastPostId) {
+      nextCursors.set(topic.id, { ...cursor, forumId: topic.forum_id, updatedAt: tsNow });
       return;
     }
 
-    // 2) Если курсора нет — полный скан (как и было), но с tsNow
+    // 2) Нет курсора — полный скан
     if (!cursor || !cursor.lastPostId) {
       log(`topic#${topic.id}: no cursor → full scan`);
       const posts = await getAllPostsForTopicAsc(topic.id, log);
 
       let epParticipants = null;
-      if (topic.forum_id === Number(SETTINGS.episodeForumId)) {
-        epParticipants = {};
-      }
+      if (topic.forum_id === Number(SETTINGS.episodeForumId)) epParticipants = {};
 
       let prev = null;
+
       for (let i = 0; i < posts.length; i += 1) {
         const p = posts[i];
 
         if (!SETTINGS.includeFirstPost && i === 0) {
           prev = p;
           if (epParticipants) {
-            const uname = (p.username || '').trim();
-            if (uname) {
-              let uid = p.userId;
-              if (!uid) uid = await getUserIdByUsername(uname, log);
-              const key = uid ? String(uid) : `name:${uname.toLowerCase()}`;
-              epParticipants[key] = uname;
+            const uname0 = (p.username || '').trim();
+            if (uname0) {
+              let uid0 = p.userId;
+              if (!uid0) uid0 = await getUserIdByUsername(uname0, log);
+              const key0 = uid0 ? String(uid0) : `name:${uname0.toLowerCase()}`;
+              epParticipants[key0] = uname0;
             }
           }
           continue;
@@ -560,16 +635,14 @@
           if (delta > 0 && delta < fastThreshold) rec.fastPosts += 1;
         }
 
-        if (epParticipants) {
-          const key = String(uid);
-          epParticipants[key] = uname;
-        }
+        if (epParticipants) epParticipants[String(uid)] = uname;
 
         prev = p;
       }
 
       const last = posts.length ? posts[posts.length - 1] : null;
-      const newCursor = {
+
+      nextCursors.set(topic.id, {
         topicId: topic.id,
         forumId: topic.forum_id,
         lastPostId: last ? last.id : 0,
@@ -579,15 +652,15 @@
         episodeParticipants: epParticipants,
         createdAt: tsNow,
         updatedAt: tsNow,
-      };
-      nextCursors.set(topic.id, newCursor);
+      });
+
       return;
     }
 
-    // 3) Инкремент: забираем newest→older пока не встретили курсор и не набрали overlap постов старше курсора
+    // 3) Инкремент
     const targetId = Number(cursor.lastPostId) || 0;
 
-    const collectedDesc = []; // в порядке desc (как отдаёт API)
+    const collectedDesc = [];
     let found = false;
     let olderAfterFound = 0;
     let done = false;
@@ -597,10 +670,7 @@
 
     while (!done) {
       pages += 1;
-      if (
-        pages >
-        (SETTINGS.safety?.maxPostPagesPerTopic || DEFAULT_CONFIG.safety.maxPostPagesPerTopic)
-      ) {
+      if (pages > (SETTINGS.safety?.maxPostPagesPerTopic || DEFAULT_CONFIG.safety.maxPostPagesPerTopic)) {
         throw new Error(`topic#${topic.id}: exceeded maxPostPagesPerTopic while searching cursor`);
       }
 
@@ -619,7 +689,6 @@
             }
           }
         } else {
-          // мы уже встретили targetId; все последующие p — старее его
           olderAfterFound += 1;
           if (olderAfterFound >= overlap) {
             done = true;
@@ -635,7 +704,7 @@
       await sleep(SETTINGS.delayBetweenRequestsMs);
     }
 
-    // 4) Если курсорный пост не нашли (удалён/история сломана/сдвиги) — fallback full scan
+    // 4) Не нашли курсорный пост → FULL SCAN fallback
     if (!found) {
       log(`topic#${topic.id}: cursor post not found → FULL SCAN fallback`);
       const fallback = await getAllPostsForTopicAsc(topic.id, log);
@@ -648,10 +717,10 @@
         if (!epParticipants) epParticipants = {};
       }
 
-      // fallback уже asc, сортировка не нужна
       const newPosts = fallback.filter((p) => p.id > lastIdBoundary);
 
       let prevPosted = lastPostedBoundary;
+
       for (let i = 0; i < newPosts.length; i += 1) {
         const p = newPosts[i];
         const uname = (p.username || '').trim();
@@ -659,13 +728,17 @@
           prevPosted = p.posted || prevPosted;
           continue;
         }
+
         let uid = p.userId;
         if (!uid) uid = await getUserIdByUsername(uname, log);
         if (!uid) {
           prevPosted = p.posted || prevPosted;
           continue;
         }
+
         const rec = ensureUser(baseById, uid, uname);
+        if (!rec) continue;
+
         rec.totalPosts += 1;
 
         if (prevPosted && p.posted) {
@@ -681,7 +754,8 @@
       }
 
       const last = fallback.length ? fallback[fallback.length - 1] : null;
-      const newCursor = {
+
+      nextCursors.set(topic.id, {
         topicId: topic.id,
         forumId: topic.forum_id,
         lastPostId: last ? last.id : cursor.lastPostId,
@@ -691,15 +765,13 @@
         episodeParticipants: epParticipants,
         createdAt: cursor.createdAt || tsNow,
         updatedAt: tsNow,
-      };
-      nextCursors.set(topic.id, newCursor);
+      });
+
       return;
     }
 
-    // collectedDesc уже desc; разворачиваем в asc без сортировки
     const allAsc = collectedDesc.slice().reverse();
 
-    // ищем позицию cursor поста один раз (вместо findIndex в цикле)
     let targetPos = -1;
     for (let i = 0; i < allAsc.length; i += 1) {
       if (allAsc[i].id === targetId) {
@@ -708,11 +780,11 @@
       }
     }
 
-    // на всякий случай (хотя found=true)
     if (targetPos < 0) {
       log(`topic#${topic.id}: targetPos lost → FULL SCAN fallback`);
       const fallback = await getAllPostsForTopicAsc(topic.id, log);
       const last = fallback.length ? fallback[fallback.length - 1] : null;
+
       nextCursors.set(topic.id, {
         ...cursor,
         forumId: topic.forum_id,
@@ -728,11 +800,7 @@
     const postsNew = allAsc.slice(targetPos + 1);
 
     if (!postsNew.length) {
-      nextCursors.set(topic.id, {
-        ...cursor,
-        forumId: topic.forum_id,
-        updatedAt: tsNow,
-      });
+      nextCursors.set(topic.id, { ...cursor, forumId: topic.forum_id, updatedAt: tsNow });
       return;
     }
 
@@ -765,6 +833,8 @@
       }
 
       const rec = ensureUser(baseById, uid, uname);
+      if (!rec) continue;
+
       rec.totalPosts += 1;
 
       if (prevPosted && p.posted) {
@@ -780,7 +850,8 @@
     }
 
     const newest = allAsc[allAsc.length - 1];
-    const newCursor = {
+
+    nextCursors.set(topic.id, {
       topicId: topic.id,
       forumId: topic.forum_id,
       lastPostId: newest ? newest.id : cursor.lastPostId,
@@ -790,9 +861,7 @@
       episodeParticipants: epParticipants,
       createdAt: cursor.createdAt || tsNow,
       updatedAt: tsNow,
-    };
-
-    nextCursors.set(topic.id, newCursor);
+    });
   }
 
   function applyEpisodeTotalsFromParticipants(baseById, nextCursors, prevCursors, log) {
@@ -822,13 +891,13 @@
 
         const uname = safeText(nextSet[k] || '');
         const rec = ensureUser(baseById, uid, uname);
+        if (!rec) continue;
+
         rec.episodesTotal += 1;
         newParticipants += 1;
       }
 
-      if (newParticipants) {
-        log(`episode topic#${topicId}: новых участников ${newParticipants}`);
-      }
+      if (newParticipants) log(`episode topic#${topicId}: новых участников ${newParticipants}`);
     }
   }
 
@@ -841,18 +910,16 @@
       }
       return null;
     };
-    
+
     const runBtn = pick(SELECTORS.runButton, '#ks-gpreward-run', '#ks-recount-run');
     const applyBtn = pick(SELECTORS.applyButton, '#ks-gpreward-apply', '#ks-recount-save');
     const previewBox = pick(SELECTORS.previewBox, '#ks-gpreward-preview', '#ks-recount-result');
     const summaryBox = pick(SELECTORS.summaryBox, '#ks-gpreward-summary', '#ks-recount-progress');
     const warningBox = pick(SELECTORS.warningBox, '#ks-gpreward-warning', '#ks-recount-warning');
     const errorBox = pick(SELECTORS.errorBox, '#ks-gpreward-error', '#ks-recount-error');
-    
+
     if (!runBtn || !previewBox) {
-      if (SETTINGS.logToConsole) {
-        console.warn('[recount] UI not found. selectors=', SELECTORS);
-      }
+      if (SETTINGS.logToConsole) console.warn('[recount] UI not found. selectors=', SELECTORS);
       return;
     }
 
@@ -902,7 +969,6 @@
       setText(summaryBox, `Тем: ${topics.length}. Инкрементальный проход…`);
 
       const baseById = buildBaselineFromUserStates(state.userStates);
-
       const nextCursors = new Map();
 
       for (let i = 0; i < topics.length; i += 1) {
@@ -921,9 +987,26 @@
         (u) => Number.isFinite(u.userId) && u.userId > 0,
       );
 
+      // применяем множители на момент пересчёта
+      const multMap = await loadMultipliersForNow(log);
+      let multCount = 0;
+      for (const u of users) {
+        const rec = multMap.get(Number(u.userId) || 0);
+        if (rec) {
+          u.rewardMultiplier = Number(rec.factor) || 1;
+          u.rewardMultiplierValidTo = Number(rec.validTo) || 0;
+          multCount += 1;
+        } else {
+          u.rewardMultiplier = 1;
+          u.rewardMultiplierValidTo = 0;
+        }
+      }
+      if (multCount) log(`multipliers: пользователей с активным множителем: ${multCount}`);
+
       const cursorsArr = Array.from(nextCursors.values());
 
       if (isApplyPhase) {
+        // нормализуем эпизодных участников (name: -> uid)
         for (const c of cursorsArr) {
           if (!c || !c.episodeParticipants) continue;
           const obj = c.episodeParticipants;
@@ -960,17 +1043,16 @@
         const episodeItems = await callBankApiEpisodes('calcEpisodeRewards', users, log);
 
         const merged = mergeRewards(postItems, episodeItems);
-        renderPreview(previewBox, merged);
+
+        const usersById = new Map(users.map((u) => [u.userId, u]));
+        renderPreview(previewBox, merged, usersById);
 
         const total = merged.reduce((s, it) => s + (Number(it.reward_total) || 0), 0);
-        setText(
-          summaryBox,
-          `Готово. Пользователей: ${merged.length}. Суммарная награда: ${total}.`,
-        );
+        setText(summaryBox, `Готово. Пользователей: ${merged.length}. Суммарная награда: ${total}.`);
 
         lastUsersForBank = users;
         lastNextCursorsArr = cursorsArr;
-        
+
         if (applyBtn) {
           applyBtn.style.display = users.length ? '' : 'none';
           applyBtn.disabled = !users.length;
@@ -999,7 +1081,9 @@
           const episodeItems = await callBankApiEpisodes('applyEpisodeRewards', lastUsersForBank, log);
 
           const merged = mergeRewards(postItems, episodeItems);
-          renderPreview(previewBox, merged);
+
+          const usersById = new Map(lastUsersForBank.map((u) => [u.userId, u]));
+          renderPreview(previewBox, merged, usersById);
 
           setText(summaryBox, 'APPLY: сохраняю курсоры в БД…');
           await saveStateToDb(lastNextCursorsArr, log);
@@ -1023,5 +1107,3 @@
   else if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();
 })();
-
-
