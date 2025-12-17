@@ -24,6 +24,9 @@
     sel.reputationOverlay || '#pun-reputation';
   const REPUTATION_SEND_BTN_SELECTOR =
     sel.reputationSendBtn || '#reputationButtonSend';
+  const REPUTATION_CANCEL_BTN_SELECTOR =
+    sel.reputationCancelBtn || '#reputationButtonCancel';
+
   const NONULL_CLASS = cls.noNull || 'noNull';
   const IGNORE_ALERT_PART =
     txt.ignoreAlertSubstring || 'Мы не смогли сохранить ваше сообщение';
@@ -272,6 +275,165 @@
     }
   };
 
+  // ================== Репутация-модалка: фикс клавиатуры/оверлея ==================
+  // Работает в связке с CSS: #pun-reputation.qr-rep-open { pointer-events:auto; ... }
+  const createReputationModalFix = () => {
+    const overlay = document.querySelector(REPUTATION_OVERLAY_SELECTOR);
+    if (!overlay) return null;
+
+    const OPEN_CLASS = 'qr-rep-open';
+    const MODAL_SEL = '.inner.post_reputation';
+
+    const enabled = Boolean(window.visualViewport && isCoarsePointer);
+    if (!enabled) {
+      // всё равно полезно хотя бы выключать "мертвый" оверлей, если CSS уже стоит
+      // но не будем трогать на десктопе
+      return null;
+    }
+
+    let locked = false;
+    let savedScrollY = 0;
+    let prevStyles = null;
+    let syncTimer = 0;
+
+    const getModal = () => overlay.querySelector(MODAL_SEL);
+
+    const isModalVisible = () => {
+      const modal = getModal();
+      if (!modal) return false;
+      const cs = window.getComputedStyle(modal);
+      if (cs.display === 'none' || cs.visibility === 'hidden' || cs.opacity === '0') return false;
+      return modal.getClientRects().length > 0;
+    };
+
+    const lockScroll = () => {
+      if (locked) return;
+      locked = true;
+
+      savedScrollY = window.scrollY || document.documentElement.scrollTop || 0;
+      prevStyles = {
+        htmlOverflow: document.documentElement.style.overflow,
+        bodyOverflow: document.body.style.overflow,
+        bodyPosition: document.body.style.position,
+        bodyTop: document.body.style.top,
+        bodyLeft: document.body.style.left,
+        bodyRight: document.body.style.right,
+        bodyWidth: document.body.style.width,
+      };
+
+      document.documentElement.style.overflow = 'hidden';
+      document.body.style.overflow = 'hidden';
+      document.body.style.position = 'fixed';
+      document.body.style.top = `-${savedScrollY}px`;
+      document.body.style.left = '0';
+      document.body.style.right = '0';
+      document.body.style.width = '100%';
+    };
+
+    const unlockScroll = () => {
+      if (!locked) return;
+      locked = false;
+
+      const ps = prevStyles || {};
+      document.documentElement.style.overflow = ps.htmlOverflow || '';
+      document.body.style.overflow = ps.bodyOverflow || '';
+      document.body.style.position = ps.bodyPosition || '';
+      document.body.style.top = ps.bodyTop || '';
+      document.body.style.left = ps.bodyLeft || '';
+      document.body.style.right = ps.bodyRight || '';
+      document.body.style.width = ps.bodyWidth || '';
+
+      window.scrollTo(0, savedScrollY);
+      prevStyles = null;
+    };
+
+    const syncToVisualViewport = () => {
+      if (!isModalVisible()) return;
+
+      const vv = window.visualViewport;
+      if (!vv) return;
+
+      overlay.style.left = `${vv.offsetLeft}px`;
+      overlay.style.top = `${vv.offsetTop}px`;
+      overlay.style.width = `${vv.width}px`;
+      overlay.style.height = `${vv.height}px`;
+
+      const modal = getModal();
+      if (modal) {
+        modal.style.maxHeight = `${Math.max(220, vv.height - 24)}px`;
+        modal.style.maxWidth = `${Math.max(280, vv.width - 24)}px`;
+      }
+    };
+
+    const setOpenState = (open) => {
+      overlay.classList.toggle(OPEN_CLASS, open);
+
+      if (!open) {
+        overlay.style.left = '';
+        overlay.style.top = '';
+        overlay.style.width = '';
+        overlay.style.height = '';
+
+        const modal = getModal();
+        if (modal) {
+          modal.style.maxHeight = '';
+          modal.style.maxWidth = '';
+        }
+
+        unlockScroll();
+        return;
+      }
+
+      lockScroll();
+      syncToVisualViewport();
+      setTimeout(syncToVisualViewport, 50);
+      setTimeout(syncToVisualViewport, 150);
+      setTimeout(syncToVisualViewport, 300);
+    };
+
+    const sync = () => setOpenState(isModalVisible());
+
+    const scheduleSync = (delay = 0) => {
+      clearTimeout(syncTimer);
+      syncTimer = setTimeout(() => {
+        sync();
+        if (isModalVisible()) syncToVisualViewport();
+      }, delay);
+    };
+
+    // Следим за изменениями стилей (форум обычно меняет inline style display)
+    const mo = new MutationObserver(() => {
+      scheduleSync(0);
+    });
+    mo.observe(overlay, {
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['style', 'class'],
+    });
+
+    // Клавиатура/viewport
+    window.visualViewport.addEventListener('resize', () => scheduleSync(0));
+    window.visualViewport.addEventListener('scroll', () => scheduleSync(0));
+
+    // Фокус в поле — часто триггерит “прыжок”, дожимаем
+    document.addEventListener('focusin', (e) => {
+      const t = e.target;
+      if (!t) return;
+      if (!t.closest || !t.closest(REPUTATION_OVERLAY_SELECTOR)) return;
+      scheduleSync(0);
+      setTimeout(syncToVisualViewport, 60);
+      setTimeout(syncToVisualViewport, 200);
+    });
+
+    // Инициализация
+    scheduleSync(0);
+
+    return { scheduleSync };
+  };
+
+  let repModalFix = null;
+
+  // ================== Click tracking ==================
   let pendingRatingLink = null;
 
   const onDocumentClick = (e) => {
@@ -292,22 +454,40 @@
         const rating = post.querySelector(RATING_LINK_SELECTOR);
         if (rating) pendingRatingLink = rating;
       }
+
+      // модалка может открыться — подхватим
+      if (repModalFix) repModalFix.scheduleSync(80);
       return;
     }
 
-    if (
+    // кнопки модалки: send/cancel
+    const isSend =
       target.matches(REPUTATION_SEND_BTN_SELECTOR) ||
-      target.closest(REPUTATION_SEND_BTN_SELECTOR)
-    ) {
+      target.closest(REPUTATION_SEND_BTN_SELECTOR);
+    const isCancel =
+      target.matches(REPUTATION_CANCEL_BTN_SELECTOR) ||
+      target.closest(REPUTATION_CANCEL_BTN_SELECTOR);
+
+    if (isSend) {
       if (pendingRatingLink) {
         const el = pendingRatingLink;
         pendingRatingLink = null;
         setTimeout(() => normalizeRatingDigit(el), 500);
       }
+      if (repModalFix) repModalFix.scheduleSync(0);
+      return;
+    }
+
+    if (isCancel) {
+      pendingRatingLink = null;
+      if (repModalFix) repModalFix.scheduleSync(0);
+      return;
     }
   };
 
+  // ================== Init ==================
   const init = () => {
+    // 1) показываем "+" всегда
     if (addCommentEnabled) {
       const voteBlocks = document.querySelectorAll(POSTVOTE_BLOCK_SELECTOR);
       voteBlocks.forEach((el) => {
@@ -315,6 +495,10 @@
       });
     }
 
+    // 2) включаем фикс модалки (мобилка + visualViewport)
+    repModalFix = createReputationModalFix();
+
+    // 3) навешиваем логики на рейтинг
     const ratingLinks = document.querySelectorAll(RATING_LINK_SELECTOR);
     ratingLinks.forEach((link) => {
       normalizeRatingDigit(link);
@@ -328,6 +512,7 @@
         }
       }
 
+      // long-press на мобилках
       let pressTimer = null;
       let startX = 0;
       let startY = 0;
@@ -389,6 +574,7 @@
         });
       }
 
+      // Короткий тап на мобилке — ничего (быстрый плюс только удержанием)
       link.onclick = (e) => {
         e = e || window.event;
 
