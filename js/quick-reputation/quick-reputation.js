@@ -12,7 +12,6 @@
   const behaviorCfg = cfgRoot.behavior || {};
 
   const POST_SELECTOR = sel.post || '.post';
-  const POSTBOX_SELECTOR = sel.postBox || '.post-box';
   const RATING_LINK_SELECTOR = sel.ratingLink || '.post-rating p > a';
   const POSTVOTE_BLOCK_SELECTOR = sel.postVoteBlock || 'div.post-vote';
   const POSTVOTE_LINK_SELECTOR = sel.postVoteLink || 'div.post-vote p > a';
@@ -214,7 +213,7 @@
     }
   };
 
-  const sendQuickPlus = (post, ratingLink) => {
+  const sendQuickPlus = (post) => {
     if (!post) return;
 
     const voteLink = post.querySelector(POSTVOTE_LINK_SELECTOR);
@@ -275,8 +274,7 @@
     }
   };
 
-  // ================== Репутация-модалка: фикс клавиатуры/оверлея ==================
-  // Работает в связке с CSS: #pun-reputation.qr-rep-open { pointer-events:auto; ... }
+  // ===== Модалка репутации: класс qr-rep-open всегда (ПК+моб), подгонка viewport только на мобилках =====
   const createReputationModalFix = () => {
     const overlay = document.querySelector(REPUTATION_OVERLAY_SELECTOR);
     if (!overlay) return null;
@@ -284,12 +282,8 @@
     const OPEN_CLASS = 'qr-rep-open';
     const MODAL_SEL = '.inner.post_reputation';
 
-    const enabled = Boolean(window.visualViewport && isCoarsePointer);
-    if (!enabled) {
-      // всё равно полезно хотя бы выключать "мертвый" оверлей, если CSS уже стоит
-      // но не будем трогать на десктопе
-      return null;
-    }
+    const canUseVV = Boolean(window.visualViewport);
+    const doVV = Boolean(canUseVV && isCoarsePointer);
 
     let locked = false;
     let savedScrollY = 0;
@@ -298,16 +292,19 @@
 
     const getModal = () => overlay.querySelector(MODAL_SEL);
 
+    // IMPORTANT: не через getClientRects (у оффскрин/скрытых модалок он бывает >0),
+    // а через размеры и display.
     const isModalVisible = () => {
       const modal = getModal();
       if (!modal) return false;
       const cs = window.getComputedStyle(modal);
-      if (cs.display === 'none' || cs.visibility === 'hidden' || cs.opacity === '0') return false;
-      return modal.getClientRects().length > 0;
+      if (cs.display === 'none' || cs.visibility === 'hidden') return false;
+      if (modal.offsetWidth <= 0 || modal.offsetHeight <= 0) return false;
+      return true;
     };
 
     const lockScroll = () => {
-      if (locked) return;
+      if (!doVV || locked) return;
       locked = true;
 
       savedScrollY = window.scrollY || document.documentElement.scrollTop || 0;
@@ -348,6 +345,7 @@
     };
 
     const syncToVisualViewport = () => {
+      if (!doVV) return;
       if (!isModalVisible()) return;
 
       const vv = window.visualViewport;
@@ -397,43 +395,37 @@
       clearTimeout(syncTimer);
       syncTimer = setTimeout(() => {
         sync();
-        if (isModalVisible()) syncToVisualViewport();
+        syncToVisualViewport();
       }, delay);
     };
 
-    // Следим за изменениями стилей (форум обычно меняет inline style display)
-    const mo = new MutationObserver(() => {
-      scheduleSync(0);
-    });
+    // следим за изменениями (форум обычно дёргает inline style display)
+    const mo = new MutationObserver(() => scheduleSync(0));
     mo.observe(overlay, {
       subtree: true,
       attributes: true,
       attributeFilter: ['style', 'class'],
     });
 
-    // Клавиатура/viewport
-    window.visualViewport.addEventListener('resize', () => scheduleSync(0));
-    window.visualViewport.addEventListener('scroll', () => scheduleSync(0));
+    if (doVV) {
+      window.visualViewport.addEventListener('resize', () => scheduleSync(0));
+      window.visualViewport.addEventListener('scroll', () => scheduleSync(0));
+      document.addEventListener('focusin', (e) => {
+        const t = e.target;
+        if (!t || !t.closest) return;
+        if (t.closest(REPUTATION_OVERLAY_SELECTOR)) {
+          scheduleSync(0);
+          setTimeout(syncToVisualViewport, 60);
+          setTimeout(syncToVisualViewport, 200);
+        }
+      });
+    }
 
-    // Фокус в поле — часто триггерит “прыжок”, дожимаем
-    document.addEventListener('focusin', (e) => {
-      const t = e.target;
-      if (!t) return;
-      if (!t.closest || !t.closest(REPUTATION_OVERLAY_SELECTOR)) return;
-      scheduleSync(0);
-      setTimeout(syncToVisualViewport, 60);
-      setTimeout(syncToVisualViewport, 200);
-    });
-
-    // Инициализация
     scheduleSync(0);
-
     return { scheduleSync };
   };
 
   let repModalFix = null;
-
-  // ================== Click tracking ==================
   let pendingRatingLink = null;
 
   const onDocumentClick = (e) => {
@@ -454,16 +446,14 @@
         const rating = post.querySelector(RATING_LINK_SELECTOR);
         if (rating) pendingRatingLink = rating;
       }
-
-      // модалка может открыться — подхватим
       if (repModalFix) repModalFix.scheduleSync(80);
       return;
     }
 
-    // кнопки модалки: send/cancel
     const isSend =
       target.matches(REPUTATION_SEND_BTN_SELECTOR) ||
       target.closest(REPUTATION_SEND_BTN_SELECTOR);
+
     const isCancel =
       target.matches(REPUTATION_CANCEL_BTN_SELECTOR) ||
       target.closest(REPUTATION_CANCEL_BTN_SELECTOR);
@@ -485,9 +475,8 @@
     }
   };
 
-  // ================== Init ==================
   const init = () => {
-    // 1) показываем "+" всегда
+    // "+" видим всегда
     if (addCommentEnabled) {
       const voteBlocks = document.querySelectorAll(POSTVOTE_BLOCK_SELECTOR);
       voteBlocks.forEach((el) => {
@@ -495,10 +484,9 @@
       });
     }
 
-    // 2) включаем фикс модалки (мобилка + visualViewport)
+    // фикс модалки — ВСЕГДА (ПК+моб), но подгонка под клавиатуру только на мобилках
     repModalFix = createReputationModalFix();
 
-    // 3) навешиваем логики на рейтинг
     const ratingLinks = document.querySelectorAll(RATING_LINK_SELECTOR);
     ratingLinks.forEach((link) => {
       normalizeRatingDigit(link);
@@ -539,7 +527,7 @@
           pressTimer = null;
           longPressFired = true;
           const postEl = findPostRoot(link);
-          if (postEl) sendQuickPlus(postEl, link);
+          if (postEl) sendQuickPlus(postEl);
         }, LONG_PRESS_MS);
       };
 
@@ -548,9 +536,7 @@
         const p = (e.touches && e.touches[0]) || e;
         const dx = (p.clientX || 0) - startX;
         const dy = (p.clientY || 0) - startY;
-        if (dx * dx + dy * dy > 100) {
-          clearPress();
-        }
+        if (dx * dx + dy * dy > 100) clearPress(); // >10px
       };
 
       const endPress = () => clearPress();
@@ -608,7 +594,7 @@
           }
         }
 
-        if (doAjax) sendQuickPlus(postEl, link);
+        if (doAjax) sendQuickPlus(postEl);
 
         if (cancelDefault) {
           if (e && e.preventDefault) e.preventDefault();
