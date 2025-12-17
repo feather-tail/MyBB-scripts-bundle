@@ -38,14 +38,27 @@
   const openDefaultWithCtrlClick =
     behaviorCfg.openDefaultWithCtrlClick !== false;
 
+  const LONG_PRESS_MS = (() => {
+    const n = parseInt(behaviorCfg.longPressMs, 10);
+    return Number.isFinite(n) && n >= 150 ? n : 450;
+  })();
+
+  const isCoarsePointer = (() => {
+    try {
+      return (
+        window.matchMedia &&
+        window.matchMedia('(pointer: coarse)').matches
+      );
+    } catch (e) {
+      return false;
+    }
+  })();
+
   const originalAlert =
     typeof window.alert === 'function' ? window.alert.bind(window) : null;
   if (originalAlert) {
     window.alert = (msg) => {
-      if (
-        typeof msg === 'string' &&
-        msg.indexOf(IGNORE_ALERT_PART) !== -1
-      ) {
+      if (typeof msg === 'string' && msg.indexOf(IGNORE_ALERT_PART) !== -1) {
         return;
       }
       originalAlert(msg);
@@ -58,11 +71,8 @@
     let n = parseInt(raw, 10);
     if (Number.isNaN(n)) n = 0;
     el.textContent = String(n);
-    if (n > 0) {
-      el.classList.add(NONULL_CLASS);
-    } else {
-      el.classList.remove(NONULL_CLASS);
-    }
+    if (n > 0) el.classList.add(NONULL_CLASS);
+    else el.classList.remove(NONULL_CLASS);
   };
 
   const notifyError = (message) => {
@@ -144,9 +154,7 @@
     nodes.forEach((node) => {
       let html = node.innerHTML;
       let delta = v;
-      if (revert) {
-        delta = delta > 0 ? -1 : 1;
-      }
+      if (revert) delta = delta > 0 ? -1 : 1;
 
       if (v > 0) {
         html = html.replace(/\[\+(\d+)\//g, (str, p1) => {
@@ -175,13 +183,7 @@
       if (Number.isNaN(current)) current = 0;
 
       const next = current + v;
-      let out;
-      if (!next) {
-        out = '0';
-      } else {
-        out = (next > 0 ? '+' : '') + String(next);
-      }
-      span.textContent = out;
+      span.textContent = !next ? '0' : (next > 0 ? '+' : '') + String(next);
     });
   };
 
@@ -224,42 +226,28 @@
     const uid = getUidForPost(post);
     const v = getVoteValueFromHref(href);
 
-    const postVoteBlock = document.getElementById(
-      `${POSTVOTE_PREFIX}${pid}-vote`,
-    );
-    if (postVoteBlock) {
-      postVoteBlock.style.display = 'none';
-    }
+    const postVoteBlock = document.getElementById(`${POSTVOTE_PREFIX}${pid}-vote`);
+    if (postVoteBlock) postVoteBlock.style.display = 'none';
 
-    const url =
-      href.indexOf('format=json') !== -1 ? href : `${href}&format=json`;
+    const url = href.indexOf('format=json') !== -1 ? href : `${href}&format=json`;
 
     const handleResponse = (data) => {
       if (!data) return;
 
-      if (data.error && data.error.message) {
-        notifyError(data.error.message);
-      }
+      if (data.error && data.error.message) notifyError(data.error.message);
       if (!data.delta) return;
 
       const ratingEl = document.querySelector(`#p${pid} .post-rating p > a`);
       if (ratingEl) {
         let pr = data.response;
-        if (typeof pr === 'number') {
-          pr = pr.toString();
-        }
+        if (typeof pr === 'number') pr = pr.toString();
         const n = parseInt(pr, 10);
         ratingEl.textContent = Number.isNaN(n) ? String(pr) : String(n);
-        if (!Number.isNaN(n) && n > 0) {
-          ratingEl.classList.add(NONULL_CLASS);
-        } else {
-          ratingEl.classList.remove(NONULL_CLASS);
-        }
+        if (!Number.isNaN(n) && n > 0) ratingEl.classList.add(NONULL_CLASS);
+        else ratingEl.classList.remove(NONULL_CLASS);
       }
 
-      if (uid) {
-        updateReputationFields(uid, v, data.delta);
-      }
+      if (uid) updateReputationFields(uid, v, data.delta);
     };
 
     if (window.jQuery && window.jQuery.get) {
@@ -268,8 +256,7 @@
         .fail((xhr, status, err) => {
           console.error('quickReputation jQuery error:', status, err);
         });
-    }
-    else if (window.fetch) {
+    } else if (window.fetch) {
       fetch(url, { credentials: 'same-origin' })
         .then((res) => {
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -279,8 +266,7 @@
         .catch((err) => {
           console.error('quickReputation fetch error:', err);
         });
-    }
-    else {
+    } else {
       const img = new Image();
       img.src = url;
     }
@@ -295,24 +281,16 @@
     const link = target.closest('a');
     const href = link && link.getAttribute('href');
 
-    const isRelationLink =
-      link && href && href.indexOf('/relation.php?id=') !== -1;
-
-    const isPostVotePlus =
-      link && link.closest(POSTVOTE_BLOCK_SELECTOR || 'div.post-vote');
-
+    const isRelationLink = link && href && href.indexOf('/relation.php?id=') !== -1;
+    const isPostVotePlus = link && link.closest(POSTVOTE_BLOCK_SELECTOR || 'div.post-vote');
     const isRespectLink =
-      link &&
-      link.closest(RESPECT_FIELD_SELECTOR || '.pa-respect') &&
-      isRelationLink;
+      link && link.closest(RESPECT_FIELD_SELECTOR || '.pa-respect') && isRelationLink;
 
     if (isRespectLink || isPostVotePlus) {
       const post = link.closest(POST_SELECTOR);
       if (post) {
         const rating = post.querySelector(RATING_LINK_SELECTOR);
-        if (rating) {
-          pendingRatingLink = rating;
-        }
+        if (rating) pendingRatingLink = rating;
       }
       return;
     }
@@ -324,9 +302,7 @@
       if (pendingRatingLink) {
         const el = pendingRatingLink;
         pendingRatingLink = null;
-        setTimeout(() => {
-          normalizeRatingDigit(el);
-        }, 500);
+        setTimeout(() => normalizeRatingDigit(el), 500);
       }
     }
   };
@@ -339,59 +315,123 @@
       });
     }
 
-  const ratingLinks = document.querySelectorAll(RATING_LINK_SELECTOR);
-  ratingLinks.forEach((link) => {
-    normalizeRatingDigit(link);
-    link.title = TITLE_PLUS_NO_COMMENT;
-  
-    const post = findPostRoot(link);
-    if (post && addCommentEnabled) {
-      const voteLink = post.querySelector(POSTVOTE_LINK_SELECTOR);
-      if (voteLink && !voteLink.title) {
-        voteLink.title = TITLE_PLUS_WITH_COMMENT;
-      }
-    }
-  
-    link.onclick = (e) => {
-      e = e || window.event;
-  
+    const ratingLinks = document.querySelectorAll(RATING_LINK_SELECTOR);
+    ratingLinks.forEach((link) => {
+      normalizeRatingDigit(link);
+      link.title = TITLE_PLUS_NO_COMMENT;
+
       const post = findPostRoot(link);
-      if (!post) return true;
-  
-      const modifierPressed =
-        openDefaultWithCtrlClick && (e.ctrlKey || e.metaKey);
-  
-      let doAjax = true;
-      let cancelDefault = false;
-  
-      if (modifierPressed) {
-        doAjax = false;
-        cancelDefault = false;
-      } else {
-        if (ratingClickMode === 'ajax-only') {
-          cancelDefault = true;
-          doAjax = true;
-        } else if (ratingClickMode === 'ajax+default') {
-          cancelDefault = false;
-          doAjax = true;
-        } else if (ratingClickMode === 'default-only') {
-          cancelDefault = false;
-          doAjax = false;
+      if (post && addCommentEnabled) {
+        const voteLink = post.querySelector(POSTVOTE_LINK_SELECTOR);
+        if (voteLink && !voteLink.title) {
+          voteLink.title = TITLE_PLUS_WITH_COMMENT;
         }
       }
-  
-      if (doAjax) {
-        sendQuickPlus(post, link);
+
+      let pressTimer = null;
+      let startX = 0;
+      let startY = 0;
+      let longPressFired = false;
+
+      const clearPress = () => {
+        if (pressTimer) {
+          clearTimeout(pressTimer);
+          pressTimer = null;
+        }
+      };
+
+      const startPress = (e) => {
+        if (ratingClickMode === 'default-only') return;
+
+        longPressFired = false;
+        clearPress();
+
+        const p = (e.touches && e.touches[0]) || e;
+        startX = p.clientX || 0;
+        startY = p.clientY || 0;
+
+        pressTimer = setTimeout(() => {
+          pressTimer = null;
+          longPressFired = true;
+          const postEl = findPostRoot(link);
+          if (postEl) sendQuickPlus(postEl, link);
+        }, LONG_PRESS_MS);
+      };
+
+      const movePress = (e) => {
+        if (!pressTimer) return;
+        const p = (e.touches && e.touches[0]) || e;
+        const dx = (p.clientX || 0) - startX;
+        const dy = (p.clientY || 0) - startY;
+        if (dx * dx + dy * dy > 100) {
+          clearPress();
+        }
+      };
+
+      const endPress = () => clearPress();
+
+      if (isCoarsePointer) {
+        if (window.PointerEvent) {
+          link.addEventListener('pointerdown', startPress);
+          link.addEventListener('pointermove', movePress);
+          link.addEventListener('pointerup', endPress);
+          link.addEventListener('pointercancel', endPress);
+          link.addEventListener('pointerleave', endPress);
+        } else {
+          link.addEventListener('touchstart', startPress, { passive: true });
+          link.addEventListener('touchmove', movePress, { passive: true });
+          link.addEventListener('touchend', endPress);
+          link.addEventListener('touchcancel', endPress);
+        }
+
+        link.addEventListener('contextmenu', (e) => {
+          if (pressTimer || longPressFired) e.preventDefault();
+        });
       }
-  
-      if (cancelDefault) {
-        if (e && e.preventDefault) e.preventDefault();
-        return false;
-      }
-  
-      return true;
-    };
-  });
+
+      link.onclick = (e) => {
+        e = e || window.event;
+
+        if (isCoarsePointer) {
+          if (e && e.preventDefault) e.preventDefault();
+          return false;
+        }
+
+        const postEl = findPostRoot(link);
+        if (!postEl) return true;
+
+        const modifierPressed =
+          openDefaultWithCtrlClick && (e.ctrlKey || e.metaKey);
+
+        let doAjax = true;
+        let cancelDefault = false;
+
+        if (modifierPressed) {
+          doAjax = false;
+          cancelDefault = false;
+        } else {
+          if (ratingClickMode === 'ajax-only') {
+            cancelDefault = true;
+            doAjax = true;
+          } else if (ratingClickMode === 'ajax+default') {
+            cancelDefault = false;
+            doAjax = true;
+          } else if (ratingClickMode === 'default-only') {
+            cancelDefault = false;
+            doAjax = false;
+          }
+        }
+
+        if (doAjax) sendQuickPlus(postEl, link);
+
+        if (cancelDefault) {
+          if (e && e.preventDefault) e.preventDefault();
+          return false;
+        }
+
+        return true;
+      };
+    });
 
     document.addEventListener('click', onDocumentClick);
   };
@@ -402,5 +442,3 @@
     init();
   }
 })();
-
-
