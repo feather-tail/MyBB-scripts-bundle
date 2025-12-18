@@ -1,5 +1,6 @@
 (() => {
   "use strict";
+
   const helpers = window.helpers;
   const { createEl, parseHTML, initTabs, getUserId, getGroupId } = helpers;
 
@@ -7,27 +8,24 @@
     loadingText: "Загрузка...",
     errorText: "Ошибка загрузки данных.",
 
-    // awards используем как "Подарки"
-    showAwards: true,
-    awardsTabTitle: "Подарки",
-    awardsErrorText: "Ошибка загрузки подарков.",
-    awardsEmptyText: "Подарков не найдено.",
-    awardsApi: "https://core.rusff.me/rusff.php",
+    // для gifts (awards/index)
+    showGifts: true,
+    giftsErrorText: "Ошибка загрузки подарков.",
+    giftsEmptyText: "Подарков не найдено.",
+    giftsApi: "https://core.rusff.me/rusff.php",
 
-    giftsTabIconClass: "fa-solid fa-gift",
+    // нужные для загрузки страницы персонажа (если не заданы глобально)
+    ajaxFolder: "",
+    charset: "utf-8",
   });
 
-  // fallback на случай если config.classes не задан
-  const classes = {
-    tabs: (config.classes && config.classes.tabs) || "modal__tabs",
-    tab: (config.classes && config.classes.tab) || "modal__tab",
-    tabContent: (config.classes && config.classes.tabContent) || "modal__content",
-    active: (config.classes && config.classes.active) || "active",
-  };
+  const TAB_SEL = ".modal__tab";
+  const PANEL_SEL = ".modal__content";
+  const ACTIVE = "active";
 
-  const awardsCache = new Map();
   const rpcCache = new Map();
   const rpcInflight = new Map();
+  const giftsCache = new Map();
 
   const stableStringify = (v) => {
     if (v && typeof v === "object") {
@@ -43,10 +41,11 @@
   const rpc = (method, params) => {
     const body = { jsonrpc: "2.0", id: 1, method, params };
     const key = `${method}|${stableStringify(params)}`;
+
     if (rpcCache.has(key)) return Promise.resolve(rpcCache.get(key));
     if (rpcInflight.has(key)) return rpcInflight.get(key);
 
-    const p = fetch(config.awardsApi, {
+    const p = fetch(config.giftsApi, {
       method: "POST",
       mode: "cors",
       credentials: "omit",
@@ -69,8 +68,8 @@
     return p;
   };
 
-  const fetchAwardsAsGifts = (uid) => {
-    if (awardsCache.has(uid)) return awardsCache.get(uid);
+  const fetchGifts = (uid) => {
+    if (giftsCache.has(uid)) return giftsCache.get(uid);
 
     const params = {
       board_id: Number(window.BoardID) || 0,
@@ -107,85 +106,53 @@
       return res;
     });
 
-    awardsCache.set(uid, p);
+    giftsCache.set(uid, p);
     return p;
   };
 
-  function ensureGiftsTabAndPanel(root) {
-    const tabs = root.querySelector(`.${classes.tabs}`);
-    const body = root.querySelector("[data-cm-body]") || root;
-    if (!tabs || !body) return null;
+  function initGiftsUI(root, uid) {
+    const giftsRoot = root.querySelector("[data-gifts-root]");
+    const status = root.querySelector(".gifts-status");
+    if (!giftsRoot || !uid || !config.showGifts) return;
 
-    // already exists?
-    let tab = tabs.querySelector('[data-cm-tab="gifts"]');
-    let panel = body.querySelector('[data-cm-panel="gifts"]');
+    if (status) status.textContent = config.loadingText;
+    giftsRoot.textContent = "";
 
-    if (!tab) {
-      tab = createEl("button", {
-        className: classes.tab,
-        type: "button",
+    fetchGifts(uid)
+      .then((gifts) => {
+        if (!gifts || !gifts.length) {
+          if (status) status.textContent = config.giftsEmptyText;
+          return;
+        }
+        if (status) status.textContent = "";
+
+        const grid = createEl("div", { className: "inv-grid" });
+
+        gifts.forEach((g) => {
+          const lines = [];
+          if (g.name) lines.push(g.name);
+          if (g.desc) lines.push(g.desc);
+
+          const slot = createEl("button", {
+            className: "inv-slot cm-tip",
+            type: "button",
+          });
+
+          slot.dataset.tooltip = lines.join("\n") || "Подарок";
+          if (g.img) slot.style.setProperty("--slot-img", `url("${g.img}")`);
+
+          grid.append(slot);
+        });
+
+        giftsRoot.append(grid);
+      })
+      .catch(() => {
+        if (status) status.textContent = config.giftsErrorText;
       });
-      tab.setAttribute("aria-label", config.awardsTabTitle);
-      tab.dataset.cmTab = "gifts";
-      tab.append(
-        createEl("i", { className: config.giftsTabIconClass, "aria-hidden": "true" })
-      );
-      tab.append(createEl("span", { className: "cm-sr", text: config.awardsTabTitle }));
-
-      // вставляем сразу после инвентаря
-      const invTab = tabs.querySelector('[data-cm-tab="inventory"]');
-      if (invTab && invTab.nextSibling) tabs.insertBefore(tab, invTab.nextSibling);
-      else tabs.append(tab);
-    }
-
-    if (!panel) {
-      panel = createEl("section", { className: classes.tabContent });
-      panel.dataset.cmPanel = "gifts";
-
-      const sec = createEl("div", { className: "cm-section" });
-      sec.append(createEl("div", { className: "cm-muted", text: config.loadingText }));
-      sec.append(createEl("div", { className: "cm-gifts-root", "data-gifts-root": "" }));
-      panel.append(sec);
-
-      // вставляем панель сразу после панели инвентаря
-      const invPanel = body.querySelector('[data-cm-panel="inventory"]');
-      if (invPanel && invPanel.nextSibling) body.insertBefore(panel, invPanel.nextSibling);
-      else body.append(panel);
-    }
-
-    return { tab, panel };
-  }
-
-  function renderGifts(panel, gifts) {
-    const root = panel.querySelector("[data-gifts-root]") || panel;
-    root.textContent = "";
-
-    if (!gifts || !gifts.length) {
-      root.append(createEl("div", { className: "cm-muted", text: config.awardsEmptyText }));
-      return;
-    }
-
-    const grid = createEl("div", { className: "inv-grid" }); // те же “слоты”
-    gifts.forEach((g) => {
-      const tipLines = [];
-      if (g.name) tipLines.push(g.name);
-      if (g.desc) tipLines.push(g.desc);
-
-      const slot = createEl("button", {
-        className: "inv-slot cm-tip",
-        type: "button",
-      });
-      slot.dataset.tooltip = tipLines.join("\n");
-      if (g.img) slot.style.setProperty("--slot-img", `url("${g.img}")`);
-
-      grid.append(slot);
-    });
-
-    root.append(grid);
   }
 
   function initInventoryUI(root) {
-    const panel = root.querySelector('[data-cm-panel="inventory"]');
+    const panel = root.querySelectorAll(PANEL_SEL)[1]; // 2-я вкладка = Инвентарь
     if (!panel) return;
 
     const input = panel.querySelector(".inv-search");
@@ -196,51 +163,36 @@
     if (!grid) return;
 
     const slots = Array.from(grid.querySelectorAll(".inv-slot"));
-    if (!slots.length) return;
 
-    const state = {
-      q: "",
-      cats: new Set(), // выбранные категории
-      filtersReady: false,
-    };
+    const state = { q: "", cats: new Set(), filtersBuilt: false };
 
     const getSlotText = (el) =>
-      `${el.dataset.name || ""} ${el.dataset.tooltip || ""}`.toLowerCase();
+      `${el.dataset.name || ""} ${el.dataset.cat || ""} ${el.dataset.tooltip || ""}`.toLowerCase();
 
     const apply = () => {
-      const q = state.q;
-      const cats = state.cats;
       let shown = 0;
-
       for (const s of slots) {
         const text = getSlotText(s);
         const cat = (s.dataset.cat || "").trim();
 
-        const okQ = !q || text.includes(q);
-        const okC = !cats.size || (cat && cats.has(cat));
+        const okQ = !state.q || text.includes(state.q);
+        const okC = !state.cats.size || (cat && state.cats.has(cat));
         const ok = okQ && okC;
 
         s.hidden = !ok;
         if (ok) shown++;
       }
-
       if (empty) empty.hidden = shown !== 0;
     };
 
     const buildFilters = () => {
-      if (!filtersBox || state.filtersReady) return;
+      if (!filtersBox || state.filtersBuilt) return;
 
       const cats = Array.from(
         new Set(slots.map((s) => (s.dataset.cat || "").trim()).filter(Boolean))
       ).sort((a, b) => a.localeCompare(b, "ru"));
 
       filtersBox.textContent = "";
-      if (!cats.length) {
-        filtersBox.append(createEl("div", { className: "cm-muted", text: "Категорий нет." }));
-        state.filtersReady = true;
-        return;
-      }
-
       filtersBox.append(createEl("div", { className: "cm-muted", text: "Категории:" }));
 
       const row = createEl("div", { className: "inv-filters__row" });
@@ -258,18 +210,19 @@
         row.append(label);
       });
 
-      // кнопка сброса
       const resetBtn = createEl("button", { className: "cm-btn", type: "button", text: "Сбросить" });
       resetBtn.addEventListener("click", () => {
         state.cats.clear();
-        const inputs = filtersBox.querySelectorAll('input[type="checkbox"]');
-        inputs.forEach((i) => (i.checked = false));
+        filtersBox.querySelectorAll('input[type="checkbox"]').forEach((i) => (i.checked = false));
         apply();
       });
 
       filtersBox.append(row, resetBtn);
+      state.filtersBuilt = true;
+    };
 
-      state.filtersReady = true;
+    const closeFilters = () => {
+      if (filtersBox) filtersBox.hidden = true;
     };
 
     if (input) {
@@ -280,13 +233,56 @@
     }
 
     if (btn && filtersBox) {
-      btn.addEventListener("click", () => {
+      btn.addEventListener("click", (ev) => {
+        ev.preventDefault();
         buildFilters();
-        filtersBox.hidden = !filtersBox.hidden;
+        filtersBox.hidden = !filtersBox.hidden; // toggle (теперь реально работает, см. CSS [hidden])
       });
     }
 
+    // закрытие по клику вне фильтров
+    panel.addEventListener("mousedown", (ev) => {
+      if (!filtersBox || filtersBox.hidden) return;
+      const inside = filtersBox.contains(ev.target) || (btn && btn.contains(ev.target));
+      if (!inside) closeFilters();
+    });
+
+    // закрытие по Esc
+    panel.addEventListener("keydown", (ev) => {
+      if (ev.key === "Escape") closeFilters();
+    });
+
+    // при переключении вкладок — закрыть
+    root.addEventListener("click", (ev) => {
+      if (ev.target.closest(TAB_SEL)) closeFilters();
+    });
+
     apply();
+  }
+
+  function initTabsSafe(root) {
+    const tabParams = {
+      tabSelector: TAB_SEL,
+      contentSelector: PANEL_SEL,
+      activeClass: ACTIVE,
+    };
+
+    if (typeof initTabs === "function") {
+      initTabs(root, tabParams);
+      return;
+    }
+
+    // fallback
+    const tabs = Array.from(root.querySelectorAll(TAB_SEL));
+    const panels = Array.from(root.querySelectorAll(PANEL_SEL));
+    tabs.forEach((t, i) => {
+      t.addEventListener("click", () => {
+        tabs.forEach((x) => x.classList.remove(ACTIVE));
+        panels.forEach((x) => x.classList.remove(ACTIVE));
+        t.classList.add(ACTIVE);
+        if (panels[i]) panels[i].classList.add(ACTIVE);
+      });
+    });
   }
 
   function init() {
@@ -299,16 +295,11 @@
       if (!pageId) return;
 
       const box = createEl("div", { className: "character-modal" });
-      box.append(
-        createEl("div", {
-          style: "padding:2em; text-align:center;",
-          text: config.loadingText,
-        })
-      );
+      box.append(createEl("div", { style: "padding:2em; text-align:center;", text: config.loadingText }));
 
       const { close } = window.helpers.modal.openModal(box);
 
-      // закрытие по кнопке внутри контента
+      // close button inside markup
       box.addEventListener("click", (ev) => {
         if (ev.target.closest("[data-modal-close]")) {
           ev.preventDefault();
@@ -317,61 +308,31 @@
       });
 
       try {
-        const res = await helpers.request(`${config.ajaxFolder}${pageId}`);
+        const res = await helpers.request(`${config.ajaxFolder || ""}${pageId}`);
         const buf = await res.arrayBuffer();
-        const decoder = new TextDecoder(config.charset);
-        const html = decoder.decode(buf);
+        const html = new TextDecoder(config.charset || "utf-8").decode(buf);
+
         const doc = parseHTML(html);
-
         const character = doc.querySelector(".character");
+
         box.textContent = "";
-
-        const tabParams = {
-          tabSelector: `.${classes.tab}`,
-          contentSelector: `.${classes.tabContent}`,
-          activeClass: classes.active,
-        };
-
-        const root = character || box;
-
         if (character) box.append(character);
         else box.append(...Array.from(doc.body.childNodes));
 
-        // user id берём максимально надёжно
+        const root = box.querySelector(".character") || box;
+
         const targetUid =
           link.dataset.userId ||
           link.dataset.uid ||
-          root.querySelector(".character")?.dataset.userId ||
-          root.querySelector("[data-user-id]")?.dataset.userId ||
-          root.querySelector(".character")?.getAttribute("data-user-id");
+          root.dataset.userId ||
+          root.querySelector("[data-user-id]")?.dataset.userId;
 
-        // Добавляем вкладку "Подарки" из awards (без дублей)
-        if (config.showAwards && targetUid) {
-          const giftsUI = ensureGiftsTabAndPanel(root.querySelector(".character") || root);
-          if (giftsUI) {
-            const panel = giftsUI.panel;
-            fetchAwardsAsGifts(targetUid)
-              .then((gifts) => renderGifts(panel, gifts))
-              .catch(() => {
-                const r = panel.querySelector("[data-gifts-root]") || panel;
-                r.textContent = config.awardsErrorText;
-              });
-          }
-        }
-
-        // Инициализация вкладок (после возможного добавления gifts)
-        initTabs(root.querySelector(".character") || root, tabParams);
-
-        // Инвентарь: поиск/фильтры
-        initInventoryUI(root.querySelector(".character") || root);
+        initTabsSafe(root);
+        initInventoryUI(root);
+        if (targetUid) initGiftsUI(root, targetUid);
       } catch (err) {
         box.textContent = "";
-        box.append(
-          createEl("div", {
-            style: "padding:2em; color:red;",
-            text: config.errorText,
-          })
-        );
+        box.append(createEl("div", { style: "padding:2em; color:red;", text: config.errorText }));
       }
     });
   }
