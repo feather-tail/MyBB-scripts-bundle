@@ -8,13 +8,12 @@
     loadingText: "Загрузка...",
     errorText: "Ошибка загрузки данных.",
 
-    // для gifts (awards/index)
+    // gifts (awards/index)
     showGifts: true,
     giftsErrorText: "Ошибка загрузки подарков.",
     giftsEmptyText: "Подарков не найдено.",
     giftsApi: "https://core.rusff.me/rusff.php",
 
-    // нужные для загрузки страницы персонажа (если не заданы глобально)
     ajaxFolder: "",
     charset: "utf-8",
   });
@@ -110,20 +109,48 @@
     return p;
   };
 
+  const setBadge = (root, key, n) => {
+    const b = root.querySelector(`[data-cm-badge="${key}"]`);
+    if (!b) return;
+    const val = Number(n) || 0;
+    if (val <= 0) {
+      b.hidden = true;
+      b.textContent = "";
+      return;
+    }
+    b.textContent = String(val);
+    b.hidden = false;
+  };
+
+  function initBadges(root) {
+    // inventory
+    const invCount = root.querySelectorAll('[data-cm-panel="inventory"] [data-inv-grid] .inv-slot').length;
+    setBadge(root, "inventory", invCount);
+
+    // achievements
+    const achCount = root.querySelectorAll('[data-cm-panel="achievements"] .ach-slot').length;
+    setBadge(root, "achievements", achCount);
+  }
+
   function initGiftsUI(root, uid) {
+    const giftsPanel = root.querySelector('[data-cm-panel="gifts"]');
     const giftsRoot = root.querySelector("[data-gifts-root]");
     const status = root.querySelector(".gifts-status");
-    if (!giftsRoot || !uid || !config.showGifts) return;
+    if (!giftsPanel || !giftsRoot || !uid || !config.showGifts) return;
 
     if (status) status.textContent = config.loadingText;
     giftsRoot.textContent = "";
 
     fetchGifts(uid)
       .then((gifts) => {
-        if (!gifts || !gifts.length) {
+        const count = gifts?.length || 0;
+        setBadge(root, "gifts", count);
+
+        if (!count) {
           if (status) status.textContent = config.giftsEmptyText;
           return;
         }
+
         if (status) status.textContent = "";
 
         const grid = createEl("div", { className: "inv-grid" });
@@ -133,14 +160,9 @@
           if (g.name) lines.push(g.name);
           if (g.desc) lines.push(g.desc);
 
-          const slot = createEl("button", {
-            className: "inv-slot cm-tip",
-            type: "button",
-          });
-
+          const slot = createEl("button", { className: "inv-slot cm-tip", type: "button" });
           slot.dataset.tooltip = lines.join("\n") || "Подарок";
           if (g.img) slot.style.setProperty("--slot-img", `url("${g.img}")`);
-
           grid.append(slot);
         });
 
@@ -151,20 +173,22 @@
       });
   }
 
-  function initInventoryUI(root) {
-    const panel = root.querySelectorAll(PANEL_SEL)[1]; // 2-я вкладка = Инвентарь
+  function initInventoryPopover(root) {
+    const panel = root.querySelector('[data-cm-panel="inventory"]');
     if (!panel) return;
 
     const input = panel.querySelector(".inv-search");
-    const btn = panel.querySelector(".inv-filter-btn");
-    const filtersBox = panel.querySelector(".inv-filters");
+    const btn = panel.querySelector("[data-inv-filter-btn]");
+    const pop = panel.querySelector("[data-inv-popover]");
+    const closeBtn = panel.querySelector("[data-inv-close]");
+    const resetBtn = panel.querySelector("[data-inv-reset]");
+    const filtersRoot = panel.querySelector("[data-inv-filters-root]");
     const grid = panel.querySelector("[data-inv-grid]");
     const empty = panel.querySelector(".inv-empty");
-    if (!grid) return;
+    if (!btn || !pop || !filtersRoot || !grid) return;
 
     const slots = Array.from(grid.querySelectorAll(".inv-slot"));
-
-    const state = { q: "", cats: new Set(), filtersBuilt: false };
+    const state = { q: "", cats: new Set(), built: false };
 
     const getSlotText = (el) =>
       `${el.dataset.name || ""} ${el.dataset.cat || ""} ${el.dataset.tooltip || ""}`.toLowerCase();
@@ -174,26 +198,31 @@
       for (const s of slots) {
         const text = getSlotText(s);
         const cat = (s.dataset.cat || "").trim();
-
         const okQ = !state.q || text.includes(state.q);
         const okC = !state.cats.size || (cat && state.cats.has(cat));
         const ok = okQ && okC;
-
         s.hidden = !ok;
         if (ok) shown++;
       }
       if (empty) empty.hidden = shown !== 0;
+      // обновим бейдж инвентаря по текущей выдаче? оставляем общий (вкладка = всё)
     };
 
-    const buildFilters = () => {
-      if (!filtersBox || state.filtersBuilt) return;
+    const build = () => {
+      if (state.built) return;
 
       const cats = Array.from(
         new Set(slots.map((s) => (s.dataset.cat || "").trim()).filter(Boolean))
       ).sort((a, b) => a.localeCompare(b, "ru"));
 
-      filtersBox.textContent = "";
-      filtersBox.append(createEl("div", { className: "cm-muted", text: "Категории:" }));
+      filtersRoot.textContent = "";
+      if (!cats.length) {
+        filtersRoot.append(createEl("div", { className: "cm-muted", text: "Категорий нет." }));
+        state.built = true;
+        return;
+      }
+
+      filtersRoot.append(createEl("div", { className: "cm-muted", text: "Категории:" }));
 
       const row = createEl("div", { className: "inv-filters__row" });
       cats.forEach((c) => {
@@ -204,60 +233,98 @@
           else state.cats.delete(c);
           apply();
         });
-
         const label = createEl("label", { htmlFor: id });
         label.append(cb, createEl("span", { text: c }));
         row.append(label);
       });
 
-      const resetBtn = createEl("button", { className: "cm-btn", type: "button", text: "Сбросить" });
-      resetBtn.addEventListener("click", () => {
-        state.cats.clear();
-        filtersBox.querySelectorAll('input[type="checkbox"]').forEach((i) => (i.checked = false));
-        apply();
-      });
-
-      filtersBox.append(row, resetBtn);
-      state.filtersBuilt = true;
+      filtersRoot.append(row);
+      state.built = true;
     };
 
-    const closeFilters = () => {
-      if (filtersBox) filtersBox.hidden = true;
-    };
+    const open = () => { build(); pop.hidden = false; };
+    const close = () => { pop.hidden = true; };
+    const toggle = () => (pop.hidden ? open() : close());
 
-    if (input) {
-      input.addEventListener("input", () => {
-        state.q = (input.value || "").trim().toLowerCase();
-        apply();
-      });
-    }
+    btn.addEventListener("click", (ev) => {
+      ev.preventDefault();
+      toggle();
+    });
 
-    if (btn && filtersBox) {
-      btn.addEventListener("click", (ev) => {
-        ev.preventDefault();
-        buildFilters();
-        filtersBox.hidden = !filtersBox.hidden; // toggle (теперь реально работает, см. CSS [hidden])
-      });
-    }
+    closeBtn?.addEventListener("click", (ev) => {
+      ev.preventDefault();
+      close();
+    });
 
-    // закрытие по клику вне фильтров
+    resetBtn?.addEventListener("click", (ev) => {
+      ev.preventDefault();
+      state.cats.clear();
+      filtersRoot.querySelectorAll('input[type="checkbox"]').forEach((i) => (i.checked = false));
+      apply();
+    });
+
+    // поиск
+    input?.addEventListener("input", () => {
+      state.q = (input.value || "").trim().toLowerCase();
+      apply();
+    });
+
+    // click outside closes
     panel.addEventListener("mousedown", (ev) => {
-      if (!filtersBox || filtersBox.hidden) return;
-      const inside = filtersBox.contains(ev.target) || (btn && btn.contains(ev.target));
-      if (!inside) closeFilters();
+      if (pop.hidden) return;
+      const inside = pop.contains(ev.target) || btn.contains(ev.target);
+      if (!inside) close();
     });
 
-    // закрытие по Esc
+    // Esc closes
     panel.addEventListener("keydown", (ev) => {
-      if (ev.key === "Escape") closeFilters();
+      if (ev.key === "Escape") close();
     });
 
-    // при переключении вкладок — закрыть
+    // смена вкладки закрывает поповер
     root.addEventListener("click", (ev) => {
-      if (ev.target.closest(TAB_SEL)) closeFilters();
+      if (ev.target.closest(TAB_SEL)) close();
     });
 
     apply();
+  }
+
+  function initAppearancePickers(root) {
+    const ap = root.querySelector('[data-cm-panel="appearance"]');
+    if (!ap) return;
+
+    const iconWrap = ap.querySelector("[data-ap-icons]");
+    const bgWrap = ap.querySelector("[data-ap-bgs]");
+    const iconPreview = ap.querySelector("[data-ap-icon-preview]");
+    const bgPreview = ap.querySelector("[data-ap-bg-preview]");
+
+    iconWrap?.addEventListener("click", (ev) => {
+      const btn = ev.target.closest("[data-icon]");
+      if (!btn) return;
+
+      iconWrap.querySelectorAll(".cm-icon").forEach((b) => b.classList.remove("is-active"));
+      btn.classList.add("is-active");
+
+      const name = btn.dataset.icon || "fa-feather";
+      if (iconPreview) {
+        iconPreview.innerHTML = "";
+        const i = document.createElement("i");
+        i.className = `fa-solid ${name}`;
+        i.setAttribute("aria-hidden", "true");
+        iconPreview.append(i);
+      }
+    });
+
+    bgWrap?.addEventListener("click", (ev) => {
+      const btn = ev.target.closest("[data-bg]");
+      if (!btn) return;
+
+      bgWrap.querySelectorAll(".cm-bg").forEach((b) => b.classList.remove("is-active"));
+      btn.classList.add("is-active");
+
+      const url = btn.dataset.bg || "";
+      if (bgPreview) bgPreview.style.backgroundImage = url ? `url("${url}")` : "";
+    });
   }
 
   function initTabsSafe(root) {
@@ -272,7 +339,6 @@
       return;
     }
 
-    // fallback
     const tabs = Array.from(root.querySelectorAll(TAB_SEL));
     const panels = Array.from(root.querySelectorAll(PANEL_SEL));
     tabs.forEach((t, i) => {
@@ -299,7 +365,6 @@
 
       const { close } = window.helpers.modal.openModal(box);
 
-      // close button inside markup
       box.addEventListener("click", (ev) => {
         if (ev.target.closest("[data-modal-close]")) {
           ev.preventDefault();
@@ -328,7 +393,10 @@
           root.querySelector("[data-user-id]")?.dataset.userId;
 
         initTabsSafe(root);
-        initInventoryUI(root);
+        initBadges(root);
+        initInventoryPopover(root);
+        initAppearancePickers(root);
+
         if (targetUid) initGiftsUI(root, targetUid);
       } catch (err) {
         box.textContent = "";
