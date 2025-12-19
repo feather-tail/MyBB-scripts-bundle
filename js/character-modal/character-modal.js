@@ -8,11 +8,13 @@
     loadingText: "Загрузка...",
     errorText: "Ошибка загрузки данных.",
 
-    // gifts (awards/index)
     showGifts: true,
     giftsErrorText: "Ошибка загрузки подарков.",
     giftsEmptyText: "Подарков не найдено.",
     giftsApi: "https://core.rusff.me/rusff.php",
+
+    // сколько слотов минимум показывать (плейсхолдеры)
+    minSlots: 20,
 
     ajaxFolder: "",
     charset: "utf-8",
@@ -109,68 +111,60 @@
     return p;
   };
 
-  const setBadge = (root, key, n) => {
-    const b = root.querySelector(`[data-cm-badge="${key}"]`);
-    if (!b) return;
-    const val = Number(n) || 0;
-    if (val <= 0) {
-      b.hidden = true;
-      b.textContent = "";
-      return;
-    }
-    b.textContent = String(val);
-    b.hidden = false;
+  const setDot = (root, key, on) => {
+    const el = root.querySelector(`[data-cm-dot="${key}"]`);
+    if (!el) return;
+    el.hidden = !on;
   };
 
-  function initBadges(root) {
-    // inventory
-    const invCount = root.querySelectorAll('[data-cm-panel="inventory"] [data-inv-grid] .inv-slot').length;
-    setBadge(root, "inventory", invCount);
+  function padSlots(grid, minSlots) {
+    if (!grid) return;
+    // удалим старые плейсхолдеры перед пересозданием (на случай реинициализации)
+    grid.querySelectorAll(".inv-slot--empty").forEach((n) => n.remove());
 
-    // achievements
-    const achCount = root.querySelectorAll('[data-cm-panel="achievements"] .ach-slot').length;
-    setBadge(root, "achievements", achCount);
+    const real = Array.from(grid.querySelectorAll(".inv-slot")).filter(
+      (s) => !s.classList.contains("inv-slot--empty")
+    ).length;
+
+    const target = Math.max(Number(minSlots) || 0, real);
+    for (let i = real; i < target; i++) {
+      const ph = document.createElement("div");
+      ph.className = "inv-slot inv-slot--empty";
+      ph.setAttribute("aria-hidden", "true");
+      grid.append(ph);
+    }
   }
 
-  function initGiftsUI(root, uid) {
-    const giftsPanel = root.querySelector('[data-cm-panel="gifts"]');
-    const giftsRoot = root.querySelector("[data-gifts-root]");
-    const status = root.querySelector(".gifts-status");
-    if (!giftsPanel || !giftsRoot || !uid || !config.showGifts) return;
+  function parseLevelFromText(text) {
+    const m = String(text || "").match(/(\d+)/);
+    return m ? Number(m[1]) : 0;
+  }
 
-    if (status) status.textContent = config.loadingText;
-    giftsRoot.textContent = "";
+  function applyBarColors(root) {
+    const bars = root.querySelectorAll(".cm-barrow[data-bar]");
+    bars.forEach((b) => {
+      const type = b.dataset.bar;
+      const level = Number(b.dataset.level) || parseLevelFromText(b.querySelector(".cm-barrow__value")?.textContent);
 
-    fetchGifts(uid)
-      .then((gifts) => {
-        const count = gifts?.length || 0;
-        setBadge(root, "gifts", count);
+      let color = "";
+      if (type === "bond") {
+        // связь: красные -> золотистые
+        if (level <= 2) color = "#a85a5a";
+        else if (level <= 5) color = "#c07a3a";
+        else if (level <= 8) color = "#d0b050";
+        else color = "#e3c66b";
+      } else if (type === "taint") {
+        // скверна: зелёные
+        if (level <= 2) color = "#4aa35a";
+        else if (level <= 5) color = "#2f9b4f";
+        else if (level <= 8) color = "#1b7e3e";
+        else color = "#0f5f2c";
+      } else {
+        color = "";
+      }
 
-        if (!count) {
-          if (status) status.textContent = config.giftsEmptyText;
-          return;
-        }
-
-        if (status) status.textContent = "";
-
-        const grid = createEl("div", { className: "inv-grid" });
-
-        gifts.forEach((g) => {
-          const lines = [];
-          if (g.name) lines.push(g.name);
-          if (g.desc) lines.push(g.desc);
-
-          const slot = createEl("button", { className: "inv-slot cm-tip", type: "button" });
-          slot.dataset.tooltip = lines.join("\n") || "Подарок";
-          if (g.img) slot.style.setProperty("--slot-img", `url("${g.img}")`);
-          grid.append(slot);
-        });
-
-        giftsRoot.append(grid);
-      })
-      .catch(() => {
-        if (status) status.textContent = config.giftsErrorText;
-      });
+      if (color) b.style.setProperty("--cm-bar-color", color);
+    });
   }
 
   function initInventoryPopover(root) {
@@ -185,16 +179,27 @@
     const filtersRoot = panel.querySelector("[data-inv-filters-root]");
     const grid = panel.querySelector("[data-inv-grid]");
     const empty = panel.querySelector(".inv-empty");
+
+    const detail = panel.querySelector("[data-inv-detail]");
+    const dImg = panel.querySelector("[data-inv-detail-img]");
+    const dName = panel.querySelector("[data-inv-detail-name]");
+    const dMeta = panel.querySelector("[data-inv-detail-meta]");
+    const dDesc = panel.querySelector("[data-inv-detail-desc]");
+
     if (!btn || !pop || !filtersRoot || !grid) return;
 
-    const slots = Array.from(grid.querySelectorAll(".inv-slot"));
+    const getRealSlots = () =>
+      Array.from(grid.querySelectorAll(".inv-slot")).filter((s) => !s.classList.contains("inv-slot--empty"));
+
     const state = { q: "", cats: new Set(), built: false };
 
     const getSlotText = (el) =>
-      `${el.dataset.name || ""} ${el.dataset.cat || ""} ${el.dataset.tooltip || ""}`.toLowerCase();
+      `${el.dataset.name || ""} ${el.dataset.cat || ""} ${el.dataset.desc || ""} ${el.dataset.tooltip || ""}`.toLowerCase();
 
     const apply = () => {
+      const slots = getRealSlots();
       let shown = 0;
+
       for (const s of slots) {
         const text = getSlotText(s);
         const cat = (s.dataset.cat || "").trim();
@@ -204,16 +209,19 @@
         s.hidden = !ok;
         if (ok) shown++;
       }
+
       if (empty) empty.hidden = shown !== 0;
-      // обновим бейдж инвентаря по текущей выдаче? оставляем общий (вкладка = всё)
+
+      // плейсхолдеры оставляем всегда (не скрываем)
+      setDot(root, "inventory", slots.length > 0);
     };
 
     const build = () => {
       if (state.built) return;
-
-      const cats = Array.from(
-        new Set(slots.map((s) => (s.dataset.cat || "").trim()).filter(Boolean))
-      ).sort((a, b) => a.localeCompare(b, "ru"));
+      const slots = getRealSlots();
+      const cats = Array.from(new Set(slots.map((s) => (s.dataset.cat || "").trim()).filter(Boolean))).sort(
+        (a, b) => a.localeCompare(b, "ru")
+      );
 
       filtersRoot.textContent = "";
       if (!cats.length) {
@@ -263,7 +271,6 @@
       apply();
     });
 
-    // поиск
     input?.addEventListener("input", () => {
       state.q = (input.value || "").trim().toLowerCase();
       apply();
@@ -286,7 +293,107 @@
       if (ev.target.closest(TAB_SEL)) close();
     });
 
+    // detail on click
+    grid.addEventListener("click", (ev) => {
+      const slot = ev.target.closest(".inv-slot");
+      if (!slot || slot.classList.contains("inv-slot--empty")) return;
+
+      grid.querySelectorAll(".inv-slot.is-selected").forEach((s) => s.classList.remove("is-selected"));
+      slot.classList.add("is-selected");
+
+      const name = slot.dataset.name || "Предмет";
+      const cat = slot.dataset.cat ? `Категория: ${slot.dataset.cat}` : "";
+      const desc = slot.dataset.desc || "";
+      const img = slot.dataset.img || "";
+
+      if (dName) dName.textContent = name;
+      if (dMeta) dMeta.textContent = cat || " ";
+      if (dDesc) dDesc.textContent = desc;
+      if (dImg) dImg.src = img || "https://placehold.co/96x96";
+
+      if (detail) detail.scrollIntoView({ block: "nearest" });
+    });
+
     apply();
+  }
+
+  function initGiftsUI(root, uid) {
+    const giftsPanel = root.querySelector('[data-cm-panel="gifts"]');
+    const giftsRoot = root.querySelector("[data-gifts-root]");
+    const status = root.querySelector(".gifts-status");
+
+    const detail = giftsPanel?.querySelector("[data-gifts-detail]");
+    const dImg = giftsPanel?.querySelector("[data-gifts-detail-img]");
+    const dName = giftsPanel?.querySelector("[data-gifts-detail-name]");
+    const dMeta = giftsPanel?.querySelector("[data-gifts-detail-meta]");
+    const dDesc = giftsPanel?.querySelector("[data-gifts-detail-desc]");
+
+    if (!giftsPanel || !giftsRoot || !uid || !config.showGifts) return;
+
+    if (status) status.textContent = config.loadingText;
+    giftsRoot.textContent = "";
+
+    fetchGifts(uid)
+      .then((gifts) => {
+        const count = gifts?.length || 0;
+
+        setDot(root, "gifts", count > 0);
+
+        if (!count) {
+          if (status) status.textContent = config.giftsEmptyText;
+          // всё равно сделаем пустую сетку с плейсхолдерами
+          const grid = createEl("div", { className: "inv-grid", attrs: { "data-gifts-grid": "1" } });
+          giftsRoot.append(grid);
+          padSlots(grid, config.minSlots);
+          return;
+        }
+
+        if (status) status.textContent = "";
+
+        const grid = createEl("div", { className: "inv-grid", attrs: { "data-gifts-grid": "1" } });
+
+        gifts.forEach((g) => {
+          const tooltip = [g.name, g.desc].filter(Boolean).join("\n") || "Подарок";
+
+          const slot = createEl("button", { className: "inv-slot cm-tip", type: "button" });
+          slot.dataset.tooltip = tooltip;
+
+          slot.dataset.name = g.name || "Подарок";
+          slot.dataset.desc = g.desc || "";
+          slot.dataset.img = g.img || "";
+
+          if (g.img) slot.style.setProperty("--slot-img", `url("${g.img}")`);
+          grid.append(slot);
+        });
+
+        giftsRoot.append(grid);
+
+        // плейсхолдеры
+        padSlots(grid, config.minSlots);
+
+        // detail click
+        grid.addEventListener("click", (ev) => {
+          const slot = ev.target.closest(".inv-slot");
+          if (!slot || slot.classList.contains("inv-slot--empty")) return;
+
+          grid.querySelectorAll(".inv-slot.is-selected").forEach((s) => s.classList.remove("is-selected"));
+          slot.classList.add("is-selected");
+
+          const name = slot.dataset.name || "Подарок";
+          const desc = slot.dataset.desc || "";
+          const img = slot.dataset.img || "";
+
+          if (dName) dName.textContent = name;
+          if (dMeta) dMeta.textContent = " ";
+          if (dDesc) dDesc.textContent = desc;
+          if (dImg) dImg.src = img || "https://placehold.co/96x96";
+
+          if (detail) detail.scrollIntoView({ block: "nearest" });
+        });
+      })
+      .catch(() => {
+        if (status) status.textContent = config.giftsErrorText;
+      });
   }
 
   function initAppearancePickers(root) {
@@ -351,6 +458,21 @@
     });
   }
 
+  function initDots(root) {
+    const invSlots = root.querySelectorAll('[data-cm-panel="inventory"] [data-inv-grid] .inv-slot:not(.inv-slot--empty)').length;
+    setDot(root, "inventory", invSlots > 0);
+
+    const achSlots = root.querySelectorAll('[data-cm-panel="achievements"] .ach-slot').length;
+    setDot(root, "achievements", achSlots > 0);
+
+    // gifts dot ставится после загрузки
+  }
+
+  function initPlaceholders(root) {
+    const invGrid = root.querySelector('[data-cm-panel="inventory"] [data-inv-grid]');
+    if (invGrid) padSlots(invGrid, config.minSlots);
+  }
+
   function init() {
     document.body.addEventListener("click", async (e) => {
       const link = e.target.closest(".modal-link");
@@ -393,7 +515,11 @@
           root.querySelector("[data-user-id]")?.dataset.userId;
 
         initTabsSafe(root);
-        initBadges(root);
+        initDots(root);
+        initPlaceholders(root);
+
+        applyBarColors(root);
+
         initInventoryPopover(root);
         initAppearancePickers(root);
 
