@@ -2,29 +2,32 @@
   "use strict";
 
   const helpers = window.helpers;
-  if (!helpers) return;
-
   const { createEl, parseHTML, initTabs, getUserId, getGroupId } = helpers;
 
   const config = helpers.getConfig("characterModal", {
     loadingText: "Загрузка...",
     errorText: "Ошибка загрузки данных.",
 
-    // загрузка html страницы персонажа:
-    ajaxFolder: "",        // например: "/pages/characters/"
-    charset: "utf-8",
-
-    // Достижения игрока (из rusff awards/index)
+    // awards -> Gifts
     showAwards: true,
+    awardsErrorText: "Ошибка загрузки подарков.",
+    awardsEmptyText: "Подарков нет.",
     awardsApi: "https://core.rusff.me/rusff.php",
-    awardsErrorText: "Не удалось загрузить достижения.",
-    awardsEmptyText: "Достижений пока нет.",
+
+    // expected from your environment; keep safe defaults
+    ajaxFolder: "",
+    charset: "utf-8",
+    classes: {
+      tabs: "modal__tabs",
+      tab: "modal__tab",
+      tabContent: "modal__content",
+      active: "active",
+    },
   });
 
-  // ---------- RPC cache ----------
+  const awardsCache = new Map();
   const rpcCache = new Map();
   const rpcInflight = new Map();
-  const awardsCache = new Map();
 
   const stableStringify = (v) => {
     if (v && typeof v === "object") {
@@ -95,10 +98,9 @@
         for (const a of u.awards) {
           res.push({
             id: a.award_id,
-            name: a.item?.name || "Достижение",
-            desc: a.desc || a.item?.name || "",
+            name: a.item?.name || "",
+            desc: a.desc || "",
             img: a.item?.href || "",
-            cat: "Игрок",
           });
         }
       }
@@ -109,336 +111,328 @@
     return p;
   };
 
-  // ---------- UI helpers ----------
-  const clamp01 = (x) => Math.max(0, Math.min(1, x));
+  // ===== UI helpers =====
+  const numFrom = (x) => {
+    const n = parseInt(String(x ?? "").replace(/[^\d]/g, ""), 10);
+    return Number.isFinite(n) ? n : 0;
+  };
 
-  const colorLink = (t) => {
-    // red (0deg) -> gold (45deg)
-    const hue = 0 + 45 * t;
+  const colorLink = (t01) => {
+    // red(8) -> gold(44)
+    const t = Math.min(1, Math.max(0, t01));
+    const hue = 8 + 36 * t;
     const sat = 75;
-    const light = 45 + 10 * t;
+    const light = 40 + 10 * t;
     return `hsl(${hue} ${sat}% ${light}%)`;
   };
 
-  const colorTaint = (t) => {
-    // light green -> darker green
-    const hue = 120 + 20 * t;
-    const sat = 55 + 20 * t;
-    const light = 42 - 8 * t;
+  const colorTaint = (t01) => {
+    // green with intensity
+    const t = Math.min(1, Math.max(0, t01));
+    const hue = 120;
+    const sat = 45 + 35 * t;
+    const light = 44 - 10 * t;
     return `hsl(${hue} ${sat}% ${light}%)`;
   };
 
-  const applyBars = (root) => {
-    const rows = root.querySelectorAll(".cm-stat-row[data-kind]");
-    rows.forEach((row) => {
-      const kind = row.dataset.kind;
-      const lvl = Number(row.dataset.level || 0);
-      const max = Number(row.dataset.max || 10) || 10;
-      const t = clamp01(lvl / max);
+  const applyMeter = (root) => {
+    const linkRow = root.querySelector('.cm-barrow[data-meter="link"]');
+    const taintRow = root.querySelector('.cm-barrow[data-meter="taint"]');
+    const linkFill = linkRow?.querySelector(".cm-bar__fill");
+    const taintFill = taintRow?.querySelector(".cm-bar__fill");
 
-      const fill = row.querySelector(".cm-bar__fill");
-      if (fill) {
-        fill.style.width = `${Math.round(t * 100)}%`;
-        const c = kind === "taint" ? colorTaint(t) : colorLink(t);
-        fill.style.background = c;
-      }
+    const linkLevel = numFrom(root.getAttribute("data-link-level"));
+    const linkMax = Math.max(1, numFrom(root.getAttribute("data-link-max")) || 10);
 
-      // синхронизируем текст уровня (если есть)
-      const txt = row.querySelector("[data-level-text]");
-      if (txt) txt.textContent = String(lvl);
+    const taintLevel = numFrom(root.getAttribute("data-taint-level"));
+    const taintMax = Math.max(1, numFrom(root.getAttribute("data-taint-max")) || 10);
 
-      // aria
-      const bar = row.querySelector(".cm-bar");
-      if (bar) {
-        const label = kind === "taint" ? "Скверна" : "Связь";
-        bar.setAttribute("aria-label", `${label}: ${lvl} ур.`);
-      }
+    const linkT = linkLevel / linkMax;
+    const taintT = taintLevel / taintMax;
+
+    if (linkFill) {
+      linkFill.style.width = `${Math.round(linkT * 100)}%`;
+      linkFill.style.background = colorLink(linkT);
+      const v = linkRow.querySelector("[data-meter-value]");
+      if (v) v.textContent = `${linkLevel} ур.`;
+    }
+    if (taintFill) {
+      taintFill.style.width = `${Math.round(taintT * 100)}%`;
+      taintFill.style.background = colorTaint(taintT);
+      const v = taintRow.querySelector("[data-meter-value]");
+      if (v) v.textContent = `${taintLevel} ур.`;
+    }
+  };
+
+  const ensureEmptySlots = (slotsEl, targetCount = 24) => {
+    if (!slotsEl) return;
+    const items = slotsEl.querySelectorAll(".cm-slot--item").length;
+    const emptiesNeeded = Math.max(0, targetCount - items);
+    // remove old empties (if any)
+    slotsEl.querySelectorAll(".cm-slot--empty").forEach((n) => n.remove());
+    for (let i = 0; i < emptiesNeeded; i++) {
+      const empty = document.createElement("div");
+      empty.className = "cm-slot cm-slot--empty";
+      empty.setAttribute("aria-hidden", "true");
+      slotsEl.append(empty);
+    }
+  };
+
+  const setInfoBox = (infoBox, data) => {
+    if (!infoBox) return;
+    const img = infoBox.querySelector("[data-info-img]");
+    const name = infoBox.querySelector("[data-info-name]");
+    const cat = infoBox.querySelector("[data-info-cat]");
+    const desc = infoBox.querySelector("[data-info-desc]");
+
+    if (img) {
+      img.src = data.img || "https://placehold.co/96x96";
+      img.alt = data.name || "";
+    }
+    if (name) name.textContent = data.name || "—";
+    if (cat) cat.textContent = data.cat ? `Категория: ${data.cat}` : "";
+    if (desc) desc.textContent = data.desc || "";
+  };
+
+  const bindSlotSelection = (root, slotsEl, infoBox) => {
+    if (!slotsEl || !infoBox) return;
+
+    const getDataFromBtn = (btn) => ({
+      name: btn.getAttribute("data-item-name") || "",
+      cat: btn.getAttribute("data-item-cat") || "",
+      desc: btn.getAttribute("data-item-desc") || "",
+      img: btn.getAttribute("data-item-img") || "",
+    });
+
+    // default selected
+    const selected = slotsEl.querySelector(".cm-slot--item.is-selected") || slotsEl.querySelector(".cm-slot--item");
+    if (selected) setInfoBox(infoBox, getDataFromBtn(selected));
+
+    slotsEl.addEventListener("click", (e) => {
+      const btn = e.target.closest(".cm-slot--item");
+      if (!btn || !slotsEl.contains(btn)) return;
+
+      slotsEl.querySelectorAll(".cm-slot--item.is-selected").forEach((n) => n.classList.remove("is-selected"));
+      btn.classList.add("is-selected");
+      setInfoBox(infoBox, getDataFromBtn(btn));
     });
   };
 
-  const initCollection = (collectionEl) => {
-    if (!collectionEl) return;
+  const setupInventorySearchAndFilters = (invRoot) => {
+    const input = invRoot.querySelector("[data-inv-search]");
+    const slots = invRoot.querySelector('[data-slots="inventory"]');
+    const toggle = invRoot.querySelector("[data-filters-toggle]");
+    const panel = invRoot.querySelector("[data-filters-panel]");
+    const clearBtn = invRoot.querySelector("[data-filters-clear]");
+    const closeBtn = invRoot.querySelector("[data-filters-close]");
+    const checks = Array.from(invRoot.querySelectorAll("[data-filter]"));
 
-    const slotsRoot = collectionEl.querySelector("[data-slots]");
-    const info = collectionEl.querySelector("[data-info]");
-    if (!slotsRoot || !info) return;
+    let isOpen = false;
 
-    const pick = (slot) => {
-      const slots = slotsRoot.querySelectorAll("[data-slot]");
-      slots.forEach((s) => s.classList.remove("is-active"));
-      if (slot) slot.classList.add("is-active");
-
-      const name = slot?.dataset.name || "—";
-      const cat = slot?.dataset.cat || "";
-      const desc = slot?.dataset.desc || "";
-      const img = slot?.dataset.img || "";
-
-      const iName = info.querySelector("[data-info-name]");
-      const iMeta = info.querySelector("[data-info-meta]");
-      const iDesc = info.querySelector("[data-info-desc]");
-      const iImg = info.querySelector("[data-info-img]");
-
-      if (iName) iName.textContent = name;
-      if (iMeta) iMeta.textContent = cat ? `Категория: ${cat}` : "";
-      if (iDesc) iDesc.textContent = desc || "";
-      if (iImg) {
-        if (img) iImg.src = img;
-      }
-    };
-
-    const onClick = (e) => {
-      const btn = e.target.closest("[data-slot]");
-      if (!btn || !slotsRoot.contains(btn)) return;
-      pick(btn);
-    };
-
-    slotsRoot.addEventListener("click", onClick);
-
-    // выбрать первый доступный слот
-    const first = slotsRoot.querySelector("[data-slot]");
-    if (first) pick(first);
-  };
-
-  const observeSlots = (slotsRoot, onChange) => {
-    if (!slotsRoot) return;
-    const mo = new MutationObserver(() => onChange());
-    mo.observe(slotsRoot, { childList: true, subtree: true });
-  };
-
-  const initInventory = (root) => {
-    const search = root.querySelector("[data-inv-search]");
-    const filtersToggle = root.querySelector("[data-inv-filters-toggle]");
-    const filters = root.querySelector("[data-inv-filters]");
-    const filtersClose = root.querySelector("[data-inv-filters-close]");
-    const resetBtn = root.querySelector("[data-inv-reset]");
-    const chips = root.querySelector("[data-inv-chips]");
-    const invCollection = root.querySelector(".modal__content:nth-of-type(2) [data-collection]");
-
-    let activeCat = "all";
-
-    const closeFilters = () => {
-      if (filters) filters.classList.remove("is-open");
-    };
-    const openFilters = () => {
-      if (filters) filters.classList.add("is-open");
-    };
-    const toggleFilters = () => {
-      if (!filters) return;
-      filters.classList.toggle("is-open");
-    };
-
-    const matchSlot = (slot, q, cat) => {
-      const name = (slot.dataset.name || "").toLowerCase();
-      const slotCat = (slot.dataset.cat || "");
-      const okQ = !q || name.includes(q);
-      const okC = !cat || cat === "all" || slotCat === cat;
-      return okQ && okC;
-    };
+    const getActiveCats = () => checks.filter((c) => c.checked).map((c) => c.value);
 
     const applyFilter = () => {
-      const q = (search?.value || "").trim().toLowerCase();
-      const slots = invCollection?.querySelectorAll("[data-slots] [data-slot]") || [];
-      slots.forEach((slot) => {
-        const ok = matchSlot(slot, q, activeCat);
-        slot.style.display = ok ? "" : "none";
-      });
+      const q = (input?.value || "").trim().toLowerCase();
+      const cats = getActiveCats();
 
-      // если активный скрыт — выбрать первый видимый
-      const active = invCollection?.querySelector("[data-slots] [data-slot].is-active");
-      if (active && active.style.display === "none") {
-        active.classList.remove("is-active");
-      }
-      const firstVisible = Array.from(slots).find((s) => s.style.display !== "none");
-      if (firstVisible && !invCollection?.querySelector("[data-slots] [data-slot].is-active")) {
-        firstVisible.click();
+      const items = Array.from(slots?.querySelectorAll(".cm-slot--item") || []);
+      for (const btn of items) {
+        const name = (btn.getAttribute("data-item-name") || "").toLowerCase();
+        const cat = btn.getAttribute("data-item-cat") || "";
+        const okQ = !q || name.includes(q);
+        const okC = !cats.length || cats.includes(cat);
+        btn.style.display = okQ && okC ? "" : "none";
       }
     };
 
-    if (search) {
-      search.addEventListener("input", applyFilter);
-    }
+    const setOpen = (open) => {
+      if (!panel || !toggle) return;
+      isOpen = open;
+      panel.hidden = !open;
+      toggle.setAttribute("aria-expanded", open ? "true" : "false");
+    };
 
-    if (filtersToggle) {
-      filtersToggle.addEventListener("click", (e) => {
+    const onDocClick = (e) => {
+      if (!isOpen) return;
+      if (panel.contains(e.target) || toggle.contains(e.target)) return;
+      setOpen(false);
+    };
+
+    const onKey = (e) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+
+    if (input) input.addEventListener("input", applyFilter);
+
+    if (toggle && panel) {
+      toggle.addEventListener("click", (e) => {
         e.preventDefault();
-        e.stopPropagation();
-        toggleFilters();
+        setOpen(!isOpen);
       });
+
+      document.addEventListener("click", onDocClick, true);
+      document.addEventListener("keydown", onKey, true);
+
+      if (closeBtn) closeBtn.addEventListener("click", () => setOpen(false));
+      if (clearBtn)
+        clearBtn.addEventListener("click", () => {
+          checks.forEach((c) => (c.checked = false));
+          applyFilter();
+        });
+
+      checks.forEach((c) => c.addEventListener("change", applyFilter));
     }
 
-    if (filtersClose) {
-      filtersClose.addEventListener("click", (e) => {
-        e.preventDefault();
-        closeFilters();
-      });
-    }
-
-    if (chips) {
-      chips.addEventListener("click", (e) => {
-        const btn = e.target.closest("[data-cat]");
-        if (!btn) return;
-
-        chips.querySelectorAll(".cm-chip").forEach((b) => b.classList.remove("is-active"));
-        btn.classList.add("is-active");
-
-        activeCat = btn.dataset.cat || "all";
-        applyFilter();
-      });
-    }
-
-    if (resetBtn) {
-      resetBtn.addEventListener("click", () => {
-        activeCat = "all";
-        if (chips) {
-          chips.querySelectorAll(".cm-chip").forEach((b) => b.classList.remove("is-active"));
-          const all = chips.querySelector('[data-cat="all"]');
-          if (all) all.classList.add("is-active");
-        }
-        if (search) search.value = "";
-        applyFilter();
-        closeFilters();
-      });
-    }
-
-    // клик вне фильтров закрывает
-    document.addEventListener("click", (e) => {
-      if (!filters || !filters.classList.contains("is-open")) return;
-      const inside = e.target.closest("[data-inv-filters]") || e.target.closest("[data-inv-filters-toggle]");
-      if (!inside) closeFilters();
-    });
-
-    // Esc закрывает
-    document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape") closeFilters();
-    });
-
-    // при клике по вкладкам — закрыть фильтры
-    const tabs = root.querySelector(".modal__tabs");
-    if (tabs) {
-      tabs.addEventListener("click", () => closeFilters());
-    }
-
-    // init slots collection behavior
-    const col = root.querySelector(".modal__content:nth-of-type(2) [data-collection]");
-    if (col) initCollection(col);
-
+    // init filter
     applyFilter();
+
+    // return disposer (optional)
+    return () => {
+      document.removeEventListener("click", onDocClick, true);
+      document.removeEventListener("keydown", onKey, true);
+    };
   };
 
-  const initAllCollections = (root) => {
-    root.querySelectorAll("[data-collection]").forEach(initCollection);
+  const renderGiftsIntoSlots = (slotsEl, awards) => {
+    if (!slotsEl) return;
+    slotsEl.textContent = "";
 
-    // подарки будут добавлены позже — переинициализируем при появлении
-    const giftsRoot = root.querySelector("[data-gifts-root]");
-    if (giftsRoot) {
-      observeSlots(giftsRoot, () => {
-        const col = giftsRoot.closest("[data-collection]");
-        if (col) initCollection(col);
-      });
-    }
-
-    // достижения игрока (awards) добавим позже — тоже отслеживаем
-    const awardsRoot = root.querySelector("[data-awards-root]");
-    if (awardsRoot) {
-      observeSlots(awardsRoot, () => {
-        const col = awardsRoot.closest("[data-collection]");
-        if (col) initCollection(col);
-      });
-    }
-  };
-
-  const renderAwardsInto = (awardsRoot, awards) => {
-    awardsRoot.textContent = "";
-    if (!awards.length) return;
-
-    awards.forEach((a, idx) => {
+    const makeBtn = (a) => {
       const btn = document.createElement("button");
+      btn.className = "cm-slot cm-slot--item";
       btn.type = "button";
-      btn.className = "cm-slot" + (idx === 0 ? " is-active" : "");
-      btn.setAttribute("data-slot", "");
-      btn.dataset.name = a.name || "Достижение";
-      btn.dataset.cat = a.cat || "Игрок";
-      btn.dataset.desc = a.desc || "";
-      btn.dataset.img = a.img || "";
-      btn.dataset.count = "1";
-
+      btn.setAttribute("data-item-name", a.desc || a.name || "Подарок");
+      btn.setAttribute("data-item-cat", "Подарок");
+      btn.setAttribute("data-item-desc", a.desc || a.name || "");
+      btn.setAttribute("data-item-img", a.img || "");
       const img = document.createElement("img");
-      img.className = "cm-slot__img";
-      img.alt = "";
       img.src = a.img || "https://placehold.co/96x96";
+      img.alt = "";
+      btn.append(img);
+      return btn;
+    };
 
-      btn.appendChild(img);
-      awardsRoot.appendChild(btn);
-    });
-  };
-
-  const loadAwards = async (root, uid) => {
-    const awardsRoot = root.querySelector("[data-awards-root]");
-    const awardsInfo = awardsRoot?.closest("[data-collection]")?.querySelector("[data-info]");
-    if (!awardsRoot || !awardsInfo) return;
-
-    // заглушка в инфо
-    const iName = awardsInfo.querySelector("[data-info-name]");
-    const iDesc = awardsInfo.querySelector("[data-info-desc]");
-    if (iName) iName.textContent = "Загрузка…";
-    if (iDesc) iDesc.textContent = "";
-
-    try {
-      const awards = await fetchAwards(uid);
-      if (!awards.length) {
-        awardsRoot.textContent = "";
-        if (iName) iName.textContent = config.awardsEmptyText;
-        if (iDesc) iDesc.textContent = "";
-        return;
-      }
-      renderAwardsInto(awardsRoot, awards);
-      // инициируем коллекцию заново (выбор/инфо)
-      const col = awardsRoot.closest("[data-collection]");
-      if (col) initCollection(col);
-    } catch (e) {
-      if (iName) iName.textContent = config.awardsErrorText;
-      if (iDesc) iDesc.textContent = "";
-    }
-  };
-
-  const initCharacterUI = (root, closeFn, targetUid) => {
-    // close
-    const closeBtn = root.querySelector("[data-modal-close]");
-    if (closeBtn && typeof closeFn === "function") {
-      closeBtn.addEventListener("click", (e) => {
-        e.preventDefault();
-        closeFn();
-      });
-    }
-
-    // tabs
-    initTabs(root, {
-      tabSelector: ".modal__tab",
-      contentSelector: ".modal__content",
-      activeClass: "active",
+    awards.forEach((a, i) => {
+      const btn = makeBtn(a);
+      if (i === 0) btn.classList.add("is-selected");
+      slotsEl.append(btn);
     });
 
-    // bars color/width
-    applyBars(root);
+    ensureEmptySlots(slotsEl, 24);
+  };
 
-    // collections
-    initAllCollections(root);
+  const setupAppearancePickers = (root) => {
+    const icons = root.querySelectorAll(".cm-icon");
+    const bgs = root.querySelectorAll(".cm-bg");
 
-    // inventory features
-    initInventory(root);
+    const setActive = (list, el) => {
+      list.forEach((x) => x.classList.remove("is-active"));
+      el.classList.add("is-active");
+    };
 
-    // awards -> achievements tab
-    if (config.showAwards && targetUid) loadAwards(root, targetUid);
-
-    // событие для внешнего скрипта подарков (если нужен)
-    document.dispatchEvent(
-      new CustomEvent("ks:characterModal:opened", {
-        detail: { root, uid: targetUid || null },
+    icons.forEach((btn) =>
+      btn.addEventListener("click", () => {
+        setActive(icons, btn);
+      })
+    );
+    bgs.forEach((btn) =>
+      btn.addEventListener("click", () => {
+        setActive(bgs, btn);
       })
     );
   };
 
-  // ---------- modal open ----------
+  const enhanceCharacter = (character, { uid, close }) => {
+    // meters
+    applyMeter(character);
+
+    // close
+    const btnClose = character.querySelector("[data-modal-close]");
+    if (btnClose && typeof close === "function") {
+      btnClose.addEventListener("click", (e) => {
+        e.preventDefault();
+        close();
+      });
+    }
+
+    // tabs base (your helper)
+    initTabs(character, {
+      tabSelector: `.${config.classes.tab}`,
+      contentSelector: `.${config.classes.tabContent}`,
+      activeClass: config.classes.active,
+    });
+
+    // inventory
+    const invRoot = character.querySelector("[data-inventory]");
+    if (invRoot) {
+      const slots = invRoot.querySelector('[data-slots="inventory"]');
+      ensureEmptySlots(slots, 24);
+      bindSlotSelection(character, slots, invRoot.querySelector('[data-info="inventory"]'));
+      setupInventorySearchAndFilters(invRoot);
+    }
+
+    // achievements -> single info box, no tooltips
+    const achRoot = character.querySelector("[data-ach]");
+    if (achRoot) {
+      const info = achRoot.querySelector('[data-info="ach"]');
+      // player ach
+      const p = achRoot.querySelector('[data-slots="player-ach"]');
+      ensureEmptySlots(p, 12);
+      bindSlotSelection(character, p, info);
+      // char ach
+      const c = achRoot.querySelector('[data-slots="char-ach"]');
+      ensureEmptySlots(c, 12);
+      bindSlotSelection(character, c, info);
+    }
+
+    // appearance
+    setupAppearancePickers(character);
+
+    // gifts lazy-load when tab opened
+    const giftsRoot = character.querySelector("[data-gifts]");
+    const giftsSlots = character.querySelector("[data-gifts-root]");
+    const giftsInfo = character.querySelector('[data-info="gifts"]');
+    const giftsStatus = character.querySelector("[data-gifts-status]");
+    let giftsLoaded = false;
+
+    const loadGifts = async () => {
+      if (!config.showAwards) return;
+      if (giftsLoaded) return;
+      giftsLoaded = true;
+
+      try {
+        if (giftsStatus) giftsStatus.textContent = "Загрузка…";
+        const awards = uid ? await fetchAwards(uid) : [];
+        if (!awards.length) {
+          if (giftsStatus) giftsStatus.textContent = config.awardsEmptyText;
+          if (giftsSlots) {
+            giftsSlots.textContent = "";
+            ensureEmptySlots(giftsSlots, 24);
+          }
+          setInfoBox(giftsInfo, { name: "—", cat: "", desc: "Подарков нет.", img: "" });
+          return;
+        }
+
+        if (giftsStatus) giftsStatus.textContent = "";
+        renderGiftsIntoSlots(giftsSlots, awards);
+        bindSlotSelection(character, giftsSlots, giftsInfo);
+      } catch (e) {
+        if (giftsStatus) giftsStatus.textContent = config.awardsErrorText;
+      }
+    };
+
+    // load gifts when clicking gifts tab
+    character.addEventListener("click", (e) => {
+      const tab = e.target.closest(`.${config.classes.tab}`);
+      if (!tab) return;
+      if (tab.dataset.cmTab === "gifts") loadGifts();
+    });
+
+    // also ensure gift slots have empties initially
+    if (giftsSlots) ensureEmptySlots(giftsSlots, 24);
+    if (giftsRoot && giftsStatus) giftsStatus.textContent = "Откройте вкладку подарков…";
+  };
+
   function init() {
     document.body.addEventListener("click", async (e) => {
       const link = e.target.closest(".modal-link");
@@ -456,17 +450,16 @@
         })
       );
 
-      const { close } = helpers.modal.openModal(box);
+      const { close } = window.helpers.modal.openModal(box);
 
       try {
         const res = await helpers.request(`${config.ajaxFolder}${pageId}`);
         const buf = await res.arrayBuffer();
         const decoder = new TextDecoder(config.charset);
         const html = decoder.decode(buf);
-
         const doc = parseHTML(html);
-        const character = doc.querySelector(".character");
 
+        const character = doc.querySelector(".character");
         let targetUid =
           link.dataset.userId ||
           link.dataset.uid ||
@@ -477,15 +470,12 @@
 
         if (character) {
           box.append(character);
-          initCharacterUI(character, close, targetUid);
+          enhanceCharacter(character, { uid: targetUid, close });
         } else {
-          // fallback: показать весь body, но попытаться инициализировать
-          const wrap = createEl("div");
-          wrap.append(...Array.from(doc.body.childNodes));
-          box.append(wrap);
-
-          const ch = box.querySelector(".character");
-          if (ch) initCharacterUI(ch, close, targetUid);
+          // fallback
+          box.append(...Array.from(doc.body.childNodes));
+          const root = box.querySelector(".character");
+          if (root) enhanceCharacter(root, { uid: targetUid, close });
         }
       } catch (err) {
         box.textContent = "";
