@@ -10,7 +10,7 @@
     showAwards: true,
     awardsErrorText: "Ошибка загрузки подарков.",
     awardsEmptyText: "Подарков нет.",
-    awardsApi: "https://core.rusff.me/rusff.php",
+    awardsApi: "C C. https://core.rusff.me/rusff.php",
     ajaxFolder: "",
     charset: "utf-8",
     classes: {
@@ -162,12 +162,64 @@
     const items = slotsEl.querySelectorAll(".cm-slot--item").length;
     const emptiesNeeded = Math.max(0, targetCount - items);
     slotsEl.querySelectorAll(".cm-slot--empty").forEach((n) => n.remove());
+    slotsEl.querySelectorAll(".cm-slot--skeleton").forEach((n) => n.remove());
     for (let i = 0; i < emptiesNeeded; i++) {
       const empty = document.createElement("div");
       empty.className = "cm-slot cm-slot--empty";
       empty.setAttribute("aria-hidden", "true");
       slotsEl.append(empty);
     }
+  };
+
+  const renderSkeletonSlots = (slotsEl, targetCount = 24) => {
+    if (!slotsEl) return;
+    slotsEl.textContent = "";
+    for (let i = 0; i < targetCount; i++) {
+      const sk = document.createElement("div");
+      sk.className = "cm-slot cm-slot--skeleton";
+      sk.setAttribute("aria-hidden", "true");
+      slotsEl.append(sk);
+    }
+  };
+
+  const applyLazyImages = (root) => {
+    if (!root) return;
+    const imgs = root.querySelectorAll("img");
+    imgs.forEach((img) => {
+      if (!img.getAttribute("loading")) img.setAttribute("loading", "lazy");
+      if (!img.getAttribute("decoding")) img.setAttribute("decoding", "async");
+    });
+  };
+
+  const createInfoBox = (titleText) => {
+    const box = document.createElement("aside");
+    box.className = "cm-infobox";
+    box.innerHTML = `
+      <div class="cm-infobox__title"></div>
+      <div class="cm-infobox__body">
+        <div class="cm-infobox__img">
+          <img src="https://placehold.co/96x96" alt="" data-info-img />
+        </div>
+        <div class="cm-infobox__text">
+          <div class="cm-infobox__name" data-info-name>—</div>
+          <div class="cm-infobox__meta" data-info-cat></div>
+          <div class="cm-infobox__desc" data-info-desc></div>
+        </div>
+      </div>
+    `;
+    const t = box.querySelector(".cm-infobox__title");
+    if (t) t.textContent = titleText || "Информация";
+    applyLazyImages(box);
+    return box;
+  };
+
+  const getOrCreateInfoBox = (scopeEl, selector, titleText) => {
+    if (!scopeEl) return null;
+    let box = scopeEl.querySelector(selector);
+    if (box) return box;
+    box = createInfoBox(titleText);
+    scopeEl.append(box);
+    return box;
   };
 
   const isGiftInfoBox = (infoBox) => {
@@ -190,6 +242,8 @@
     if (img) {
       img.src = data.img || "https://placehold.co/96x96";
       img.alt = data.name || "";
+      if (!img.getAttribute("loading")) img.setAttribute("loading", "lazy");
+      if (!img.getAttribute("decoding")) img.setAttribute("decoding", "async");
     }
 
     if (giftMode) {
@@ -204,15 +258,8 @@
     if (desc) desc.textContent = data.desc || "";
   };
 
-  const bindSlotSelection = (root, slotsEl, infoBox) => {
+  const bindSlotSelection = (slotsEl, infoBox, getDataFromBtn) => {
     if (!slotsEl || !infoBox) return;
-
-    const getDataFromBtn = (btn) => ({
-      name: btn.getAttribute("data-item-name") || "",
-      cat: btn.getAttribute("data-item-cat") || "",
-      desc: btn.getAttribute("data-item-desc") || "",
-      img: btn.getAttribute("data-item-img") || "",
-    });
 
     const selected = slotsEl.querySelector(".cm-slot--item.is-selected") || slotsEl.querySelector(".cm-slot--item");
     if (selected) setInfoBox(infoBox, getDataFromBtn(selected));
@@ -315,6 +362,8 @@
       const img = document.createElement("img");
       img.src = a.img || "https://placehold.co/96x96";
       img.alt = "";
+      img.setAttribute("loading", "lazy");
+      img.setAttribute("decoding", "async");
       btn.append(img);
       return btn;
     };
@@ -407,6 +456,7 @@
 
   const enhanceCharacter = (character, { uid, close }) => {
     applyMeter(character);
+    applyLazyImages(character);
 
     const btnClose = character.querySelector("[data-modal-close]");
     if (btnClose && typeof close === "function") {
@@ -426,31 +476,57 @@
     if (invRoot) {
       const slots = invRoot.querySelector('[data-slots="inventory"]');
       ensureEmptySlots(slots, 24);
-      bindSlotSelection(character, slots, invRoot.querySelector('[data-info="inventory"]'));
+      const info = getOrCreateInfoBox(invRoot.querySelector(".cm-two") || invRoot, '[data-info="inventory"]', "Информация");
+      if (info && !info.getAttribute("data-info")) info.setAttribute("data-info", "inventory");
+      bindSlotSelection(slots, info, (btn) => ({
+        name: btn.getAttribute("data-item-name") || "",
+        cat: btn.getAttribute("data-item-cat") || "",
+        desc: btn.getAttribute("data-item-desc") || "",
+        img: btn.getAttribute("data-item-img") || "",
+      }));
       setupInventorySearchAndFilters(invRoot);
     }
 
     const achRoot = character.querySelector("[data-ach]");
     if (achRoot) {
-      const info = achRoot.querySelector('[data-info="ach"]');
+      const two = achRoot.querySelector(".cm-two") || achRoot;
+      const info = getOrCreateInfoBox(two, '[data-info="ach"]', "Информация");
+      if (info && !info.getAttribute("data-info")) info.setAttribute("data-info", "ach");
+
       const p = achRoot.querySelector('[data-slots="player-ach"]');
       ensureEmptySlots(p, 12);
-      bindSlotSelection(character, p, info);
+      bindSlotSelection(p, info, (btn) => ({
+        name: btn.getAttribute("data-item-name") || "",
+        cat: btn.getAttribute("data-item-cat") || "",
+        desc: btn.getAttribute("data-item-desc") || "",
+        img: btn.getAttribute("data-item-img") || "",
+      }));
+
       const c = achRoot.querySelector('[data-slots="char-ach"]');
       ensureEmptySlots(c, 12);
-      bindSlotSelection(character, c, info);
+      bindSlotSelection(c, info, (btn) => ({
+        name: btn.getAttribute("data-item-name") || "",
+        cat: btn.getAttribute("data-item-cat") || "",
+        desc: btn.getAttribute("data-item-desc") || "",
+        img: btn.getAttribute("data-item-img") || "",
+      }));
     }
 
     setupAppearancePickers(character);
 
+    const giftsRoot = character.querySelector("[data-gifts]");
     const giftsSlots = character.querySelector("[data-gifts-root]");
-    const giftsInfo = character.querySelector('[data-info="gifts"]');
     const giftsStatus = character.querySelector("[data-gifts-status]");
+    const giftsInfo =
+      character.querySelector('[data-info="gifts"]') ||
+      (giftsRoot ? getOrCreateInfoBox(giftsRoot.querySelector(".cm-two") || giftsRoot, '[data-info="gifts"]', "Информация") : null);
+
     let giftsLoaded = false;
 
     if (giftsInfo) {
       giftsInfo.classList.add("cm-infobox--gift");
       giftsInfo.setAttribute("data-kind", "gift");
+      giftsInfo.setAttribute("data-info", "gifts");
     }
 
     const loadGifts = async () => {
@@ -459,10 +535,13 @@
       giftsLoaded = true;
 
       try {
-        if (giftsStatus) giftsStatus.textContent = "Загрузка…";
+        if (giftsStatus) giftsStatus.textContent = "";
+        renderSkeletonSlots(giftsSlots, 24);
+        setInfoBox(giftsInfo, { name: "—", cat: "", desc: "Загрузка…", img: "" });
+
         const awards = uid ? await fetchAwards(uid) : [];
+
         if (!awards.length) {
-          if (giftsStatus) giftsStatus.textContent = config.awardsEmptyText;
           if (giftsSlots) {
             giftsSlots.textContent = "";
             ensureEmptySlots(giftsSlots, 24);
@@ -471,26 +550,20 @@
           return;
         }
 
-        if (giftsStatus) giftsStatus.textContent = "";
         renderGiftsIntoSlots(giftsSlots, awards);
-        bindSlotSelection(character, giftsSlots, giftsInfo);
+        bindSlotSelection(giftsSlots, giftsInfo, (btn) => ({
+          name: btn.getAttribute("data-item-name") || "",
+          cat: "",
+          desc: btn.getAttribute("data-item-desc") || "",
+          img: btn.getAttribute("data-item-img") || "",
+        }));
       } catch (e) {
-        if (giftsStatus) giftsStatus.textContent = config.awardsErrorText;
+        if (giftsSlots) {
+          giftsSlots.textContent = "";
+          ensureEmptySlots(giftsSlots, 24);
+        }
+        setInfoBox(giftsInfo, { name: "—", cat: "", desc: config.awardsErrorText, img: "" });
       }
-    };
-
-    const maybeLoadGiftsByActive = () => {
-      const giftContent =
-        character.querySelector('[data-gifts].modal__content.active') ||
-        character.querySelector('[data-gifts].' + config.classes.active) ||
-        character.querySelector('[data-gifts].modal__content');
-
-      const hasGiftActive =
-        character.querySelector(`.${config.classes.tab}.${config.classes.active}[data-cm-tab="gifts"]`) ||
-        character.querySelector(`.${config.classes.tab}.${config.classes.active}[data-tab="gifts"]`) ||
-        (giftContent && giftContent.classList.contains(config.classes.active));
-
-      if (hasGiftActive) loadGifts();
     };
 
     character.addEventListener("click", (e) => {
@@ -500,9 +573,13 @@
       if (key === "gifts") loadGifts();
     });
 
+    const giftTabActive =
+      character.querySelector(`.${config.classes.tab}.${config.classes.active}[data-cm-tab="gifts"]`) ||
+      character.querySelector(`.${config.classes.tab}.${config.classes.active}[data-tab="gifts"]`);
+
     if (giftsSlots) ensureEmptySlots(giftsSlots, 24);
     if (giftsStatus) giftsStatus.textContent = "";
-    maybeLoadGiftsByActive();
+    if (giftTabActive) loadGifts();
   };
 
   function init() {
@@ -515,12 +592,7 @@
       if (!pageId) return;
 
       const box = createEl("div", { className: "character-modal" });
-      box.append(
-        createEl("div", {
-          style: "padding:2em; text-align:center;",
-          text: config.loadingText,
-        })
-      );
+      box.append(createEl("div", { style: "padding:2em; text-align:center;", text: config.loadingText }));
 
       const { close } = window.helpers.modal.openModal(box);
 
@@ -532,7 +604,7 @@
         const doc = parseHTML(html);
 
         const character = doc.querySelector(".character");
-        let targetUid =
+        const targetUid =
           link.dataset.userId ||
           link.dataset.uid ||
           character?.dataset.userId ||
@@ -550,12 +622,7 @@
         }
       } catch (err) {
         box.textContent = "";
-        box.append(
-          createEl("div", {
-            style: "padding:2em; color:red;",
-            text: config.errorText,
-          })
-        );
+        box.append(createEl("div", { style: "padding:2em; color:red;", text: config.errorText }));
       }
     });
   }
