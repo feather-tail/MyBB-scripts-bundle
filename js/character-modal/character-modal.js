@@ -7,14 +7,10 @@
   const config = helpers.getConfig("characterModal", {
     loadingText: "Загрузка...",
     errorText: "Ошибка загрузки данных.",
-
-    // awards -> Gifts
     showAwards: true,
     awardsErrorText: "Ошибка загрузки подарков.",
     awardsEmptyText: "Подарков нет.",
     awardsApi: "https://core.rusff.me/rusff.php",
-
-    // expected from your environment; keep safe defaults
     ajaxFolder: "",
     charset: "utf-8",
     classes: {
@@ -111,14 +107,12 @@
     return p;
   };
 
-  // ===== UI helpers =====
   const numFrom = (x) => {
     const n = parseInt(String(x ?? "").replace(/[^\d]/g, ""), 10);
     return Number.isFinite(n) ? n : 0;
   };
 
   const colorLink = (t01) => {
-    // red(8) -> gold(44)
     const t = Math.min(1, Math.max(0, t01));
     const hue = 8 + 36 * t;
     const sat = 75;
@@ -127,7 +121,6 @@
   };
 
   const colorTaint = (t01) => {
-    // green with intensity
     const t = Math.min(1, Math.max(0, t01));
     const hue = 120;
     const sat = 45 + 35 * t;
@@ -168,7 +161,6 @@
     if (!slotsEl) return;
     const items = slotsEl.querySelectorAll(".cm-slot--item").length;
     const emptiesNeeded = Math.max(0, targetCount - items);
-    // remove old empties (if any)
     slotsEl.querySelectorAll(".cm-slot--empty").forEach((n) => n.remove());
     for (let i = 0; i < emptiesNeeded; i++) {
       const empty = document.createElement("div");
@@ -204,7 +196,6 @@
       img: btn.getAttribute("data-item-img") || "",
     });
 
-    // default selected
     const selected = slotsEl.querySelector(".cm-slot--item.is-selected") || slotsEl.querySelector(".cm-slot--item");
     if (selected) setInfoBox(infoBox, getDataFromBtn(selected));
 
@@ -283,10 +274,8 @@
       checks.forEach((c) => c.addEventListener("change", applyFilter));
     }
 
-    // init filter
     applyFilter();
 
-    // return disposer (optional)
     return () => {
       document.removeEventListener("click", onDocClick, true);
       document.removeEventListener("keydown", onKey, true);
@@ -301,9 +290,9 @@
       const btn = document.createElement("button");
       btn.className = "cm-slot cm-slot--item";
       btn.type = "button";
-      btn.setAttribute("data-item-name", a.desc || a.name || "Подарок");
-      btn.setAttribute("data-item-cat", "Подарок");
-      btn.setAttribute("data-item-desc", a.desc || a.name || "");
+      btn.setAttribute("data-item-name", a.name || "Подарок");
+      btn.setAttribute("data-item-cat", "");
+      btn.setAttribute("data-item-desc", a.desc || "");
       btn.setAttribute("data-item-img", a.img || "");
       const img = document.createElement("img");
       img.src = a.img || "https://placehold.co/96x96";
@@ -321,32 +310,76 @@
     ensureEmptySlots(slotsEl, 24);
   };
 
-  const setupAppearancePickers = (root) => {
-    const icons = root.querySelectorAll(".cm-icon");
-    const bgs = root.querySelectorAll(".cm-bg");
+  const copyText = async (text) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch (_) {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.setAttribute("readonly", "");
+      ta.style.position = "fixed";
+      ta.style.left = "-9999px";
+      document.body.appendChild(ta);
+      ta.select();
+      try {
+        const ok = document.execCommand("copy");
+        document.body.removeChild(ta);
+        return ok;
+      } catch (e) {
+        document.body.removeChild(ta);
+        return false;
+      }
+    }
+  };
+
+  const getBgUrl = (el) => {
+    const bg = getComputedStyle(el).backgroundImage || "";
+    const m = bg.match(/url\(["']?(.*?)["']?\)/);
+    return m ? m[1] : "";
+  };
+
+  const setupAppearancePickersAndCopy = (root) => {
+    const icons = Array.from(root.querySelectorAll(".cm-appearance .cm-icon"));
+    const bgs = Array.from(root.querySelectorAll(".cm-appearance .cm-bg"));
 
     const setActive = (list, el) => {
       list.forEach((x) => x.classList.remove("is-active"));
       el.classList.add("is-active");
     };
 
-    icons.forEach((btn) =>
-      btn.addEventListener("click", () => {
-        setActive(icons, btn);
-      })
-    );
-    bgs.forEach((btn) =>
-      btn.addEventListener("click", () => {
-        setActive(bgs, btn);
-      })
-    );
+    const getUrlFromBtn = (btn) => {
+      const direct = btn.dataset.url || btn.getAttribute("data-url");
+      if (direct) return direct;
+      const img = btn.querySelector("img");
+      if (img) return img.currentSrc || img.src || "";
+      const thumb = btn.querySelector(".cm-bg__thumb");
+      if (thumb) return getBgUrl(thumb) || getBgUrl(btn);
+      return getBgUrl(btn);
+    };
+
+    const onClick = async (btn, list) => {
+      setActive(list, btn);
+      const url = getUrlFromBtn(btn);
+      if (!url) return;
+      const ok = await copyText(url);
+      btn.classList.add("is-copied");
+      const prevTitle = btn.getAttribute("title") || "";
+      btn.setAttribute("title", ok ? "Ссылка скопирована" : "Не удалось скопировать");
+      window.setTimeout(() => {
+        btn.classList.remove("is-copied");
+        if (prevTitle) btn.setAttribute("title", prevTitle);
+        else btn.removeAttribute("title");
+      }, 900);
+    };
+
+    icons.forEach((btn) => btn.addEventListener("click", () => onClick(btn, icons)));
+    bgs.forEach((btn) => btn.addEventListener("click", () => onClick(btn, bgs)));
   };
 
   const enhanceCharacter = (character, { uid, close }) => {
-    // meters
     applyMeter(character);
 
-    // close
     const btnClose = character.querySelector("[data-modal-close]");
     if (btnClose && typeof close === "function") {
       btnClose.addEventListener("click", (e) => {
@@ -355,14 +388,12 @@
       });
     }
 
-    // tabs base (your helper)
     initTabs(character, {
       tabSelector: `.${config.classes.tab}`,
       contentSelector: `.${config.classes.tabContent}`,
       activeClass: config.classes.active,
     });
 
-    // inventory
     const invRoot = character.querySelector("[data-inventory]");
     if (invRoot) {
       const slots = invRoot.querySelector('[data-slots="inventory"]');
@@ -371,24 +402,19 @@
       setupInventorySearchAndFilters(invRoot);
     }
 
-    // achievements -> single info box, no tooltips
     const achRoot = character.querySelector("[data-ach]");
     if (achRoot) {
       const info = achRoot.querySelector('[data-info="ach"]');
-      // player ach
       const p = achRoot.querySelector('[data-slots="player-ach"]');
       ensureEmptySlots(p, 12);
       bindSlotSelection(character, p, info);
-      // char ach
       const c = achRoot.querySelector('[data-slots="char-ach"]');
       ensureEmptySlots(c, 12);
       bindSlotSelection(character, c, info);
     }
 
-    // appearance
-    setupAppearancePickers(character);
+    setupAppearancePickersAndCopy(character);
 
-    // gifts lazy-load when tab opened
     const giftsRoot = character.querySelector("[data-gifts]");
     const giftsSlots = character.querySelector("[data-gifts-root]");
     const giftsInfo = character.querySelector('[data-info="gifts"]');
@@ -416,21 +442,24 @@
         if (giftsStatus) giftsStatus.textContent = "";
         renderGiftsIntoSlots(giftsSlots, awards);
         bindSlotSelection(character, giftsSlots, giftsInfo);
+        if (giftsInfo) giftsInfo.classList.add("cm-infobox--gift");
       } catch (e) {
         if (giftsStatus) giftsStatus.textContent = config.awardsErrorText;
       }
     };
 
-    // load gifts when clicking gifts tab
-    character.addEventListener("click", (e) => {
-      const tab = e.target.closest(`.${config.classes.tab}`);
-      if (!tab) return;
-      if (tab.dataset.cmTab === "gifts") loadGifts();
+    const tryLoadIfActive = () => {
+      if (!giftsRoot) return;
+      if (giftsRoot.classList.contains(config.classes.active)) loadGifts();
+    };
+
+    character.addEventListener("click", () => {
+      window.setTimeout(tryLoadIfActive, 0);
     });
 
-    // also ensure gift slots have empties initially
     if (giftsSlots) ensureEmptySlots(giftsSlots, 24);
-    if (giftsRoot && giftsStatus) giftsStatus.textContent = "Откройте вкладку подарков…";
+    if (giftsStatus) giftsStatus.textContent = "";
+    tryLoadIfActive();
   };
 
   function init() {
@@ -443,12 +472,7 @@
       if (!pageId) return;
 
       const box = createEl("div", { className: "character-modal" });
-      box.append(
-        createEl("div", {
-          style: "padding:2em; text-align:center;",
-          text: config.loadingText,
-        })
-      );
+      box.append(createEl("div", { style: "padding:2em; text-align:center;", text: config.loadingText }));
 
       const { close } = window.helpers.modal.openModal(box);
 
@@ -472,19 +496,13 @@
           box.append(character);
           enhanceCharacter(character, { uid: targetUid, close });
         } else {
-          // fallback
           box.append(...Array.from(doc.body.childNodes));
           const root = box.querySelector(".character");
           if (root) enhanceCharacter(root, { uid: targetUid, close });
         }
       } catch (err) {
         box.textContent = "";
-        box.append(
-          createEl("div", {
-            style: "padding:2em; color:red;",
-            text: config.errorText,
-          })
-        );
+        box.append(createEl("div", { style: "padding:2em; color:red;", text: config.errorText }));
       }
     });
   }
