@@ -170,17 +170,35 @@
     }
   };
 
+  const isGiftInfoBox = (infoBox) => {
+    if (!infoBox) return false;
+    return (
+      infoBox.classList.contains("cm-infobox--gift") ||
+      infoBox.getAttribute("data-kind") === "gift" ||
+      infoBox.closest("[data-gifts]") !== null
+    );
+  };
+
   const setInfoBox = (infoBox, data) => {
     if (!infoBox) return;
     const img = infoBox.querySelector("[data-info-img]");
     const name = infoBox.querySelector("[data-info-name]");
     const cat = infoBox.querySelector("[data-info-cat]");
     const desc = infoBox.querySelector("[data-info-desc]");
+    const giftMode = isGiftInfoBox(infoBox);
 
     if (img) {
       img.src = data.img || "https://placehold.co/96x96";
       img.alt = data.name || "";
     }
+
+    if (giftMode) {
+      if (cat) cat.textContent = "";
+      if (name) name.textContent = data.desc || data.name || "—";
+      if (desc) desc.textContent = "";
+      return;
+    }
+
     if (name) name.textContent = data.name || "—";
     if (cat) cat.textContent = data.cat ? `Категория: ${data.cat}` : "";
     if (desc) desc.textContent = data.desc || "";
@@ -339,30 +357,29 @@
     return m ? m[1] : "";
   };
 
-  const setupAppearancePickersAndCopy = (root) => {
-    const icons = Array.from(root.querySelectorAll(".cm-appearance .cm-icon"));
-    const bgs = Array.from(root.querySelectorAll(".cm-appearance .cm-bg"));
+  const setupAppearancePickers = (root) => {
+    const icons = Array.from(root.querySelectorAll(".cm-icon"));
+    const bgs = Array.from(root.querySelectorAll(".cm-bg"));
 
     const setActive = (list, el) => {
       list.forEach((x) => x.classList.remove("is-active"));
       el.classList.add("is-active");
     };
 
-    const getUrlFromBtn = (btn) => {
-      const direct = btn.dataset.url || btn.getAttribute("data-url");
-      if (direct) return direct;
-      const img = btn.querySelector("img");
-      if (img) return img.currentSrc || img.src || "";
-      const thumb = btn.querySelector(".cm-bg__thumb");
-      if (thumb) return getBgUrl(thumb) || getBgUrl(btn);
-      return getBgUrl(btn);
-    };
+    const pickAndCopy = async (btn, group) => {
+      if (group === "icon") setActive(icons, btn);
+      if (group === "bg") setActive(bgs, btn);
 
-    const onClick = async (btn, list) => {
-      setActive(list, btn);
-      const url = getUrlFromBtn(btn);
+      const url =
+        btn.dataset.url ||
+        btn.getAttribute("data-url") ||
+        (btn.querySelector("img") && (btn.querySelector("img").currentSrc || btn.querySelector("img").src)) ||
+        getBgUrl(btn.querySelector(".cm-bg__thumb") || btn);
+
       if (!url) return;
+
       const ok = await copyText(url);
+
       btn.classList.add("is-copied");
       const prevTitle = btn.getAttribute("title") || "";
       btn.setAttribute("title", ok ? "Ссылка скопирована" : "Не удалось скопировать");
@@ -373,8 +390,19 @@
       }, 900);
     };
 
-    icons.forEach((btn) => btn.addEventListener("click", () => onClick(btn, icons)));
-    bgs.forEach((btn) => btn.addEventListener("click", () => onClick(btn, bgs)));
+    icons.forEach((btn) =>
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        pickAndCopy(btn, "icon");
+      })
+    );
+
+    bgs.forEach((btn) =>
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        pickAndCopy(btn, "bg");
+      })
+    );
   };
 
   const enhanceCharacter = (character, { uid, close }) => {
@@ -413,13 +441,17 @@
       bindSlotSelection(character, c, info);
     }
 
-    setupAppearancePickersAndCopy(character);
+    setupAppearancePickers(character);
 
-    const giftsRoot = character.querySelector("[data-gifts]");
     const giftsSlots = character.querySelector("[data-gifts-root]");
     const giftsInfo = character.querySelector('[data-info="gifts"]');
     const giftsStatus = character.querySelector("[data-gifts-status]");
     let giftsLoaded = false;
+
+    if (giftsInfo) {
+      giftsInfo.classList.add("cm-infobox--gift");
+      giftsInfo.setAttribute("data-kind", "gift");
+    }
 
     const loadGifts = async () => {
       if (!config.showAwards) return;
@@ -442,24 +474,35 @@
         if (giftsStatus) giftsStatus.textContent = "";
         renderGiftsIntoSlots(giftsSlots, awards);
         bindSlotSelection(character, giftsSlots, giftsInfo);
-        if (giftsInfo) giftsInfo.classList.add("cm-infobox--gift");
       } catch (e) {
         if (giftsStatus) giftsStatus.textContent = config.awardsErrorText;
       }
     };
 
-    const tryLoadIfActive = () => {
-      if (!giftsRoot) return;
-      if (giftsRoot.classList.contains(config.classes.active)) loadGifts();
+    const maybeLoadGiftsByActive = () => {
+      const giftContent =
+        character.querySelector('[data-gifts].modal__content.active') ||
+        character.querySelector('[data-gifts].' + config.classes.active) ||
+        character.querySelector('[data-gifts].modal__content');
+
+      const hasGiftActive =
+        character.querySelector(`.${config.classes.tab}.${config.classes.active}[data-cm-tab="gifts"]`) ||
+        character.querySelector(`.${config.classes.tab}.${config.classes.active}[data-tab="gifts"]`) ||
+        (giftContent && giftContent.classList.contains(config.classes.active));
+
+      if (hasGiftActive) loadGifts();
     };
 
-    character.addEventListener("click", () => {
-      window.setTimeout(tryLoadIfActive, 0);
+    character.addEventListener("click", (e) => {
+      const tab = e.target.closest(`.${config.classes.tab}`);
+      if (!tab) return;
+      const key = tab.dataset.cmTab || tab.dataset.tab || "";
+      if (key === "gifts") loadGifts();
     });
 
     if (giftsSlots) ensureEmptySlots(giftsSlots, 24);
     if (giftsStatus) giftsStatus.textContent = "";
-    tryLoadIfActive();
+    maybeLoadGiftsByActive();
   };
 
   function init() {
@@ -472,7 +515,12 @@
       if (!pageId) return;
 
       const box = createEl("div", { className: "character-modal" });
-      box.append(createEl("div", { style: "padding:2em; text-align:center;", text: config.loadingText }));
+      box.append(
+        createEl("div", {
+          style: "padding:2em; text-align:center;",
+          text: config.loadingText,
+        })
+      );
 
       const { close } = window.helpers.modal.openModal(box);
 
@@ -502,7 +550,12 @@
         }
       } catch (err) {
         box.textContent = "";
-        box.append(createEl("div", { style: "padding:2em; color:red;", text: config.errorText }));
+        box.append(
+          createEl("div", {
+            style: "padding:2em; color:red;",
+            text: config.errorText,
+          })
+        );
       }
     });
   }
