@@ -83,8 +83,9 @@
      */
     const buildPageTemplate = (ctx) => {
       const uid = Number(ctx?.userId) || 0;
-
-      // Optional hints (not shown in UI, just a comment in HTML)
+      const nameEn = escapeHtml(ctx?.characterData?.name_en || "");
+      const pairNameRaw = (ctx?.characterData?.pair_name || "").trim();
+      const pairName = escapeHtml(pairNameRaw || "Неизвестно");
       const nameHint = escapeHtml(ctx?.characterData?.name || "");
       const raceHint = escapeHtml(ctx?.characterData?.race || "");
       const ageHint =
@@ -109,7 +110,7 @@
           <img src="https://placehold.co/200x250" alt="Аватар персонажа" loading="lazy" decoding="async" />
         </div>
         <div class="cm-side__meta">
-          <div class="cm-name" id="cm-title-left">Имя Фамилия</div>
+          <div class="cm-name" id="cm-title-left">${nameEn || "Неизвестно"}</div>
           <div class="cm-role">Род деятельности</div>
           <!-- hint: ${nameHint}${raceHint || ageHint ? ` / ${raceHint}${ageHint ? `, ${ageHint}` : ""}` : ""} -->
         </div>
@@ -144,7 +145,7 @@
           <img src="https://placehold.co/200x250" alt="Аватар родственной души" loading="lazy" decoding="async" />
         </div>
         <div class="cm-side__meta cm-side__meta--right">
-          <a class="cm-name cm-link" href="#" title="Открыть профиль души" id="cm-title-right">Имя Фамилия</a>
+          <a class="cm-name cm-link" href="#" title="Открыть профиль души" id="cm-title-right">${pairName}</a>
           <div class="cm-role">Род деятельности</div>
         </div>
       </div>
@@ -455,6 +456,10 @@
       );
       const race = textFrom(
         doc.querySelector(".custom_tag_charrace p, .char-race p")
+      );
+
+      const pairName = textFrom(
+        doc.querySelector(".custom_tag_charpair.char-pair, .custom_tag_charpair")
       );
 
       const hasAny = nameRu || nameEn || age !== null || race;
@@ -1097,6 +1102,7 @@
 
   bootstrap();
 })();
+
 
 
 
