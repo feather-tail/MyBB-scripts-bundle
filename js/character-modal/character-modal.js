@@ -28,6 +28,8 @@
     },
   });
 
+  // ================== UTILS ==================
+
   const stableStringify = (v) => {
     if (v && typeof v === 'object') {
       if (Array.isArray(v)) return `[${v.map(stableStringify).join(',')}]`;
@@ -106,73 +108,12 @@
     return Number.isFinite(n) ? n : 0;
   };
 
-  const colorLink = (t01) => {
-    const t = Math.min(1, Math.max(0, t01));
-    const hue = 8 + 36 * t;
-    const sat = 75;
-    const light = 40 + 10 * t;
-    return `hsl(${hue} ${sat}% ${light}%)`;
-  };
-
-  const colorTaint = (t01) => {
-    const t = Math.min(1, Math.max(0, t01));
-    const hue = 120;
-    const sat = 45 + 35 * t;
-    const light = 44 - 10 * t;
-    return `hsl(${hue} ${sat}% ${light}%)`;
-  };
-
-  const applyMeter = (root) => {
-    const linkRow = root.querySelector('.cm-barrow[data-meter="link"]');
-    const taintRow = root.querySelector('.cm-barrow[data-meter="taint"]');
-    const linkFill = linkRow?.querySelector('.cm-bar__fill');
-    const taintFill = taintRow?.querySelector('.cm-bar__fill');
-
-    const linkLevel = numFrom(root.getAttribute('data-link-level'));
-    const linkMax = Math.max(
-      1,
-      numFrom(root.getAttribute('data-link-max')) || 10,
-    );
-
-    const taintLevel = numFrom(root.getAttribute('data-taint-level'));
-    const taintMax = Math.max(
-      1,
-      numFrom(root.getAttribute('data-taint-max')) || 10,
-    );
-
-    const linkT = linkLevel / linkMax;
-    const taintT = taintLevel / taintMax;
-
-    if (linkFill) {
-      linkFill.style.width = `${Math.round(linkT * 100)}%`;
-      linkFill.style.background = colorLink(linkT);
-      const v = linkRow.querySelector('[data-meter-value]');
-      if (v) v.textContent = `${linkLevel} ур.`;
-    }
-    if (taintFill) {
-      taintFill.style.width = `${Math.round(taintT * 100)}%`;
-      taintFill.style.background = colorTaint(taintT);
-      const v = taintRow.querySelector('[data-meter-value]');
-      if (v) v.textContent = `${taintLevel} ур.`;
-    }
-  };
-
-  const applyLazyImages = (root) => {
-    if (!root) return;
-    root.querySelectorAll('img').forEach((img) => {
-      if (!img.getAttribute('loading')) img.setAttribute('loading', 'lazy');
-      if (!img.getAttribute('decoding')) img.setAttribute('decoding', 'async');
-    });
-  };
-
   const normalizeText = (s) => String(s ?? '').trim();
 
   const normalizeItem = (raw) => {
     const name = normalizeText(raw?.name || raw?.title || raw?.label || '');
     const cat = normalizeText(raw?.cat || raw?.category || '');
-    const desc = normalizeText(
-      raw?.desc || raw?.description || raw?.text || '',
-    );
+    const desc = normalizeText(raw?.desc || raw?.description || raw?.text || '');
     const img = normalizeText(raw?.img || raw?.image || raw?.href || '');
     const qty = Number.isFinite(+raw?.qty) ? +raw.qty : numFrom(raw?.qty);
     return {
@@ -194,6 +135,35 @@
       desc,
       img,
     };
+  };
+
+  const resetSelection = (slotsEl) => {
+    if (!slotsEl) return;
+    slotsEl
+      .querySelectorAll('.cm-slot--item.is-selected')
+      .forEach((n) => n.classList.remove('is-selected'));
+    slotsEl
+      .querySelectorAll(".cm-slot--item[aria-pressed='true']")
+      .forEach((n) => n.setAttribute('aria-pressed', 'false'));
+  };
+
+  const clearInfoBox = (infoBox) => {
+    if (!infoBox) return;
+
+    const img = infoBox.querySelector('[data-info-img]');
+    const name = infoBox.querySelector('[data-info-name]');
+    const cat = infoBox.querySelector('[data-info-cat]');
+    const desc = infoBox.querySelector('[data-info-desc]');
+
+    if (img) {
+      img.removeAttribute('src');
+      img.alt = '';
+    }
+    if (name) name.textContent = '';
+    if (cat) cat.textContent = '';
+    if (desc) desc.textContent = '';
+
+    infoBox.classList.add('is-empty');
   };
 
   const ensureEmptySlots = (slotsEl, targetCount) => {
@@ -229,47 +199,7 @@
     }
     slotsEl.textContent = '';
     ensureEmptySlots(slotsEl, targetCount);
-  };
-
-  const isGiftInfoBox = (infoBox) => {
-    if (!infoBox) return false;
-    return (
-      infoBox.classList.contains('cm-infobox--gift') ||
-      infoBox.getAttribute('data-kind') === 'gift'
-    );
-  };
-
-  const setInfoBox = (infoBox, data) => {
-    if (!infoBox) return;
-    const d = normalizeItem(data || {});
-    const giftMode = isGiftInfoBox(infoBox);
-
-    const img = infoBox.querySelector('[data-info-img]');
-    const name = infoBox.querySelector('[data-info-name]');
-    const cat = infoBox.querySelector('[data-info-cat]');
-    const desc = infoBox.querySelector('[data-info-desc]');
-
-    infoBox.classList.add('is-updating');
-    window.setTimeout(() => infoBox.classList.remove('is-updating'), 140);
-
-    if (img) {
-      img.src = d.img || 'https://placehold.co/96x96';
-      img.alt = d.name || '';
-      if (!img.getAttribute('loading')) img.setAttribute('loading', 'lazy');
-      if (!img.getAttribute('decoding')) img.setAttribute('decoding', 'async');
-    }
-
-    if (giftMode) {
-      if (cat) cat.textContent = '';
-      if (name)
-        name.textContent = normalizeText(data?.desc || '') || d.name || '—';
-      if (desc) desc.textContent = '';
-      return;
-    }
-
-    if (name) name.textContent = d.name || '—';
-    if (cat) cat.textContent = d.cat ? `Категория: ${d.cat}` : '';
-    if (desc) desc.textContent = d.desc || '';
+    resetSelection(slotsEl);
   };
 
   const prefetchImage = (url) => {
@@ -284,28 +214,126 @@
     img.src = u;
   };
 
+  const isGiftInfoBox = (infoBox) => {
+    if (!infoBox) return false;
+    return (
+      infoBox.classList.contains('cm-infobox--gift') ||
+      infoBox.getAttribute('data-kind') === 'gift'
+    );
+  };
+
+  const setInfoBox = (infoBox, data) => {
+    if (!infoBox) return;
+
+    if (!data) {
+      clearInfoBox(infoBox);
+      return;
+    }
+
+    infoBox.classList.remove('is-empty');
+
+    const d = normalizeItem(data || {});
+    const giftMode = isGiftInfoBox(infoBox);
+
+    const img = infoBox.querySelector('[data-info-img]');
+    const name = infoBox.querySelector('[data-info-name]');
+    const cat = infoBox.querySelector('[data-info-cat]');
+    const desc = infoBox.querySelector('[data-info-desc]');
+
+    infoBox.classList.add('is-updating');
+    window.setTimeout(() => infoBox.classList.remove('is-updating'), 140);
+
+    if (img) {
+      const src = d.img || '';
+      if (src) img.src = src;
+      else img.removeAttribute('src');
+      img.alt = d.name || '';
+      if (!img.getAttribute('loading')) img.setAttribute('loading', 'lazy');
+      if (!img.getAttribute('decoding')) img.setAttribute('decoding', 'async');
+    }
+
+    if (giftMode) {
+      if (cat) cat.textContent = '';
+      if (name)
+        name.textContent = normalizeText(data?.desc || '') || d.name || '';
+      if (desc) desc.textContent = '';
+      return;
+    }
+
+    if (name) name.textContent = d.name && d.name !== '—' ? d.name : '';
+    if (cat) cat.textContent = d.cat ? `Категория: ${d.cat}` : '';
+    if (desc) desc.textContent = d.desc || '';
+  };
+
+  // ================== METERS + IMAGES ==================
+
+  const colorLink = (t01) => {
+    const t = Math.min(1, Math.max(0, t01));
+    const hue = 8 + 36 * t;
+    const sat = 75;
+    const light = 40 + 10 * t;
+    return `hsl(${hue} ${sat}% ${light}%)`;
+  };
+
+  const colorTaint = (t01) => {
+    const t = Math.min(1, Math.max(0, t01));
+    const hue = 120;
+    const sat = 45 + 35 * t;
+    const light = 44 - 10 * t;
+    return `hsl(${hue} ${sat}% ${light}%)`;
+  };
+
+  const applyMeter = (root) => {
+    const linkRow = root.querySelector('.cm-barrow[data-meter="link"]');
+    const taintRow = root.querySelector('.cm-barrow[data-meter="taint"]');
+    const linkFill = linkRow?.querySelector('.cm-bar__fill');
+    const taintFill = taintRow?.querySelector('.cm-bar__fill');
+
+    const linkLevel = numFrom(root.getAttribute('data-link-level'));
+    const linkMax = Math.max(1, numFrom(root.getAttribute('data-link-max')) || 10);
+
+    const taintLevel = numFrom(root.getAttribute('data-taint-level'));
+    const taintMax = Math.max(1, numFrom(root.getAttribute('data-taint-max')) || 10);
+
+    const linkT = linkLevel / linkMax;
+    const taintT = taintLevel / taintMax;
+
+    if (linkFill) {
+      linkFill.style.width = `${Math.round(linkT * 100)}%`;
+      linkFill.style.background = colorLink(linkT);
+      const v = linkRow.querySelector('[data-meter-value]');
+      if (v) v.textContent = `${linkLevel} ур.`;
+    }
+    if (taintFill) {
+      taintFill.style.width = `${Math.round(taintT * 100)}%`;
+      taintFill.style.background = colorTaint(taintT);
+      const v = taintRow.querySelector('[data-meter-value]');
+      if (v) v.textContent = `${taintLevel} ур.`;
+    }
+  };
+
+  const applyLazyImages = (root) => {
+    if (!root) return;
+    root.querySelectorAll('img').forEach((img) => {
+      if (!img.getAttribute('loading')) img.setAttribute('loading', 'lazy');
+      if (!img.getAttribute('decoding')) img.setAttribute('decoding', 'async');
+    });
+  };
+
+  // ================== SLOTS BINDING ==================
+
   const bindSlotSelection = (slotsEl, infoBox, getDataFromBtn) => {
     if (!slotsEl || !infoBox) return () => {};
 
     const select = (btn) => {
       if (!btn) return;
-      slotsEl
-        .querySelectorAll('.cm-slot--item.is-selected')
-        .forEach((n) => n.classList.remove('is-selected'));
-      slotsEl
-        .querySelectorAll(".cm-slot--item[aria-pressed='true']")
-        .forEach((n) => n.setAttribute('aria-pressed', 'false'));
+      resetSelection(slotsEl);
       btn.classList.add('is-selected');
       btn.setAttribute('aria-pressed', 'true');
       const data = getDataFromBtn(btn);
       setInfoBox(infoBox, data);
       prefetchImage(data?.img);
     };
-
-    const initial =
-      slotsEl.querySelector('.cm-slot--item.is-selected') ||
-      slotsEl.querySelector('.cm-slot--item');
-    if (initial) select(initial);
 
     const onClick = (e) => {
       const btn = e.target.closest('.cm-slot--item');
@@ -427,17 +455,17 @@
       return btn;
     };
 
-    awards.forEach((a, i) => {
+    awards.forEach((a) => {
       const btn = makeBtn(a);
-      if (i === 0) {
-        btn.classList.add('is-selected');
-        btn.setAttribute('aria-pressed', 'true');
-      }
+      // без автоселекта
       slotsEl.append(btn);
     });
 
     ensureEmptySlots(slotsEl, config.slots.gifts);
+    resetSelection(slotsEl);
   };
+
+  // ================== APPEARANCE PICKERS ==================
 
   const copyText = async (text) => {
     try {
@@ -485,8 +513,7 @@
         btn.dataset.url ||
         btn.getAttribute('data-url') ||
         (btn.querySelector('img') &&
-          (btn.querySelector('img').currentSrc ||
-            btn.querySelector('img').src)) ||
+          (btn.querySelector('img').currentSrc || btn.querySelector('img').src)) ||
         getBgUrl(btn.querySelector('.cm-bg__thumb') || btn);
 
       if (!url) return;
@@ -497,10 +524,7 @@
 
       btn.classList.add('is-copied');
       const prevTitle = btn.getAttribute('title') || '';
-      btn.setAttribute(
-        'title',
-        ok ? 'Ссылка скопирована' : 'Не удалось скопировать',
-      );
+      btn.setAttribute('title', ok ? 'Ссылка скопирована' : 'Не удалось скопировать');
       window.setTimeout(() => {
         btn.classList.remove('is-copied');
         if (prevTitle) btn.setAttribute('title', prevTitle);
@@ -521,10 +545,13 @@
     bgs.forEach((btn) => btn.addEventListener('click', onBg(btn)));
 
     return () => {
+      // простой cleanup без хранения коллбеков
       icons.forEach((btn) => btn.replaceWith(btn.cloneNode(true)));
       bgs.forEach((btn) => btn.replaceWith(btn.cloneNode(true)));
     };
   };
+
+  // ================== MODAL infra ==================
 
   const findBackdropCandidate = (node) => {
     let el = node;
@@ -538,8 +565,7 @@
       if (pos === 'fixed' || pos === 'absolute') {
         const r = el.getBoundingClientRect();
         const covers =
-          r.width >= window.innerWidth * 0.9 &&
-          r.height >= window.innerHeight * 0.9;
+          r.width >= window.innerWidth * 0.9 && r.height >= window.innerHeight * 0.9;
         if (covers) return el;
       }
       el = el.parentElement;
@@ -560,9 +586,7 @@
       const list = getFocusables();
       const target =
         dialogEl.querySelector('[data-modal-close]') ||
-        dialogEl.querySelector(
-          `.${config.classes.tab}.${config.classes.active}`,
-        ) ||
+        dialogEl.querySelector(`.${config.classes.tab}.${config.classes.active}`) ||
         list[0] ||
         dialogEl;
       if (target && typeof target.focus === 'function')
@@ -610,9 +634,7 @@
   };
 
   const setupTabs = (root) => {
-    const tabs = Array.from(
-      root.querySelectorAll(`.${config.classes.tab}[data-cm-tab]`),
-    );
+    const tabs = Array.from(root.querySelectorAll(`.${config.classes.tab}[data-cm-tab]`));
     const panes = Array.from(
       root.querySelectorAll(`.${config.classes.tabContent}[data-cm-content]`),
     );
@@ -640,9 +662,7 @@
       );
 
       if (focusPanel) {
-        const activePane = panes.find(
-          (p) => (p.dataset.cmContent || '') === key,
-        );
+        const activePane = panes.find((p) => (p.dataset.cmContent || '') === key);
         if (activePane) activePane.focus({ preventScroll: true });
       }
     };
@@ -678,8 +698,7 @@
     root.addEventListener('click', onClick);
     root.addEventListener('keydown', onKey);
 
-    const active =
-      tabs.find((t) => t.classList.contains(config.classes.active)) || tabs[0];
+    const active = tabs.find((t) => t.classList.contains(config.classes.active)) || tabs[0];
     activate(active.dataset.cmTab, { focusPanel: false });
 
     return () => {
@@ -687,6 +706,8 @@
       root.removeEventListener('keydown', onKey);
     };
   };
+
+  // ================== DATA ==================
 
   const fetchAwards = (uid, { signal } = {}) => {
     const cacheKey = `awards:${String(uid)}`;
@@ -732,9 +753,10 @@
     });
   };
 
+  // ================== ENHANCE ==================
+
   const enhanceCharacter = (character, { uid, close }) => {
-    if (!character || character.getAttribute('data-cm-initialized') === '1')
-      return () => {};
+    if (!character || character.getAttribute('data-cm-initialized') === '1') return () => {};
     character.setAttribute('data-cm-initialized', '1');
 
     applyMeter(character);
@@ -747,37 +769,43 @@
     const backdrop = findBackdropCandidate(character);
     if (backdrop) backdrop.classList.add('cm-no-backdrop');
 
-    const tabsCleanup = setupTabs(character);
-    cleanup.push(tabsCleanup);
+    cleanup.push(setupTabs(character));
 
+    // ---- INVENTORY ----
     const invRoot = character.querySelector('[data-inventory]');
     if (invRoot) {
       const slots = invRoot.querySelector('[data-slots="inventory"]');
-      ensureEmptySlots(slots, config.slots.inventory);
-
       const info = invRoot.querySelector('[data-info="inventory"]');
-      const unbind = bindSlotSelection(slots, info, (btn) => {
-        const d = normalizeItem({
-          name: btn.getAttribute('data-item-name'),
-          cat: btn.getAttribute('data-item-cat'),
-          desc: btn.getAttribute('data-item-desc'),
-          img: btn.getAttribute('data-item-img'),
-          qty: btn.getAttribute('data-item-qty'),
-        });
-        return d;
-      });
-      cleanup.push(unbind);
 
-      const invCleanup = setupInventorySearchAndFilters(invRoot);
-      cleanup.push(invCleanup);
+      ensureEmptySlots(slots, config.slots.inventory);
+      resetSelection(slots);
+      clearInfoBox(info);
+
+      cleanup.push(
+        bindSlotSelection(slots, info, (btn) =>
+          normalizeItem({
+            name: btn.getAttribute('data-item-name'),
+            cat: btn.getAttribute('data-item-cat'),
+            desc: btn.getAttribute('data-item-desc'),
+            img: btn.getAttribute('data-item-img'),
+            qty: btn.getAttribute('data-item-qty'),
+          }),
+        ),
+      );
+
+      cleanup.push(setupInventorySearchAndFilters(invRoot));
     }
 
+    // ---- ACHIEVEMENTS ----
     const achRoot = character.querySelector('[data-ach]');
     if (achRoot) {
       const info = achRoot.querySelector('[data-info="ach"]');
+      clearInfoBox(info);
 
       const p = achRoot.querySelector('[data-slots="player-ach"]');
       ensureEmptySlots(p, config.slots.playerAch);
+      resetSelection(p);
+
       cleanup.push(
         bindSlotSelection(p, info, (btn) =>
           normalizeItem({
@@ -791,6 +819,8 @@
 
       const c = achRoot.querySelector('[data-slots="char-ach"]');
       ensureEmptySlots(c, config.slots.charAch);
+      resetSelection(c);
+
       cleanup.push(
         bindSlotSelection(c, info, (btn) =>
           normalizeItem({
@@ -805,11 +835,22 @@
 
     cleanup.push(setupAppearancePickers(character));
 
+    // ---- GIFTS ----
     const giftsRoot = character.querySelector('[data-gifts]');
+    const giftsStatusEl = giftsRoot?.querySelector('[data-gifts-status]');
+    const setGiftsStatus = (t) => {
+      if (giftsStatusEl) giftsStatusEl.textContent = t || '';
+    };
+
     const giftsSlots = character.querySelector('[data-gifts-root]');
     const giftsInfo = character.querySelector('[data-info="gifts"]');
 
-    if (giftsSlots) ensureEmptySlots(giftsSlots, config.slots.gifts);
+    if (giftsSlots) {
+      ensureEmptySlots(giftsSlots, config.slots.gifts);
+      resetSelection(giftsSlots);
+    }
+    clearInfoBox(giftsInfo);
+    setGiftsStatus('');
 
     const loadGifts = async () => {
       if (!config.showAwards) return;
@@ -821,21 +862,22 @@
 
       try {
         renderState(giftsSlots, 'skeleton', config.slots.gifts);
-        setInfoBox(giftsInfo, { name: '—', desc: 'Загрузка…', img: '' });
+        if (giftsInfo) clearInfoBox(giftsInfo);
+        setGiftsStatus('Загрузка…');
 
         const awards = uid ? await fetchAwards(uid, { signal: ac.signal }) : [];
 
         if (!awards.length) {
           renderState(giftsSlots, 'empty', config.slots.gifts);
-          setInfoBox(giftsInfo, {
-            name: '—',
-            desc: config.awardsEmptyText,
-            img: '',
-          });
+          if (giftsInfo) clearInfoBox(giftsInfo);
+          setGiftsStatus(config.awardsEmptyText);
           return;
         }
 
         renderGiftsIntoSlots(giftsSlots, awards);
+        if (giftsInfo) clearInfoBox(giftsInfo);
+        setGiftsStatus('');
+
         cleanup.push(
           bindSlotSelection(giftsSlots, giftsInfo, (btn) => ({
             name: btn.getAttribute('data-item-name') || '',
@@ -846,11 +888,8 @@
       } catch (e) {
         if (e && e.name === 'AbortError') return;
         renderState(giftsSlots, 'error', config.slots.gifts);
-        setInfoBox(giftsInfo, {
-          name: '—',
-          desc: config.awardsErrorText,
-          img: '',
-        });
+        if (giftsInfo) clearInfoBox(giftsInfo);
+        setGiftsStatus(config.awardsErrorText);
       }
     };
 
@@ -859,10 +898,9 @@
       if (key === 'gifts') loadGifts();
     };
     character.addEventListener('cm:tabchange', onTabChange);
-    cleanup.push(() =>
-      character.removeEventListener('cm:tabchange', onTabChange),
-    );
+    cleanup.push(() => character.removeEventListener('cm:tabchange', onTabChange));
 
+    // ---- CLOSE ----
     const btnClose = character.querySelector('[data-modal-close]');
     const closeWrapped = () => {
       aborters.forEach((a) => {
@@ -870,6 +908,7 @@
           a.abort();
         } catch (_) {}
       });
+
       cleanup
         .splice(0)
         .reverse()
@@ -878,20 +917,24 @@
             fn();
           } catch (_) {}
         });
+
       if (backdrop) backdrop.classList.remove('cm-no-backdrop');
       if (typeof close === 'function') close();
     };
 
     if (btnClose) {
-      btnClose.addEventListener('click', (e) => {
+      const onCloseClick = (e) => {
         e.preventDefault();
         closeWrapped();
-      });
-      cleanup.push(() => btnClose.removeEventListener('click', closeWrapped));
+      };
+      btnClose.addEventListener('click', onCloseClick);
+      cleanup.push(() => btnClose.removeEventListener('click', onCloseClick));
     }
 
     return { closeWrapped };
   };
+
+  // ================== INIT ==================
 
   function init() {
     document.body.addEventListener('click', async (e) => {
@@ -949,11 +992,8 @@
 
         box.textContent = '';
 
-        if (character) {
-          box.append(character);
-        } else {
-          box.append(...Array.from(doc.body.childNodes));
-        }
+        if (character) box.append(character);
+        else box.append(...Array.from(doc.body.childNodes));
 
         const root = box.querySelector('.character');
         if (!root) {
@@ -973,8 +1013,7 @@
         focusCleanup = setupFocusTrap(dialogEl, { onClose: closeAll });
 
         const btnClose = root.querySelector('[data-modal-close]');
-        if (btnClose)
-          btnClose.addEventListener('click', (ev) => ev.preventDefault());
+        if (btnClose) btnClose.addEventListener('click', (ev) => ev.preventDefault());
       } catch (err) {
         if (err && err.name === 'AbortError') return;
         box.textContent = '';
