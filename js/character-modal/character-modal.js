@@ -905,30 +905,60 @@ function init() {
       createEl("div", { style: "padding:2em; text-align:center;", text: config.loadingText })
     );
 
-    const modal = window.helpers.modal.openModal(box);
-    const closeOrig = modal?.close;
+const modal = window.helpers.modal.openModal(box);
 
-    // ВАЖНО: бэкдроп/анимация теперь завязаны на body-класс
-    cmModalLock.on();
+// Сохраняем оригинальный close (с биндингом контекста!)
+const closeOrig = typeof modal?.close === "function" ? modal.close.bind(modal) : null;
+
+// Включаем лочилку сразу
+cmModalLock.on();
+
+let closed = false;
+let focusCleanup = null;
+let enhanced = null;
+let pageAbort = new AbortController();
+const lastFocus = document.activeElement;
+
+// Единый cleanup — его будем вызывать ИЗ ПЕРЕОПРЕДЕЛЁННОГО modal.close
+const finalize = () => {
+  try { pageAbort.abort(); } catch (_) {}
+
+  try { if (enhanced?.closeWrapped) enhanced.closeWrapped(); } catch (_) {}
+  try { if (focusCleanup) focusCleanup(); } catch (_) {}
+
+  cmModalLock.off();
+
+  if (lastFocus && typeof lastFocus.focus === "function") {
+    try { lastFocus.focus({ preventScroll: true }); } catch (_) {}
+  }
+};
+
+// Переопределяем close так, чтобы cleanup выполнялся всегда
+if (modal && closeOrig) {
+  modal.close = (...args) => {
+    if (closed) return;
+    closed = true;
+
+    // Сначала закрываем/чистим наш контент и логику
+    finalize();
+
+    // Затем даём форуму убрать DOM модалки
+    try { closeOrig(...args); } catch (_) {}
+  };
+}
+
 
     let pageAbort = new AbortController();
     let focusCleanup = null;
     let enhanced = null;
 
-    const closeAll = () => {
-      try { pageAbort.abort(); } catch (_) {}
-
-      if (enhanced?.closeWrapped) enhanced.closeWrapped();
-      else if (typeof closeOrig === "function") closeOrig();
-
-      if (focusCleanup) focusCleanup();
-
-      cmModalLock.off();
-
-      if (lastFocus && typeof lastFocus.focus === "function") {
-        lastFocus.focus({ preventScroll: true });
-      }
-    };
+const closeAll = () => {
+  if (modal && typeof modal.close === "function") modal.close();
+  else {
+    // запасной вариант, если modal невалиден
+    cmModalLock.off();
+  }
+};
 
     try {
       const res = await helpers.request(`${config.ajaxFolder}${pageId}`, { signal: pageAbort.signal });
@@ -956,7 +986,7 @@ function init() {
         return;
       }
 
-      enhanced = enhanceCharacter(root, { uid: targetUid, close: closeOrig });
+      enhanced = enhanceCharacter(root, { uid: targetUid, close: closeAll });
 
       const dialogEl = root.querySelector(".cm-shell") || root;
       focusCleanup = setupFocusTrap(dialogEl, { onClose: closeAll });
