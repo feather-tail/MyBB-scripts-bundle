@@ -608,6 +608,35 @@
       return { form, actionUrl };
     };
 
+    const tryUpdateExistingPage = async (pageSlug, newHtml) => {
+      const editUrl = config.endpoints.adminEditPageUrl(pageSlug);
+      const doc = await fetchDoc(editUrl);
+    
+      const form =
+        doc.querySelector('form[action*="admin_pages.php"][method="post"]') ||
+        doc.querySelector("form");
+    
+      if (!form) return false;
+    
+      const contentEl =
+        form.querySelector('textarea[name="content"]') ||
+        form.querySelector('textarea[name="text"]') ||
+        form.querySelector('textarea[name="message"]') ||
+        form.querySelector("textarea[name]");
+    
+      const contentName = (contentEl && contentEl.name) ? contentEl.name : "content";
+    
+      const overrides = {
+        [contentName]: newHtml,
+        content: newHtml,
+      };
+    
+      const params = buildAddPageParams(form, overrides);
+      await postForm(editUrl, params, editUrl);
+    
+      return true;
+    };
+
     const fetchAddPageForm = async () => {
       const url = config.endpoints.adminAddPageUrl;
       const doc = await fetchDoc(url);
@@ -871,8 +900,6 @@
       return ctx;
     };
 
-    // --- ОПЕРАЦИИ ---
-
     const fillProfile = async () => {
       const ctx = await ensureFullContext();
       const { characterData, lzHtml, userId, topicUrl } = ctx;
@@ -901,20 +928,10 @@
       const ctx = await ensureFullContext();
       const { pageSlug } = ctx;
     
-      const newContent = buildPageTemplate(ctx);
+      const newContent = PAGE_TEMPLATE;
     
-      const editHref = await findExistingPageEditHref(pageSlug);
-    
-      if (editHref) {
-        const { form, actionUrl, editUrl } = await fetchEditPageForm(editHref);
-    
-        const overrides = { content: newContent };
-    
-        const params = buildAddPageParams(form, overrides);
-        await postForm(actionUrl, params, editUrl);
-    
-        return { mode: "update" };
-      }
+      const updated = await tryUpdateExistingPage(pageSlug, newContent);
+      if (updated) return { mode: "update" };
     
       const { form, actionUrl } = await fetchAddPageForm();
     
@@ -977,10 +994,10 @@
       }
       state.busy = true;
       try {
-        const result = await createOrUpdatePage();
+        const r = await createOrUpdatePage();
         notify(
-          result.mode === "update"
-            ? "Страница персонажа обновлена (перезаписан контент)."
+          r.mode === "update"
+            ? "Страница персонажа обновлена (контент перезаписан)."
             : "Страница персонажа создана. Проверьте список страниц.",
           "success"
         );
@@ -1079,4 +1096,5 @@
 
   bootstrap();
 })();
+
 
