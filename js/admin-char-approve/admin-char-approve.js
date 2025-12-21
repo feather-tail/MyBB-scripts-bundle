@@ -584,7 +584,6 @@
     };
 
     const fetchAdminProfileForm = async (userId) => {
-      // <-- Фикс: безопасный фоллбэк, если adminProfileUrl не определён в конфиге
       let url;
       if (
         config.endpoints &&
@@ -621,6 +620,52 @@
       const actionRaw = form.getAttribute("action") || url;
       const actionUrl = toAbsUrl(actionRaw);
       return { form, actionUrl };
+    };
+
+    const findExistingPageEditHref = async (pageSlug) => {
+      const doc = await fetchDoc(config.endpoints.adminAddPageUrl);
+    
+      const slug = String(pageSlug || "").trim().toLowerCase();
+      if (!slug) return null;
+    
+      const links = Array.from(
+        doc.querySelectorAll('a[href*="admin_pages.php"][href*="action=edit"]')
+      );
+    
+      for (const a of links) {
+        const href = a.getAttribute("href");
+        if (!href) continue;
+    
+        const row = a.closest("tr") || a.closest("li") || a.parentElement;
+        const hay = String(row ? row.textContent : a.textContent || "")
+          .replace(/\s+/g, " ")
+          .trim()
+          .toLowerCase();
+    
+        if (hay.includes(slug)) {
+          return href;
+        }
+      }
+    
+      return null;
+    };
+    
+    const fetchEditPageForm = async (editHref) => {
+      const url = toAbsUrl(editHref);
+      const doc = await fetchDoc(url);
+    
+      const form =
+        doc.querySelector('form[action*="admin_pages.php"][method="post"]') ||
+        doc.querySelector("form");
+    
+      if (!form) {
+        throw new Error("Форма редактирования страницы не найдена в HTML админки.");
+      }
+    
+      const actionRaw = form.getAttribute("action") || url;
+      const actionUrl = toAbsUrl(actionRaw);
+    
+      return { form, actionUrl, editUrl: url };
     };
 
     const buildProfileParams = (form, overrideMap) => {
@@ -852,20 +897,37 @@
       await postForm(actionUrl, params, actionUrl);
     };
 
-    const createPage = async () => {
+    const createOrUpdatePage = async () => {
       const ctx = await ensureFullContext();
       const { pageSlug } = ctx;
-
+    
+      const newContent = buildPageTemplate(ctx);
+    
+      const editHref = await findExistingPageEditHref(pageSlug);
+    
+      if (editHref) {
+        const { form, actionUrl, editUrl } = await fetchEditPageForm(editHref);
+    
+        const overrides = { content: newContent };
+    
+        const params = buildAddPageParams(form, overrides);
+        await postForm(actionUrl, params, editUrl);
+    
+        return { mode: "update" };
+      }
+    
       const { form, actionUrl } = await fetchAddPageForm();
-
+    
       const overrides = {
         title: pageSlug,
         name: pageSlug,
-        content: buildPageTemplate(ctx), // <-- NEW: updated template
+        content: newContent,
       };
-
+    
       const params = buildAddPageParams(form, overrides);
       await postForm(actionUrl, params, actionUrl);
+    
+      return { mode: "create" };
     };
 
     const changeGroup = async () => {
@@ -887,8 +949,6 @@
       const params = buildProfileParams(form, overrides);
       await postForm(actionUrl, params, actionUrl);
     };
-
-    // --- Хэндлеры кнопок ---
 
     const handleFillProfileClick = async () => {
       if (state.busy) {
@@ -917,9 +977,11 @@
       }
       state.busy = true;
       try {
-        await createPage();
+        const result = await createOrUpdatePage();
         notify(
-          "Страница персонажа создана. Проверьте список страниц.",
+          result.mode === "update"
+            ? "Страница персонажа обновлена (перезаписан контент)."
+            : "Страница персонажа создана. Проверьте список страниц.",
           "success"
         );
       } catch (err) {
@@ -1017,3 +1079,4 @@
 
   bootstrap();
 })();
+
