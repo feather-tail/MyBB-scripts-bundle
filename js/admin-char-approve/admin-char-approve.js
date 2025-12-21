@@ -27,7 +27,7 @@
       },
       selectors: {
         insertAfter: 'input.button.preview[name="preview"]',
-        lzSource: '.custom_tag_charpt, .char-pt, [data-bbcode="charpt"]',
+        lzSource: ".custom_tag_charpt, .char-pt, [data-bbcode=\"charpt\"]",
       },
       ui: {
         fillProfileText: "Автозаполнить профиль",
@@ -67,36 +67,286 @@
     const LABEL_CHANGE_GROUP =
       (config.ui && config.ui.changeGroupText) || "Перевести в группу";
 
-    const PAGE_TEMPLATE = `
-<div class="character">
-  <div class="modal__tabs">
-    <button class="modal__tab active" type="button">Профиль</button>
-    <button class="modal__tab" type="button">Навыки</button>
-    <button class="modal__tab" type="button">История</button>
+    // ================== NEW: helpers for template ==================
+
+    const escapeHtml = (s) =>
+      String(s ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+
+    /**
+     * NEW: Updated page template for characterModal
+     * Generates HTML of the page that is fetched by id=pageSlug and inserted into the modal.
+     */
+    const buildPageTemplate = (ctx) => {
+      const uid = Number(ctx?.userId) || 0;
+
+      // Optional hints (not shown in UI, just a comment in HTML)
+      const nameHint = escapeHtml(ctx?.characterData?.name || "");
+      const raceHint = escapeHtml(ctx?.characterData?.race || "");
+      const ageHint =
+        ctx?.characterData?.age != null ? String(ctx.characterData.age) : "";
+
+      return `
+<div class="character"
+  data-user-id="${uid}"
+  data-link-level="0"
+  data-link-max="10"
+  data-taint-level="0"
+  data-taint-max="10"
+>
+  <div class="cm-shell" role="dialog" aria-modal="true" aria-labelledby="cm-title-left">
+    <button class="cm-close" type="button" data-modal-close aria-label="Закрыть">
+      <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+    </button>
+
+    <header class="cm-header">
+      <div class="cm-side cm-side--left">
+        <div class="cm-avatar">
+          <img src="https://placehold.co/200x250" alt="Аватар персонажа" loading="lazy" decoding="async" />
+        </div>
+        <div class="cm-side__meta">
+          <div class="cm-name" id="cm-title-left">Имя Фамилия</div>
+          <div class="cm-role">Род деятельности</div>
+          <!-- hint: ${nameHint}${raceHint || ageHint ? ` / ${raceHint}${ageHint ? `, ${ageHint}` : ""}` : ""} -->
+        </div>
+      </div>
+
+      <div class="cm-center">
+        <div class="cm-bars">
+          <div class="cm-barrow" data-meter="link">
+            <div class="cm-barrow__top">
+              <span class="cm-barrow__label">Связь</span>
+              <span class="cm-barrow__value" data-meter-value>0 ур.</span>
+            </div>
+            <div class="cm-bar" role="img" aria-label="Связь">
+              <span class="cm-bar__fill"></span>
+            </div>
+          </div>
+
+          <div class="cm-barrow" data-meter="taint">
+            <div class="cm-barrow__top">
+              <span class="cm-barrow__label">Скверна</span>
+              <span class="cm-barrow__value" data-meter-value>0 ур.</span>
+            </div>
+            <div class="cm-bar" role="img" aria-label="Скверна">
+              <span class="cm-bar__fill"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="cm-side cm-side--right">
+        <div class="cm-avatar">
+          <img src="https://placehold.co/200x250" alt="Аватар родственной души" loading="lazy" decoding="async" />
+        </div>
+        <div class="cm-side__meta cm-side__meta--right">
+          <a class="cm-name cm-link" href="#" title="Открыть профиль души" id="cm-title-right">Имя Фамилия</a>
+          <div class="cm-role">Род деятельности</div>
+        </div>
+      </div>
+    </header>
+
+    <nav class="modal__tabs" role="tablist" aria-label="Вкладки персонажа">
+      <button class="modal__tab active" type="button" data-cm-tab="gift" role="tab" aria-selected="true" aria-controls="cm-pane-gift" id="cm-tab-gift" title="Дар">
+        <i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i>
+        <span class="cm-sr">Дар</span>
+      </button>
+
+      <button class="modal__tab" type="button" data-cm-tab="inventory" role="tab" aria-selected="false" aria-controls="cm-pane-inventory" id="cm-tab-inventory" title="Инвентарь">
+        <i class="fa-solid fa-box-open" aria-hidden="true"></i>
+        <span class="cm-sr">Инвентарь</span>
+      </button>
+
+      <button class="modal__tab" type="button" data-cm-tab="gifts" role="tab" aria-selected="false" aria-controls="cm-pane-gifts" id="cm-tab-gifts" title="Подарки">
+        <i class="fa-solid fa-gift" aria-hidden="true"></i>
+        <span class="cm-sr">Подарки</span>
+      </button>
+
+      <button class="modal__tab" type="button" data-cm-tab="ach" role="tab" aria-selected="false" aria-controls="cm-pane-ach" id="cm-tab-ach" title="Достижения">
+        <i class="fa-solid fa-trophy" aria-hidden="true"></i>
+        <span class="cm-sr">Достижения</span>
+      </button>
+
+      <button class="modal__tab" type="button" data-cm-tab="appearance" role="tab" aria-selected="false" aria-controls="cm-pane-appearance" id="cm-tab-appearance" title="Оформление">
+        <i class="fa-solid fa-palette" aria-hidden="true"></i>
+        <span class="cm-sr">Оформление</span>
+      </button>
+    </nav>
+
+    <div class="cm-scroll" data-cm-scroll>
+      <section class="modal__content active" data-cm-content="gift" role="tabpanel" aria-labelledby="cm-tab-gift" id="cm-pane-gift" tabindex="0">
+        <div class="cm-pane">
+          <div class="cm-gift">
+            <div class="cm-gift__media">
+              <img src="https://placehold.co/800x500" alt="Изображение дара" loading="lazy" decoding="async" />
+            </div>
+
+            <div class="cm-gift__text">
+              <h3 class="cm-h3">Описание дара</h3>
+              <p class="cm-p"></p>
+
+              <div class="cm-chips"></div>
+
+              <ul class="cm-list"></ul>
+            </div>
+          </div>
+
+          <details class="cm-details">
+            <summary>Детали применения</summary>
+            <div class="cm-details__body">
+              <p class="cm-p"></p>
+            </div>
+          </details>
+
+          <details class="cm-details">
+            <summary>Риски и побочные эффекты</summary>
+            <div class="cm-details__body">
+              <p class="cm-p"></p>
+            </div>
+          </details>
+        </div>
+      </section>
+
+      <section class="modal__content" data-cm-content="inventory" role="tabpanel" aria-labelledby="cm-tab-inventory" id="cm-pane-inventory" tabindex="0">
+        <div class="cm-pane" data-inventory>
+          <div class="cm-toolbar">
+            <input class="cm-input" type="search" placeholder="Поиск по инвентарю…" data-inv-search />
+            <div class="cm-toolbar__right">
+              <button class="cm-btn cm-btn--icon" type="button" data-filters-toggle aria-expanded="false" aria-label="Фильтры">
+                <i class="fa-solid fa-filter" aria-hidden="true"></i>
+              </button>
+
+              <div class="cm-filters" hidden data-filters-panel>
+                <div class="cm-filters__title">Фильтры</div>
+                <label class="cm-check">
+                  <input type="checkbox" value="Расходники" data-filter />
+                  <span>Расходники</span>
+                </label>
+                <label class="cm-check">
+                  <input type="checkbox" value="Артефакты" data-filter />
+                  <span>Артефакты</span>
+                </label>
+                <label class="cm-check">
+                  <input type="checkbox" value="Квестовые" data-filter />
+                  <span>Квестовые</span>
+                </label>
+
+                <div class="cm-filters__actions">
+                  <button class="cm-btn cm-btn--ghost" type="button" data-filters-clear>Сбросить</button>
+                  <button class="cm-btn" type="button" data-filters-close>Закрыть</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="cm-two">
+            <div class="cm-slots" data-slots="inventory" role="grid" aria-label="Инвентарь"></div>
+
+            <aside class="cm-infobox is-empty" data-info="inventory">
+              <div class="cm-infobox__title">Информация</div>
+              <div class="cm-infobox__body">
+                <div class="cm-infobox__img">
+                  <img alt="" data-info-img loading="lazy" decoding="async" />
+                </div>
+                <div class="cm-infobox__text">
+                  <div class="cm-infobox__name" data-info-name></div>
+                  <div class="cm-infobox__meta" data-info-cat></div>
+                  <div class="cm-infobox__desc" data-info-desc></div>
+                </div>
+              </div>
+            </aside>
+          </div>
+        </div>
+      </section>
+
+      <section class="modal__content" data-cm-content="gifts" role="tabpanel" aria-labelledby="cm-tab-gifts" id="cm-pane-gifts" tabindex="0">
+        <div class="cm-pane" data-gifts>
+          <div class="cm-toolbar">
+            <div class="cm-muted" data-gifts-status></div>
+          </div>
+
+          <div class="cm-two">
+            <div class="cm-slots" data-gifts-root role="grid" aria-label="Подарки"></div>
+
+            <aside class="cm-infobox is-empty" data-info="gifts" data-kind="gift">
+              <div class="cm-infobox__title">Информация</div>
+              <div class="cm-infobox__body">
+                <div class="cm-infobox__img">
+                  <img alt="" data-info-img loading="lazy" decoding="async" />
+                </div>
+                <div class="cm-infobox__text">
+                  <div class="cm-infobox__name" data-info-name></div>
+                  <div class="cm-infobox__meta" data-info-cat></div>
+                  <div class="cm-infobox__desc" data-info-desc></div>
+                </div>
+              </div>
+            </aside>
+          </div>
+        </div>
+      </section>
+
+      <section class="modal__content" data-cm-content="ach" role="tabpanel" aria-labelledby="cm-tab-ach" id="cm-pane-ach" tabindex="0">
+        <div class="cm-pane" data-ach>
+          <div class="cm-two">
+            <div>
+              <h3 class="cm-h3">Достижения игрока</h3>
+              <div class="cm-slots" data-slots="player-ach" role="grid" aria-label="Достижения игрока"></div>
+
+              <h3 class="cm-h3 cm-mt">Достижения персонажа</h3>
+              <div class="cm-slots" data-slots="char-ach" role="grid" aria-label="Достижения персонажа"></div>
+            </div>
+
+            <aside class="cm-infobox is-empty" data-info="ach">
+              <div class="cm-infobox__title">Информация</div>
+              <div class="cm-infobox__body">
+                <div class="cm-infobox__img">
+                  <img alt="" data-info-img loading="lazy" decoding="async" />
+                </div>
+                <div class="cm-infobox__text">
+                  <div class="cm-infobox__name" data-info-name></div>
+                  <div class="cm-infobox__meta" data-info-cat></div>
+                  <div class="cm-infobox__desc" data-info-desc></div>
+                </div>
+              </div>
+            </aside>
+          </div>
+        </div>
+      </section>
+
+      <section class="modal__content" data-cm-content="appearance" role="tabpanel" aria-labelledby="cm-tab-appearance" id="cm-pane-appearance" tabindex="0">
+        <div class="cm-pane">
+          <div class="cm-appearance">
+            <section class="cm-frame">
+              <div class="cm-frame__head">
+                <h3 class="cm-h3">Иконки профиля</h3>
+              </div>
+              <div class="cm-frame__body">
+                <div class="cm-icons"></div>
+              </div>
+            </section>
+
+            <section class="cm-frame">
+              <div class="cm-frame__head">
+                <h3 class="cm-h3">Фоны профиля</h3>
+              </div>
+              <div class="cm-frame__body">
+                <div class="cm-bgs"></div>
+              </div>
+            </section>
+          </div>
+        </div>
+      </section>
+    </div>
   </div>
-  <div class="modal__content active">
-<!--Профиль контент-->
-
-<div class="pf-cnt">Что здесь будет?</div>
-
-<!--Конец профиль контент-->
 </div>
-  <div class="modal__content">
-<!--Навыки контент-->
+      `.trim();
+    };
 
-<div class="pf-cnt">Что здесь будет?</div>
-
-<!--Конец навыки контент-->
-</div>
-  <div class="modal__content">
-<!--История контент-->
-
-<div class="pf-cnt">Ожидание обновления...</div>
-
-<!--Конец истории контент-->
-</div>
-</div>
-    `.trim();
+    // ================== STATE ==================
 
     const state = {
       busy: false,
@@ -611,7 +861,7 @@
       const overrides = {
         title: pageSlug,
         name: pageSlug,
-        content: PAGE_TEMPLATE,
+        content: buildPageTemplate(ctx), // <-- NEW: updated template
       };
 
       const params = buildAddPageParams(form, overrides);
