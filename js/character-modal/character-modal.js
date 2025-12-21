@@ -196,23 +196,6 @@
     };
   };
 
-  const cmModalLock = (() => {
-    let n = 0;
-    const on = () => {
-      n += 1;
-      if (n === 1) document.body.classList.add("cm-modal-open");
-    };
-    const off = () => {
-      n = Math.max(0, n - 1);
-      if (n === 0) document.body.classList.remove("cm-modal-open");
-    };
-    const forceOff = () => {
-      n = 0;
-      document.body.classList.remove("cm-modal-open");
-    };
-    return { on, off, forceOff };
-  })();
-
   const ensureEmptySlots = (slotsEl, targetCount) => {
     if (!slotsEl) return;
     const items = slotsEl.querySelectorAll('.cm-slot--item').length;
@@ -749,261 +732,265 @@
     });
   };
 
-const enhanceCharacter = (character, { uid, close } = {}) => {
-  if (!character || character.getAttribute("data-cm-initialized") === "1") return () => {};
-  character.setAttribute("data-cm-initialized", "1");
+  const enhanceCharacter = (character, { uid, close }) => {
+    if (!character || character.getAttribute('data-cm-initialized') === '1')
+      return () => {};
+    character.setAttribute('data-cm-initialized', '1');
 
-  applyMeter(character);
-  applyLazyImages(character);
+    applyMeter(character);
+    applyLazyImages(character);
 
-  const cleanup = [];
-  const aborters = [];
-  let giftsLoaded = false;
+    const cleanup = [];
+    const aborters = [];
+    let giftsLoaded = false;
 
-  cleanup.push(setupTabs(character));
+    const backdrop = findBackdropCandidate(character);
+    if (backdrop) backdrop.classList.add('cm-no-backdrop');
 
-  const invRoot = character.querySelector("[data-inventory]");
-  if (invRoot) {
-    const slots = invRoot.querySelector('[data-slots="inventory"]');
-    ensureEmptySlots(slots, config.slots.inventory);
+    const tabsCleanup = setupTabs(character);
+    cleanup.push(tabsCleanup);
 
-    const info = invRoot.querySelector('[data-info="inventory"]');
-    cleanup.push(
-      bindSlotSelection(slots, info, (btn) =>
-        normalizeItem({
-          name: btn.getAttribute("data-item-name"),
-          cat: btn.getAttribute("data-item-cat"),
-          desc: btn.getAttribute("data-item-desc"),
-          img: btn.getAttribute("data-item-img"),
-          qty: btn.getAttribute("data-item-qty"),
-        })
-      )
-    );
+    const invRoot = character.querySelector('[data-inventory]');
+    if (invRoot) {
+      const slots = invRoot.querySelector('[data-slots="inventory"]');
+      ensureEmptySlots(slots, config.slots.inventory);
 
-    cleanup.push(setupInventorySearchAndFilters(invRoot));
-  }
+      const info = invRoot.querySelector('[data-info="inventory"]');
+      const unbind = bindSlotSelection(slots, info, (btn) => {
+        const d = normalizeItem({
+          name: btn.getAttribute('data-item-name'),
+          cat: btn.getAttribute('data-item-cat'),
+          desc: btn.getAttribute('data-item-desc'),
+          img: btn.getAttribute('data-item-img'),
+          qty: btn.getAttribute('data-item-qty'),
+        });
+        return d;
+      });
+      cleanup.push(unbind);
 
-  const achRoot = character.querySelector("[data-ach]");
-  if (achRoot) {
-    const info = achRoot.querySelector('[data-info="ach"]');
+      const invCleanup = setupInventorySearchAndFilters(invRoot);
+      cleanup.push(invCleanup);
+    }
 
-    const p = achRoot.querySelector('[data-slots="player-ach"]');
-    ensureEmptySlots(p, config.slots.playerAch);
-    cleanup.push(
-      bindSlotSelection(p, info, (btn) =>
-        normalizeItem({
-          name: btn.getAttribute("data-item-name"),
-          cat: btn.getAttribute("data-item-cat"),
-          desc: btn.getAttribute("data-item-desc"),
-          img: btn.getAttribute("data-item-img"),
-        })
-      )
-    );
+    const achRoot = character.querySelector('[data-ach]');
+    if (achRoot) {
+      const info = achRoot.querySelector('[data-info="ach"]');
 
-    const c = achRoot.querySelector('[data-slots="char-ach"]');
-    ensureEmptySlots(c, config.slots.charAch);
-    cleanup.push(
-      bindSlotSelection(c, info, (btn) =>
-        normalizeItem({
-          name: btn.getAttribute("data-item-name"),
-          cat: btn.getAttribute("data-item-cat"),
-          desc: btn.getAttribute("data-item-desc"),
-          img: btn.getAttribute("data-item-img"),
-        })
-      )
-    );
-  }
-
-  cleanup.push(setupAppearancePickers(character));
-
-  const giftsSlots = character.querySelector("[data-gifts-root]");
-  const giftsInfo = character.querySelector('[data-info="gifts"]');
-  if (giftsSlots) ensureEmptySlots(giftsSlots, config.slots.gifts);
-
-  const loadGifts = async () => {
-    if (!config.showAwards) return;
-    if (giftsLoaded) return;
-    giftsLoaded = true;
-
-    const ac = new AbortController();
-    aborters.push(ac);
-
-    try {
-      renderState(giftsSlots, "skeleton", config.slots.gifts);
-      setInfoBox(giftsInfo, { name: "—", desc: "Загрузка…", img: "" });
-
-      const awards = uid ? await fetchAwards(uid, { signal: ac.signal }) : [];
-
-      if (!awards.length) {
-        renderState(giftsSlots, "empty", config.slots.gifts);
-        setInfoBox(giftsInfo, { name: "—", desc: config.awardsEmptyText, img: "" });
-        return;
-      }
-
-      renderGiftsIntoSlots(giftsSlots, awards);
+      const p = achRoot.querySelector('[data-slots="player-ach"]');
+      ensureEmptySlots(p, config.slots.playerAch);
       cleanup.push(
-        bindSlotSelection(giftsSlots, giftsInfo, (btn) => ({
-          name: btn.getAttribute("data-item-name") || "",
-          desc: btn.getAttribute("data-item-desc") || "",
-          img: btn.getAttribute("data-item-img") || "",
-        }))
+        bindSlotSelection(p, info, (btn) =>
+          normalizeItem({
+            name: btn.getAttribute('data-item-name'),
+            cat: btn.getAttribute('data-item-cat'),
+            desc: btn.getAttribute('data-item-desc'),
+            img: btn.getAttribute('data-item-img'),
+          }),
+        ),
       );
-    } catch (e) {
-      if (e && e.name === "AbortError") return;
-      renderState(giftsSlots, "error", config.slots.gifts);
-      setInfoBox(giftsInfo, { name: "—", desc: config.awardsErrorText, img: "" });
+
+      const c = achRoot.querySelector('[data-slots="char-ach"]');
+      ensureEmptySlots(c, config.slots.charAch);
+      cleanup.push(
+        bindSlotSelection(c, info, (btn) =>
+          normalizeItem({
+            name: btn.getAttribute('data-item-name'),
+            cat: btn.getAttribute('data-item-cat'),
+            desc: btn.getAttribute('data-item-desc'),
+            img: btn.getAttribute('data-item-img'),
+          }),
+        ),
+      );
     }
-  };
 
-  const onTabChange = (e) => {
-    const key = e?.detail?.tab || "";
-    if (key === "gifts") loadGifts();
-  };
-  character.addEventListener("cm:tabchange", onTabChange);
-  cleanup.push(() => character.removeEventListener("cm:tabchange", onTabChange));
+    cleanup.push(setupAppearancePickers(character));
 
-  const btnClose = character.querySelector("[data-modal-close]");
+    const giftsRoot = character.querySelector('[data-gifts]');
+    const giftsSlots = character.querySelector('[data-gifts-root]');
+    const giftsInfo = character.querySelector('[data-info="gifts"]');
 
-  const closeWrapped = () => {
-    aborters.forEach((a) => {
-      try { a.abort(); } catch (_) {}
-    });
+    if (giftsSlots) ensureEmptySlots(giftsSlots, config.slots.gifts);
 
-    cleanup.splice(0).reverse().forEach((fn) => {
-      try { fn(); } catch (_) {}
-    });
+    const loadGifts = async () => {
+      if (!config.showAwards) return;
+      if (giftsLoaded) return;
+      giftsLoaded = true;
 
-    if (typeof close === "function") close();
-  };
+      const ac = new AbortController();
+      aborters.push(ac);
 
-  let onCloseClick = null;
-  if (btnClose) {
-    onCloseClick = (e) => {
-      e.preventDefault();
-      closeWrapped();
+      try {
+        renderState(giftsSlots, 'skeleton', config.slots.gifts);
+        setInfoBox(giftsInfo, { name: '—', desc: 'Загрузка…', img: '' });
+
+        const awards = uid ? await fetchAwards(uid, { signal: ac.signal }) : [];
+
+        if (!awards.length) {
+          renderState(giftsSlots, 'empty', config.slots.gifts);
+          setInfoBox(giftsInfo, {
+            name: '—',
+            desc: config.awardsEmptyText,
+            img: '',
+          });
+          return;
+        }
+
+        renderGiftsIntoSlots(giftsSlots, awards);
+        cleanup.push(
+          bindSlotSelection(giftsSlots, giftsInfo, (btn) => ({
+            name: btn.getAttribute('data-item-name') || '',
+            desc: btn.getAttribute('data-item-desc') || '',
+            img: btn.getAttribute('data-item-img') || '',
+          })),
+        );
+      } catch (e) {
+        if (e && e.name === 'AbortError') return;
+        renderState(giftsSlots, 'error', config.slots.gifts);
+        setInfoBox(giftsInfo, {
+          name: '—',
+          desc: config.awardsErrorText,
+          img: '',
+        });
+      }
     };
-    btnClose.addEventListener("click", onCloseClick);
-    cleanup.push(() => btnClose.removeEventListener("click", onCloseClick));
-  }
 
-  return { closeWrapped };
-};
-
-function init() {
-  document.body.addEventListener("click", async (e) => {
-    const link = e.target.closest(".modal-link");
-    if (!link) return;
-
-    e.preventDefault();
-    const pageId = link.id;
-    if (!pageId) return;
-
-    const lastFocus = document.activeElement;
-
-    const box = createEl("div", { className: "character-modal" });
-    box.append(
-      createEl("div", { style: "padding:2em; text-align:center;", text: config.loadingText })
+    const onTabChange = (e) => {
+      const key = e?.detail?.tab || '';
+      if (key === 'gifts') loadGifts();
+    };
+    character.addEventListener('cm:tabchange', onTabChange);
+    cleanup.push(() =>
+      character.removeEventListener('cm:tabchange', onTabChange),
     );
 
-const modal = window.helpers.modal.openModal(box);
+    const btnClose = character.querySelector('[data-modal-close]');
+    const closeWrapped = () => {
+      aborters.forEach((a) => {
+        try {
+          a.abort();
+        } catch (_) {}
+      });
+      cleanup
+        .splice(0)
+        .reverse()
+        .forEach((fn) => {
+          try {
+            fn();
+          } catch (_) {}
+        });
+      if (backdrop) backdrop.classList.remove('cm-no-backdrop');
+      if (typeof close === 'function') close();
+    };
 
-// Сохраняем оригинальный close (с биндингом контекста!)
-const closeOrig = typeof modal?.close === "function" ? modal.close.bind(modal) : null;
-
-// Включаем лочилку сразу
-cmModalLock.on();
-
-let closed = false;
-let focusCleanup = null;
-let enhanced = null;
-let pageAbort = new AbortController();
-const lastFocus = document.activeElement;
-
-// Единый cleanup — его будем вызывать ИЗ ПЕРЕОПРЕДЕЛЁННОГО modal.close
-const finalize = () => {
-  try { pageAbort.abort(); } catch (_) {}
-
-  try { if (enhanced?.closeWrapped) enhanced.closeWrapped(); } catch (_) {}
-  try { if (focusCleanup) focusCleanup(); } catch (_) {}
-
-  cmModalLock.off();
-
-  if (lastFocus && typeof lastFocus.focus === "function") {
-    try { lastFocus.focus({ preventScroll: true }); } catch (_) {}
-  }
-};
-
-// Переопределяем close так, чтобы cleanup выполнялся всегда
-if (modal && closeOrig) {
-  modal.close = (...args) => {
-    if (closed) return;
-    closed = true;
-
-    // Сначала закрываем/чистим наш контент и логику
-    finalize();
-
-    // Затем даём форуму убрать DOM модалки
-    try { closeOrig(...args); } catch (_) {}
-  };
-}
-
-
-    let pageAbort = new AbortController();
-    let focusCleanup = null;
-    let enhanced = null;
-
-const closeAll = () => {
-  if (modal && typeof modal.close === "function") modal.close();
-  else {
-    // запасной вариант, если modal невалиден
-    cmModalLock.off();
-  }
-};
-
-    try {
-      const res = await helpers.request(`${config.ajaxFolder}${pageId}`, { signal: pageAbort.signal });
-      const buf = await res.arrayBuffer();
-      const decoder = new TextDecoder(config.charset);
-      const html = decoder.decode(buf);
-      const doc = parseHTML(html);
-
-      const character = doc.querySelector(".character");
-      const targetUid =
-        link.dataset.userId ||
-        link.dataset.uid ||
-        character?.dataset.userId ||
-        doc.querySelector("[data-user-id]")?.dataset.userId;
-
-      box.textContent = "";
-
-      if (character) box.append(character);
-      else box.append(...Array.from(doc.body.childNodes));
-
-      const root = box.querySelector(".character");
-      if (!root) {
-        box.textContent = "";
-        box.append(createEl("div", { style: "padding:2em; color:red;", text: config.errorText }));
-        return;
-      }
-
-      enhanced = enhanceCharacter(root, { uid: targetUid, close: closeAll });
-
-      const dialogEl = root.querySelector(".cm-shell") || root;
-      focusCleanup = setupFocusTrap(dialogEl, { onClose: closeAll });
-
-    } catch (err) {
-      if (err && err.name === "AbortError") return;
-
-      box.textContent = "";
-      box.append(createEl("div", { style: "padding:2em; color:red;", text: config.errorText }));
-
-      const fallback = box.querySelector(".character-modal") || box;
-      focusCleanup = setupFocusTrap(fallback, { onClose: closeAll });
+    if (btnClose) {
+      btnClose.addEventListener('click', (e) => {
+        e.preventDefault();
+        closeWrapped();
+      });
+      cleanup.push(() => btnClose.removeEventListener('click', closeWrapped));
     }
 
-    box.addEventListener("cm:request-close", closeAll);
-  });
-}
+    return { closeWrapped };
+  };
+
+  function init() {
+    document.body.addEventListener('click', async (e) => {
+      const link = e.target.closest('.modal-link');
+      if (!link) return;
+
+      e.preventDefault();
+      const pageId = link.id;
+      if (!pageId) return;
+
+      const lastFocus = document.activeElement;
+
+      const box = createEl('div', { className: 'character-modal' });
+      box.append(
+        createEl('div', {
+          style: 'padding:2em; text-align:center;',
+          text: config.loadingText,
+        }),
+      );
+
+      const modal = window.helpers.modal.openModal(box);
+      const closeOrig = modal?.close;
+
+      let pageAbort = new AbortController();
+
+      let focusCleanup = null;
+      let enhanced = null;
+
+      const closeAll = () => {
+        try {
+          pageAbort.abort();
+        } catch (_) {}
+        if (enhanced?.closeWrapped) enhanced.closeWrapped();
+        else if (typeof closeOrig === 'function') closeOrig();
+        if (focusCleanup) focusCleanup();
+        if (lastFocus && typeof lastFocus.focus === 'function')
+          lastFocus.focus({ preventScroll: true });
+      };
+
+      try {
+        const res = await helpers.request(`${config.ajaxFolder}${pageId}`, {
+          signal: pageAbort.signal,
+        });
+        const buf = await res.arrayBuffer();
+        const decoder = new TextDecoder(config.charset);
+        const html = decoder.decode(buf);
+        const doc = parseHTML(html);
+
+        const character = doc.querySelector('.character');
+        const targetUid =
+          link.dataset.userId ||
+          link.dataset.uid ||
+          character?.dataset.userId ||
+          doc.querySelector('[data-user-id]')?.dataset.userId;
+
+        box.textContent = '';
+
+        if (character) {
+          box.append(character);
+        } else {
+          box.append(...Array.from(doc.body.childNodes));
+        }
+
+        const root = box.querySelector('.character');
+        if (!root) {
+          box.textContent = '';
+          box.append(
+            createEl('div', {
+              style: 'padding:2em; color:red;',
+              text: config.errorText,
+            }),
+          );
+          return;
+        }
+
+        enhanced = enhanceCharacter(root, { uid: targetUid, close: closeOrig });
+
+        const dialogEl = root.querySelector('.cm-shell') || root;
+        focusCleanup = setupFocusTrap(dialogEl, { onClose: closeAll });
+
+        const btnClose = root.querySelector('[data-modal-close]');
+        if (btnClose)
+          btnClose.addEventListener('click', (ev) => ev.preventDefault());
+      } catch (err) {
+        if (err && err.name === 'AbortError') return;
+        box.textContent = '';
+        box.append(
+          createEl('div', {
+            style: 'padding:2em; color:red;',
+            text: config.errorText,
+          }),
+        );
+        const fallback = box.querySelector('.character-modal') || box;
+        focusCleanup = setupFocusTrap(fallback, { onClose: closeAll });
+      }
+
+      box.addEventListener('cm:request-close', closeAll);
+    });
+  }
 
   helpers.runOnceOnReady(init);
   helpers.register('characterModal', { init });
