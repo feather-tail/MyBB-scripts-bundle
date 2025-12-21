@@ -624,11 +624,12 @@
         form.querySelector('textarea[name="message"]') ||
         form.querySelector("textarea[name]");
     
-      const contentName = (contentEl && contentEl.name) ? contentEl.name : "content";
+      if (!contentEl || !contentEl.name) return false;
+    
+      const contentName = contentEl.name;
     
       const overrides = {
         [contentName]: newHtml,
-        content: newHtml,
       };
     
       const params = buildAddPageParams(form, overrides);
@@ -928,7 +929,7 @@
       const ctx = await ensureFullContext();
       const { pageSlug } = ctx;
     
-      const newContent = PAGE_TEMPLATE;
+      const newContent = buildPageTemplate(ctx);
     
       const updated = await tryUpdateExistingPage(pageSlug, newContent);
       if (updated) return { mode: "update" };
@@ -1096,5 +1097,6 @@
 
   bootstrap();
 })();
+
 
 
