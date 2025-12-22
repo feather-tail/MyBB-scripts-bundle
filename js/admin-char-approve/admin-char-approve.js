@@ -618,30 +618,39 @@
     const tryUpdateExistingPage = async (pageSlug, newHtml) => {
       const editUrl = config.endpoints.adminEditPageUrl(pageSlug);
       const doc = await fetchDoc(editUrl);
-
+    
       const form =
         doc.querySelector('form[action*="admin_pages.php"][method="post"]') ||
-        doc.querySelector('form');
-
+        doc.querySelector("form");
+    
       if (!form) return false;
-
+    
+      const actionRaw = form.getAttribute("action") || editUrl;
+      const actionUrl = toAbsUrl(actionRaw);
+    
       const contentEl =
         form.querySelector('textarea[name="content"]') ||
         form.querySelector('textarea[name="text"]') ||
         form.querySelector('textarea[name="message"]') ||
-        form.querySelector('textarea[name]');
-
+        form.querySelector("textarea[name]");
+    
       if (!contentEl || !contentEl.name) return false;
-
-      const contentName = contentEl.name;
-
+    
       const overrides = {
-        [contentName]: newHtml,
+        [contentEl.name]: newHtml,
       };
-
+    
+      const tagsEl = form.querySelector('input[name="tags"], textarea[name="tags"]');
+      if (tagsEl && tagsEl.name) {
+        const t = String(tagsEl.value || "").trim();
+        if (t.toLowerCase() === "character") {
+          overrides[tagsEl.name] = "";
+        }
+      }
+    
       const params = buildAddPageParams(form, overrides);
-      await postForm(editUrl, params, editUrl);
-
+      await postForm(actionUrl, params, editUrl);
+    
       return true;
     };
 
@@ -807,12 +816,12 @@
           continue;
         }
 
-        if ((type === 'checkbox' || type === 'radio') && el.checked) {
-          params.append(el.name, el.value ?? '1');
+        if (type === "checkbox" || type === "radio") {
+          if (el.checked) params.append(el.name, el.value ?? "1");
           continue;
         }
-
-        params.append(el.name, el.value ?? '');
+        
+        params.append(el.name, el.value ?? "");
       }
 
       overrideNames.forEach((name) => {
@@ -1108,3 +1117,4 @@
 
   bootstrap();
 })();
+
