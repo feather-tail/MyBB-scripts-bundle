@@ -327,7 +327,7 @@
                 <h3 class="cm-h3">Плашки</h3>
               </div>
               <div class="cm-frame__body">
-                <div class="cm-bgs"></div>
+                <div class="cm-plates"></div>
               </div>
             </section>
           </div>
@@ -1130,5 +1130,6 @@
 
   bootstrap();
 })();
+
 
 
