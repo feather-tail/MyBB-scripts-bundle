@@ -69,6 +69,21 @@
     const LABEL_CHANGE_GROUP =
       (config.ui && config.ui.changeGroupText) || "Перевести в группу";
 
+    // ================== STATE ==================
+    const state = { busy: false, context: null };
+
+    const notify = (message, type = "info") => {
+      if (typeof showToast === "function") showToast(message, { type });
+      else console.log(`[${type}] ${message}`);
+    };
+
+    const toAbsUrl = (url) => {
+      if (!url) return url;
+      if (/^https?:\/\//i.test(url)) return url;
+      if (url.startsWith("/")) return url;
+      return "/" + String(url).replace(/^\/+/, "");
+    };
+
     const escapeHtml = (s) =>
       String(s ?? "")
         .replace(/&/g, "&amp;")
@@ -77,10 +92,346 @@
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#39;");
 
+    // ВАЖНО: безопасно для cp1251 — превращаем всё не-ASCII в &#NNNN;
+    const encodeNonAscii = (s) =>
+      String(s ?? "").replace(/[\u0080-\uFFFF]/g, (ch) => `&#${ch.charCodeAt(0)};`);
+
+    const fetchJson = (url) =>
+      withTimeout(
+        fetch(toAbsUrl(url), {
+          credentials: "same-origin",
+          cache: "no-store",
+          headers: { "Cache-Control": "no-cache", Pragma: "no-cache" },
+        }),
+        config.requestTimeoutMs
+      ).then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      });
+
+    const fetchDoc = async (url) => {
+      const res = await withTimeout(
+        fetch(toAbsUrl(url), {
+          credentials: "same-origin",
+          cache: "no-store",
+          headers: { "Cache-Control": "no-cache", Pragma: "no-cache" },
+        }),
+        config.requestTimeoutMs
+      );
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const html = await res.text();
+      return parseHTML(html);
+    };
+
+    const findSubmitControl = (form) => {
+      let x = form.querySelector('input[type="submit"][name]');
+      if (x) return { name: x.name, value: x.value || "1" };
+
+      x = form.querySelector('button[type="submit"][name]');
+      if (x) return { name: x.name, value: x.value || "1" };
+
+      x = form.querySelector(
+        'input[name="save"],input[name="update"],input[name="submit"],input[name="add_page"]'
+      );
+      if (x) return { name: x.name, value: x.value || "1" };
+
+      return null;
+    };
+
+    // ========== IFRAME POST (как браузер) ==========
+    const iframePost = (actionUrl, params, refUrl) =>
+      new Promise((resolve, reject) => {
+        const action = toAbsUrl(actionUrl);
+        const ref = toAbsUrl(refUrl || actionUrl || "/");
+        const iframeName = `ks_if_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+
+        const iframe = document.createElement("iframe");
+        iframe.name = iframeName;
+        iframe.style.cssText =
+          "position:absolute;left:-99999px;top:-99999px;width:1px;height:1px;opacity:0;";
+        document.body.appendChild(iframe);
+
+        let stage = 0;
+        let done = false;
+
+        const cleanup = () => {
+          if (done) return;
+          done = true;
+          try {
+            iframe.removeEventListener("load", onLoad);
+          } catch {}
+          try {
+            iframe.remove();
+          } catch {}
+        };
+
+        const fail = (err) => {
+          cleanup();
+          reject(err instanceof Error ? err : new Error(String(err)));
+        };
+
+        const succeed = (payload) => {
+          cleanup();
+          resolve(payload);
+        };
+
+        const onLoad = () => {
+          try {
+            const doc = iframe.contentDocument;
+            if (!doc) return;
+
+            if (stage === 0) {
+              stage = 1;
+
+              const form = doc.createElement("form");
+              form.method = "POST";
+              form.action = action;
+              form.target = iframeName;
+
+              // просим браузер кодировать как админка
+              form.setAttribute("accept-charset", "windows-1251");
+
+              for (const [k, v] of params.entries()) {
+                const input = doc.createElement("input");
+                input.type = "hidden";
+                input.name = k;
+                input.value = String(v ?? "");
+                form.appendChild(input);
+              }
+
+              doc.body.appendChild(form);
+              form.submit();
+              return;
+            }
+
+            // stage 1: пришёл ответ после POST
+            const title = String(doc.title || "");
+            const text = String(doc.body ? doc.body.innerText || "" : "");
+            const hay = (title + "\n" + text).toLowerCase();
+
+            if (hay.includes("500") && hay.includes("internal server error")) {
+              console.error("[charProfileTool] iframe POST got 500:", title);
+              console.error("[charProfileTool] snippet:", text.slice(0, 800));
+              fail(new Error("HTTP 500 (iframe submit)"));
+              return;
+            }
+
+            // частая ситуация: улетели на логин/ошибку прав
+            if (
+              hay.includes("вход") ||
+              hay.includes("login") ||
+              hay.includes("пароль") ||
+              hay.includes("доступ") ||
+              hay.includes("forbidden")
+            ) {
+              console.warn("[charProfileTool] iframe POST response подозрительный:", title);
+              console.warn("[charProfileTool] snippet:", text.slice(0, 800));
+              // не фейлим тут — решает проверка ниже
+            }
+
+            succeed({ title, text });
+          } catch (e) {
+            fail(e);
+          }
+        };
+
+        iframe.addEventListener("load", onLoad);
+
+        try {
+          iframe.src = ref; // чтобы referer был “админский”
+        } catch (e) {
+          fail(e);
+        }
+      });
+
+    const shouldUseIframeForUrl = (url) =>
+      /\/admin_pages\.php(\?|$)/i.test(String(url || ""));
+
+    const postForm = async (url, params, refUrl) => {
+      if (shouldUseIframeForUrl(url) || shouldUseIframeForUrl(refUrl)) {
+        await withTimeout(iframePost(url, params, refUrl), config.requestTimeoutMs);
+        return { ok: true };
+      }
+
+      const res = await withTimeout(
+        fetch(toAbsUrl(url), {
+          method: "POST",
+          credentials: "same-origin",
+          cache: "no-store",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Cache-Control": "no-cache",
+            Pragma: "no-cache",
+          },
+          body: params.toString(),
+          referrer: toAbsUrl(refUrl || url),
+        }),
+        config.requestTimeoutMs
+      );
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res;
+    };
+
+    // ========== Парсинг анкеты ==========
+    const toIntOrNull = (s) => {
+      const n = parseInt(String(s || "").replace(/[^\d\-]/g, ""), 10);
+      return Number.isFinite(n) ? n : null;
+    };
+
+    const textFrom = (el) =>
+      String((el && (el.textContent || el.innerText)) || "").trim();
+
+    const decodeHtmlEntities = (str) => {
+      if (!str) return "";
+      let out = String(str);
+      out = out.replace(/&#(\d+);/g, (_, num) =>
+        String.fromCharCode(Number(num) || 0)
+      );
+      out = out
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;|&apos;/g, "'")
+        .replace(/&amp;/g, "&");
+      return out;
+    };
+
+    const parseProfileFromHtml = (html) => {
+      if (!html) return null;
+      const doc = parseHTML(html);
+
+      const nameRu = textFrom(
+        doc.querySelector(".custom_tag_charname p, .char-name-ru p")
+      );
+      const nameEn = textFrom(
+        doc.querySelector(".custom_tag_charnameen p, .char-name-en p")
+      );
+      const age = toIntOrNull(
+        textFrom(doc.querySelector(".custom_tag_charage p, .char-age p"))
+      );
+      const race = textFrom(
+        doc.querySelector(".custom_tag_charrace p, .char-race p")
+      );
+
+      const pairName = textFrom(
+        doc.querySelector(".custom_tag_charpair.char-pair, .custom_tag_charpair")
+      );
+
+      const role = textFrom(
+        doc.querySelector(".custom_tag_charrole.char-role, .custom_tag_charrole")
+      );
+
+      const hasAny = nameRu || nameEn || age !== null || race || pairName || role;
+      if (!hasAny) return null;
+
+      return {
+        name: nameRu || "",
+        name_en: nameEn || "",
+        age,
+        race: race || "",
+        pair_name: pairName || "",
+        role: role || "",
+      };
+    };
+
+    const parseLzHtmlFromHtml = (html) => {
+      if (!html) return "";
+      const doc = parseHTML(html);
+      const node = doc.querySelector(config.selectors.lzSource);
+      if (!node) return "";
+      return decodeHtmlEntities(String(node.innerHTML || "").trim());
+    };
+
+    const getRaceLetter = (race) => {
+      const r = String(race || "").toLowerCase();
+      if (r === "фамильяр") return "f";
+      if (r === "ведьма" || r === "ведьмак") return "w";
+      if (r === "осквернённый") return "t";
+      if (r === "человек") return "h";
+      return "";
+    };
+
+    const generateFileName = (nameEn) =>
+      String(nameEn || "")
+        .toLowerCase()
+        .trim()
+        .replace(/\s+/g, "_")
+        .replace(/[^a-zа-яё_]/g, "");
+
+    const getTopicIdFromUrl = (url) => {
+      const m = String(url).match(/viewtopic\.php\?id=(\d+)/);
+      return m ? m[1] : null;
+    };
+
+    const pickFirstPost = (posts) => {
+      if (!Array.isArray(posts) || !posts.length) return null;
+      const sorted = [...posts].sort((a, b) => Number(a.id) - Number(b.id));
+      return sorted[0] || null;
+    };
+
+    const getPostsForTopic = async (topicId) => {
+      const url = `${config.endpoints.apiBase}?method=post.get&topic_id=${encodeURIComponent(
+        topicId
+      )}&fields=id,topic_id,message,username,link&limit=100`;
+      const data = await fetchJson(url);
+      if (data && data.response) {
+        return data.response.map((post) => ({
+          id: Number(post.id),
+          topic_id: Number(post.topic_id),
+          username: String(post.username || ""),
+          message: String(post.message || ""),
+          link: String(post.link || ""),
+        }));
+      }
+      return [];
+    };
+
+    const getUserIdByUsername = async (username) => {
+      if (!username) return null;
+      const encoded = encodeURIComponent(String(username).trim());
+      const url = `${config.endpoints.apiBase}?method=users.get&username=${encoded}&fields=user_id`;
+      const data = await fetchJson(url);
+      if (
+        data &&
+        data.response &&
+        Array.isArray(data.response.users) &&
+        data.response.users.length > 0
+      ) {
+        return data.response.users[0].user_id;
+      }
+      return null;
+    };
+
+    const findUserId = async (characterData, firstPost) => {
+      let userId = null;
+
+      if (characterData.name_en) {
+        userId = await getUserIdByUsername(characterData.name_en);
+        if (userId) return userId;
+      }
+      if (characterData.name) {
+        userId = await getUserIdByUsername(characterData.name);
+        if (userId) return userId;
+      }
+      if (firstPost.username) {
+        userId = await getUserIdByUsername(firstPost.username);
+        if (userId) return userId;
+      }
+      if (characterData.name_en) {
+        const firstName = characterData.name_en.split(" ")[0];
+        if (firstName && firstName !== characterData.name_en) {
+          userId = await getUserIdByUsername(firstName);
+          if (userId) return userId;
+        }
+      }
+      return null;
+    };
+
+    // ========== Шаблон страницы ==========
     const buildPageTemplate = (ctx) => {
       const uid = Number(ctx?.userId) || 0;
       const nameEn = escapeHtml(ctx?.characterData?.name_en || "");
-      const pairNameRaw = (ctx?.characterData?.pair_name || "").trim();
+      const pairNameRaw = String(ctx?.characterData?.pair_name || "").trim();
       const pairName = escapeHtml(pairNameRaw || "Неизвестно");
       const roleRaw = String(ctx?.characterData?.role || "").trim();
       const role = escapeHtml(roleRaw || "");
@@ -208,7 +559,7 @@
       <section class="modal__content" data-cm-content="inventory" role="tabpanel" aria-labelledby="cm-tab-inventory" id="cm-pane-inventory" tabindex="0">
         <div class="cm-pane" data-inventory>
           <div class="cm-toolbar">
-            <input class="cm-input" type="search" placeholder="Поиск по инвентарю…" data-inv-search />
+            <input class="cm-input" type="search" placeholder="Поиск по инвентарю..." data-inv-search />
             <div class="cm-toolbar__right">
               <button class="cm-btn cm-btn--icon" type="button" data-filters-toggle aria-expanded="false" aria-label="Фильтры">
                 <i class="fa-solid fa-filter" aria-hidden="true"></i>
@@ -340,367 +691,7 @@
       `.trim();
     };
 
-    // ================== STATE ==================
-
-    const state = {
-      busy: false,
-      context: null,
-    };
-
-    const notify = (message, type = "info") => {
-      if (typeof showToast === "function") showToast(message, { type });
-      else console.log(`[${type}] ${message}`);
-    };
-
-    const toAbsUrl = (url) => {
-      if (!url) return url;
-      if (/^https?:\/\//i.test(url)) return url;
-      if (url.startsWith("/")) return url;
-      return "/" + String(url).replace(/^\/+/, "");
-    };
-
-    const fetchJson = (url) =>
-      withTimeout(fetch(toAbsUrl(url), { credentials: "same-origin" }), config.requestTimeoutMs).then(
-        (res) => {
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          return res.json();
-        }
-      );
-
-    const fetchDoc = async (url) => {
-      const res = await withTimeout(
-        fetch(toAbsUrl(url), { credentials: "same-origin" }),
-        config.requestTimeoutMs
-      );
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const html = await res.text();
-      return parseHTML(html);
-    };
-
-    // ========= главное изменение: POST в admin_pages — через iframe (нативный submit) =========
-
-    const decodeResponseSmart = async (res) => {
-      try {
-        const buf = await res.arrayBuffer();
-        try {
-          return new TextDecoder("windows-1251").decode(buf);
-        } catch {
-          return new TextDecoder().decode(buf);
-        }
-      } catch {
-        return "";
-      }
-    };
-
-    const postFormFetch = async (url, params, refUrl) => {
-      const finalUrl = toAbsUrl(url);
-      const ref = refUrl ? toAbsUrl(refUrl) : finalUrl;
-
-      const res = await withTimeout(
-        fetch(finalUrl, {
-          method: "POST",
-          credentials: "same-origin",
-          headers: { "Content-Type": "application/x-www-form-urlencoded" },
-          body: params.toString(),
-          referrer: ref,
-        }),
-        config.requestTimeoutMs
-      );
-
-      if (!res.ok) {
-        const txt = await decodeResponseSmart(res);
-        throw new Error(`HTTP ${res.status}${txt ? `: ${txt.slice(0, 400)}` : ""}`);
-      }
-
-      return res;
-    };
-
-    const iframePost = (actionUrl, params, refUrl) =>
-      new Promise((resolve, reject) => {
-        const action = toAbsUrl(actionUrl);
-        const ref = toAbsUrl(refUrl || actionUrl || "/");
-        const iframeName = `ks_if_${Date.now()}_${Math.random().toString(16).slice(2)}`;
-
-        const iframe = document.createElement("iframe");
-        iframe.name = iframeName;
-        iframe.style.cssText = "position:absolute;left:-99999px;top:-99999px;width:1px;height:1px;opacity:0;";
-        document.body.appendChild(iframe);
-
-        let stage = 0; // 0: load ref, 1: submit done -> wait response
-        let done = false;
-
-        const cleanup = () => {
-          if (done) return;
-          done = true;
-          try {
-            iframe.removeEventListener("load", onLoad);
-          } catch {}
-          try {
-            iframe.remove();
-          } catch {}
-        };
-
-        const fail = (err) => {
-          cleanup();
-          reject(err instanceof Error ? err : new Error(String(err)));
-        };
-
-        const succeed = (payload) => {
-          cleanup();
-          resolve(payload);
-        };
-
-        const onLoad = () => {
-          try {
-            const doc = iframe.contentDocument;
-            if (!doc) return;
-
-            // стадия 0: референсная страница загружена -> создаём форму в iframe-документе и сабмитим
-            if (stage === 0) {
-              stage = 1;
-
-              const form = doc.createElement("form");
-              form.method = "POST";
-              form.action = action;
-              form.target = iframeName;
-
-              // ВАЖНО: просим браузер кодировать как cp1251 (как админка)
-              form.setAttribute("accept-charset", "windows-1251");
-
-              for (const [k, v] of params.entries()) {
-                const input = doc.createElement("input");
-                input.type = "hidden";
-                input.name = k;
-                input.value = String(v ?? "");
-                form.appendChild(input);
-              }
-
-              doc.body.appendChild(form);
-              form.submit();
-              return;
-            }
-
-            // стадия 1: ответ после POST
-            const title = String(doc.title || "");
-            const text = String(doc.body ? doc.body.innerText || "" : "");
-            const html = String(doc.documentElement ? doc.documentElement.outerHTML || "" : "");
-
-            // детектим 500 по заголовку/тексту (nginx обычно пишет это явно)
-            const hay = (title + "\n" + text).toLowerCase();
-            if (hay.includes("500") && hay.includes("internal server error")) {
-              // выведем кусок в консоль — это часто сразу объясняет, что именно упало
-              console.error("[charProfileTool] iframe POST got 500 page. title:", title);
-              console.error("[charProfileTool] snippet:", text.slice(0, 800));
-              fail(new Error("HTTP 500 (iframe submit)"));
-              return;
-            }
-
-            succeed({ title, text, html });
-          } catch (e) {
-            fail(e);
-          }
-        };
-
-        iframe.addEventListener("load", onLoad);
-
-        // запускаем загрузку refUrl внутрь iframe (чтобы Referer был как у ручного сохранения)
-        try {
-          iframe.src = ref;
-        } catch (e) {
-          fail(e);
-        }
-      });
-
-    const shouldUseIframeForUrl = (url) =>
-      /\/admin_pages\.php(\?|$)/i.test(String(url || ""));
-
-    const postForm = async (url, params, refUrl) => {
-      // admin_pages — только iframe submit (иначе часто ловится 500)
-      if (shouldUseIframeForUrl(url) || shouldUseIframeForUrl(refUrl)) {
-        await withTimeout(iframePost(url, params, refUrl), config.requestTimeoutMs);
-        return { ok: true };
-      }
-      return postFormFetch(url, params, refUrl);
-    };
-
-    // =======================================================================================
-
-    const encodeNonAscii = (s) =>
-      String(s).replace(/[\u0080-\uFFFF]/g, (ch) => `&#${ch.charCodeAt(0)};`);
-
-    const toIntOrNull = (s) => {
-      const n = parseInt(String(s || "").replace(/[^\d\-]/g, ""), 10);
-      return Number.isFinite(n) ? n : null;
-    };
-
-    const getTopicIdFromUrl = (url) => {
-      const m = String(url).match(/viewtopic\.php\?id=(\d+)/);
-      return m ? m[1] : null;
-    };
-
-    const textFrom = (el) =>
-      String((el && (el.textContent || el.innerText)) || "").trim();
-
-    const decodeHtmlEntities = (str) => {
-      if (!str) return "";
-      let out = String(str);
-
-      out = out.replace(/&#(\d+);/g, (_, num) =>
-        String.fromCharCode(Number(num) || 0)
-      );
-
-      out = out
-        .replace(/&lt;/g, "<")
-        .replace(/&gt;/g, ">")
-        .replace(/&quot;/g, '"')
-        .replace(/&#39;|&apos;/g, "'")
-        .replace(/&amp;/g, "&");
-
-      return out;
-    };
-
-    const parseProfileFromHtml = (html) => {
-      if (!html) return null;
-      const doc = parseHTML(html);
-
-      const nameRu = textFrom(
-        doc.querySelector(".custom_tag_charname p, .char-name-ru p")
-      );
-      const nameEn = textFrom(
-        doc.querySelector(".custom_tag_charnameen p, .char-name-en p")
-      );
-      const age = toIntOrNull(
-        textFrom(doc.querySelector(".custom_tag_charage p, .char-age p"))
-      );
-      const race = textFrom(
-        doc.querySelector(".custom_tag_charrace p, .char-race p")
-      );
-
-      const pairName = textFrom(
-        doc.querySelector(".custom_tag_charpair.char-pair, .custom_tag_charpair")
-      );
-
-      const role = textFrom(
-        doc.querySelector(".custom_tag_charrole.char-role, .custom_tag_charrole")
-      );
-
-      const hasAny = nameRu || nameEn || age !== null || race || pairName || role;
-      if (!hasAny) return null;
-
-      return {
-        name: nameRu || "",
-        name_en: nameEn || "",
-        age,
-        race: race || "",
-        pair_name: pairName || "",
-        role: role || "",
-      };
-    };
-
-    const parseLzHtmlFromHtml = (html) => {
-      if (!html) return "";
-      const doc = parseHTML(html);
-      const node = doc.querySelector(config.selectors.lzSource);
-      if (!node) return "";
-      const raw = node.innerHTML.trim();
-      return decodeHtmlEntities(raw);
-    };
-
-    const getRaceLetter = (race) => {
-      const raceLower = String(race || "").toLowerCase();
-      if (raceLower === "фамильяр") return "f";
-      if (raceLower === "ведьма" || raceLower === "ведьмак") return "w";
-      if (raceLower === "осквернённый") return "t";
-      if (raceLower === "человек") return "h";
-      return "";
-    };
-
-    const generateFileName = (nameEn) =>
-      String(nameEn || "")
-        .toLowerCase()
-        .trim()
-        .replace(/\s+/g, "_")
-        .replace(/[^a-zа-яё_]/g, "");
-
-    const pickFirstPost = (posts) => {
-      if (!Array.isArray(posts) || !posts.length) return null;
-      const sorted = [...posts].sort((a, b) => Number(a.id) - Number(b.id));
-      return sorted[0] || null;
-    };
-
-    const getPostsForTopic = async (topicId) => {
-      const url = `${config.endpoints.apiBase}?method=post.get&topic_id=${encodeURIComponent(
-        topicId
-      )}&fields=id,topic_id,message,username,link&limit=100`;
-      const data = await fetchJson(url);
-      if (data && data.response) {
-        return data.response.map((post) => ({
-          id: Number(post.id),
-          topic_id: Number(post.topic_id),
-          username: String(post.username || ""),
-          message: String(post.message || ""),
-          link: String(post.link || ""),
-        }));
-      }
-      return [];
-    };
-
-    const getUserIdByUsername = async (username) => {
-      if (!username) return null;
-      const encoded = encodeURIComponent(String(username).trim());
-      const url = `${config.endpoints.apiBase}?method=users.get&username=${encoded}&fields=user_id`;
-      const data = await fetchJson(url);
-      if (
-        data &&
-        data.response &&
-        Array.isArray(data.response.users) &&
-        data.response.users.length > 0
-      ) {
-        return data.response.users[0].user_id;
-      }
-      return null;
-    };
-
-    const findUserId = async (characterData, firstPost) => {
-      let userId = null;
-
-      if (characterData.name_en) {
-        userId = await getUserIdByUsername(characterData.name_en);
-        if (userId) return userId;
-      }
-      if (characterData.name) {
-        userId = await getUserIdByUsername(characterData.name);
-        if (userId) return userId;
-      }
-      if (firstPost.username) {
-        userId = await getUserIdByUsername(firstPost.username);
-        if (userId) return userId;
-      }
-      if (characterData.name_en) {
-        const firstName = characterData.name_en.split(" ")[0];
-        if (firstName && firstName !== characterData.name_en) {
-          userId = await getUserIdByUsername(firstName);
-          if (userId) return userId;
-        }
-      }
-      return null;
-    };
-
-    const findSubmitControl = (form) => {
-      let x = form.querySelector('input[type="submit"][name]');
-      if (x) return { name: x.name, value: x.value || "1" };
-
-      x = form.querySelector('button[type="submit"][name]');
-      if (x) return { name: x.name, value: x.value || "1" };
-
-      x = form.querySelector(
-        'input[name="update"],input[name="submit"],input[name="save"],input[name="add_page"],input[name="update_group_membership"]'
-      );
-      if (x) return { name: x.name, value: x.value || "1" };
-
-      return null;
-    };
-
+    // ========== Формы профиля ==========
     const fetchProfileForm = async (userId) => {
       const url = config.endpoints.profileUrl(userId);
       const doc = await fetchDoc(url);
@@ -723,35 +714,14 @@
       const form =
         doc.querySelector(config.endpoints.adminProfileFormSelector) ||
         doc.querySelector('form[id^="profile"]');
-      if (!form) {
-        throw new Error(
-          "Форма управления пользователем (группы) не найдена в профиле."
-        );
-      }
+      if (!form) throw new Error("Форма управления пользователем не найдена.");
       const actionRaw = form.getAttribute("action") || url;
       const actionUrl = toAbsUrl(actionRaw);
       return { form, actionUrl };
     };
 
-    const fetchAddPageForm = async () => {
-      const url = config.endpoints.adminAddPageUrl;
-      const doc = await fetchDoc(url);
-      const form =
-        doc.querySelector(config.endpoints.adminAddPageFormSelector) ||
-        doc.querySelector("form#addpage");
-      if (!form) {
-        throw new Error("Форма создания страницы не найдена в HTML админки.");
-      }
-      const actionRaw = form.getAttribute("action") || url;
-      const actionUrl = toAbsUrl(actionRaw);
-      return { form, actionUrl, pageUrl: url };
-    };
-
     const buildProfileParams = (form, overrideMap) => {
       const params = new URLSearchParams();
-      const isHidden = (el) =>
-        el.tagName === "INPUT" && (el.type || "").toLowerCase() === "hidden";
-
       const overrideNames = new Set(Object.keys(overrideMap || {}));
 
       for (const el of Array.from(form.elements || [])) {
@@ -762,19 +732,8 @@
 
         if (type === "submit") continue;
 
-        if (isHidden(el)) {
-          params.append(el.name, el.value ?? "");
-          continue;
-        }
-
-        if (el.name === "form_sent") {
-          params.set("form_sent", el.value || "1");
-          continue;
-        }
-
         if (overrideNames.has(el.name)) {
-          const raw = overrideMap[el.name];
-          params.set(el.name, encodeNonAscii(raw ?? ""));
+          params.set(el.name, encodeNonAscii(overrideMap[el.name] ?? ""));
           continue;
         }
 
@@ -795,9 +754,7 @@
       if (!params.has("form_sent")) params.set("form_sent", "1");
 
       overrideNames.forEach((name) => {
-        if (!params.has(name)) {
-          params.set(name, encodeNonAscii(overrideMap[name] ?? ""));
-        }
+        if (!params.has(name)) params.set(name, encodeNonAscii(overrideMap[name] ?? ""));
       });
 
       const submit = findSubmitControl(form);
@@ -806,13 +763,33 @@
       return params;
     };
 
-    // для admin_pages overrides отправляем “как есть” (пусть iframe сделает cp1251)
-    const buildAddPageParams = (form, overrideMap) => {
-      const params = new URLSearchParams();
-      const isHidden = (el) =>
-        el.tagName === "INPUT" && (el.type || "").toLowerCase() === "hidden";
+    // ========== Формы админ-страниц ==========
+    const fetchAddPageForm = async () => {
+      const url = config.endpoints.adminAddPageUrl;
+      const doc = await fetchDoc(url);
+      const form =
+        doc.querySelector(config.endpoints.adminAddPageFormSelector) ||
+        doc.querySelector("form#addpage");
+      if (!form) throw new Error("Форма создания страницы не найдена.");
+      return { form, pageUrl: url };
+    };
 
-      const overrideNames = new Set(Object.keys(overrideMap || {}));
+    const fetchEditPageForm = async (pageSlug) => {
+      const editUrl = config.endpoints.adminEditPageUrl(pageSlug);
+      const doc = await fetchDoc(editUrl);
+
+      const form =
+        doc.querySelector('form[action*="admin_pages.php"][method="post"]') ||
+        doc.querySelector("form");
+      if (!form) return { doc, form: null, editUrl };
+
+      // Мы будем постить ВСЕГДА на editUrl (а не form.action), чтобы точно был ?edit_page=
+      return { doc, form, editUrl };
+    };
+
+    const buildAdminPageParamsFromForm = (form, overrides = {}) => {
+      const params = new URLSearchParams();
+      const overrideNames = new Set(Object.keys(overrides || {}));
 
       for (const el of Array.from(form.elements || [])) {
         if (!el.name || el.disabled) continue;
@@ -822,13 +799,8 @@
 
         if (type === "submit") continue;
 
-        if (isHidden(el)) {
-          params.append(el.name, el.value ?? "");
-          continue;
-        }
-
         if (overrideNames.has(el.name)) {
-          params.set(el.name, String(overrideMap[el.name] ?? ""));
+          params.set(el.name, String(overrides[el.name] ?? ""));
           continue;
         }
 
@@ -843,13 +815,12 @@
           continue;
         }
 
+        // textarea/input/select
         params.append(el.name, el.value ?? "");
       }
 
       overrideNames.forEach((name) => {
-        if (!params.has(name)) {
-          params.set(name, String(overrideMap[name] ?? ""));
-        }
+        if (!params.has(name)) params.set(name, String(overrides[name] ?? ""));
       });
 
       const submit = findSubmitControl(form);
@@ -858,34 +829,105 @@
       return params;
     };
 
-    const tryUpdateExistingPage = async (pageSlug, newHtml) => {
-      const editUrl = config.endpoints.adminEditPageUrl(pageSlug);
-      const doc = await fetchDoc(editUrl);
+    const readAdminPageTextareaValue = (doc) => {
+      const ta =
+        doc.querySelector('textarea[name="content"]') ||
+        doc.querySelector('textarea[name="text"]') ||
+        doc.querySelector('textarea[name="message"]') ||
+        doc.querySelector("textarea[name]");
+      if (!ta) return "";
+      return String(ta.value || ta.textContent || "");
+    };
 
-      const form =
-        doc.querySelector('form[action*="admin_pages.php"][method="post"]') ||
-        doc.querySelector("form");
+    const assertPageUpdated = async (pageSlug, marker) => {
+      const { doc } = await fetchEditPageForm(pageSlug);
+      const val = readAdminPageTextareaValue(doc);
+      if (val.includes(marker)) return true;
+
+      // часто подсказка лежит прямо в HTML страницы
+      const title = String(doc.title || "");
+      const bodyText = String(doc.body ? doc.body.innerText || "" : "");
+      console.error("[charProfileTool] verify failed. title:", title);
+      console.error("[charProfileTool] verify failed. textarea snippet:", val.slice(0, 600));
+      console.error("[charProfileTool] verify failed. body snippet:", bodyText.slice(0, 800));
+
+      throw new Error(
+        "POST прошёл, но контент страницы не изменился (проверка не нашла новый шаблон). " +
+          "Смотри console: там есть куски ответа/страницы — обычно видно причину (права/валидация/редирект)."
+      );
+    };
+
+    const tryUpdateExistingPage = async (pageSlug, newHtml) => {
+      const { doc, form, editUrl } = await fetchEditPageForm(pageSlug);
       if (!form) return false;
 
-      const contentEl =
-        form.querySelector('textarea[name="content"]') ||
-        form.querySelector('textarea[name="text"]') ||
-        form.querySelector('textarea[name="message"]') ||
-        form.querySelector("textarea[name]");
-      if (!contentEl || !contentEl.name) return false;
+      // Подстрахуемся: перепишем ВСЕ textarea[name], вдруг имя не content
+      const textareas = Array.from(form.querySelectorAll("textarea[name]"));
+      if (!textareas.length) return false;
 
-      const actionRaw = form.getAttribute("action") || editUrl;
-      const actionUrl = toAbsUrl(actionRaw);
+      const encodedHtml = encodeNonAscii(newHtml);
 
-      const overrides = { [contentEl.name]: newHtml };
-      const params = buildAddPageParams(form, overrides);
+      const overrides = {};
+      textareas.forEach((ta) => {
+        overrides[ta.name] = encodedHtml;
+      });
 
-      // ВАЖНО: refUrl = editUrl, чтобы Referer был “как в админке”
-      await postForm(actionUrl, params, editUrl);
+      // часто есть title/name/edit_page — тоже проставим, если поля есть
+      const hasTitle = !!form.querySelector('input[name="title"]');
+      const hasName = !!form.querySelector('input[name="name"]');
+      if (hasTitle) overrides.title = pageSlug;
+      if (hasName) overrides.name = pageSlug;
+
+      let params = buildAdminPageParamsFromForm(form, overrides);
+
+      // подстраховка: иногда edit_page хотят и в POST
+      params.set("edit_page", pageSlug);
+
+      // подстраховка: если submit не добавился — добавим save=1
+      if (!params.has("save") && !params.has("update") && !params.has("submit")) {
+        params.set("save", "1");
+      }
+
+      // POST делаем на editUrl, и ref тоже editUrl
+      await postForm(editUrl, params, editUrl);
+
+      // проверяем реальное изменение
+      await assertPageUpdated(pageSlug, "cm-shell");
 
       return true;
     };
 
+    const createNewPage = async (pageSlug, newHtml) => {
+      const { form, pageUrl } = await fetchAddPageForm();
+
+      const encodedHtml = encodeNonAscii(newHtml);
+
+      // title/name + все textarea
+      const overrides = {
+        title: pageSlug,
+        name: pageSlug,
+      };
+
+      const textareas = Array.from(form.querySelectorAll("textarea[name]"));
+      if (!textareas.length) throw new Error("В форме создания страницы нет textarea[name].");
+      textareas.forEach((ta) => {
+        overrides[ta.name] = encodedHtml;
+      });
+
+      let params = buildAdminPageParamsFromForm(form, overrides);
+
+      // подстраховка: если submit не добавился — добавим save=1
+      if (!params.has("save") && !params.has("add_page") && !params.has("submit")) {
+        params.set("save", "1");
+      }
+
+      await postForm(pageUrl, params, pageUrl);
+
+      // после создания проверяем через edit_page
+      await assertPageUpdated(pageSlug, "cm-shell");
+    };
+
+    // ========== Контекст ==========
     const ensureBasicContext = async () => {
       if (state.context) return state.context;
 
@@ -900,13 +942,11 @@
       if (!firstPost) throw new Error("Не удалось найти первый пост в теме.");
 
       const characterData = parseProfileFromHtml(firstPost.message);
-      if (!characterData) {
-        throw new Error("Не удалось распознать анкету персонажа. Проверьте BB-коды.");
-      }
-      if (!characterData.name) throw new Error("Не найдено имя персонажа (BB-код [charname]).");
-      if (!characterData.name_en) throw new Error("Не найдено англ. имя (BB-код [charnameen]).");
-      if (!characterData.age) throw new Error("Не найден возраст (BB-код [charage]).");
-      if (!characterData.race) throw new Error("Не найдена раса (BB-код [charrace]).");
+      if (!characterData) throw new Error("Не удалось распознать анкету персонажа.");
+      if (!characterData.name) throw new Error("Не найдено имя персонажа ([charname]).");
+      if (!characterData.name_en) throw new Error("Не найдено англ. имя ([charnameen]).");
+      if (!characterData.age) throw new Error("Не найден возраст ([charage]).");
+      if (!characterData.race) throw new Error("Не найдена раса ([charrace]).");
 
       const userId = await findUserId(characterData, firstPost);
       if (!userId) throw new Error("Не удалось определить user_id по имени персонажа.");
@@ -931,24 +971,28 @@
       if (ctx.lzHtml === undefined) {
         const lzHtml = parseLzHtmlFromHtml(ctx.firstPostHtml);
         if (!lzHtml && requireLz) {
-          throw new Error("Не найден HTML личного звания (BB-код [charpt]).");
+          throw new Error("Не найден HTML личного звания ([charpt]).");
         }
         ctx.lzHtml = lzHtml || "";
       }
 
       if (!ctx.pageSlug) ctx.pageSlug = generateFileName(ctx.characterData.name_en);
-
       return ctx;
     };
 
+    // ========== Действия ==========
     const fillProfile = async () => {
       const ctx = await ensureFullContext({ requireLz: true });
       const { characterData, lzHtml, userId, topicUrl } = ctx;
 
       const raceLetter = getRaceLetter(characterData.race);
       const raceField = `<div title="${characterData.race}">${raceLetter}</div>`;
-      const lzField = `<div class="lz-name"><a href="${topicUrl}">${characterData.name}</a>, ${characterData.age}</div> <div class="lz-text">${lzHtml}</div>`;
-      const plahField = `<pers-plah class="modal-link" id="${ctx.pageSlug}" data-user-id="${userId}" role="button" tabindex="0" style="cursor:pointer"><div class="pers-plah"><em class="pers-plah-text"> Two bodies, one soul </em></div></pers-plah>`;
+      const lzField =
+        `<div class="lz-name"><a href="${topicUrl}">${characterData.name}</a>, ${characterData.age}</div>` +
+        ` <div class="lz-text">${lzHtml}</div>`;
+      const plahField =
+        `<pers-plah class="modal-link" id="${ctx.pageSlug}" data-user-id="${userId}" role="button" tabindex="0" style="cursor:pointer">` +
+        `<div class="pers-plah"><em class="pers-plah-text"> Two bodies, one soul </em></div></pers-plah>`;
 
       const { fieldNames, moneyDefault, postsDefault } = config.profile;
       const { form, actionUrl } = await fetchProfileForm(userId);
@@ -968,24 +1012,13 @@
     const createOrUpdatePage = async () => {
       const ctx = await ensureFullContext({ requireLz: false });
       const { pageSlug } = ctx;
+
       const newContent = buildPageTemplate(ctx);
 
-      // 1) пробуем update
       const updated = await tryUpdateExistingPage(pageSlug, newContent);
       if (updated) return { mode: "update" };
 
-      // 2) если формы редактирования нет — создаём
-      const { form, actionUrl, pageUrl } = await fetchAddPageForm();
-
-      const overrides = {
-        title: pageSlug,
-        name: pageSlug,
-        content: newContent,
-      };
-
-      const params = buildAddPageParams(form, overrides);
-      await postForm(actionUrl, params, pageUrl);
-
+      await createNewPage(pageSlug, newContent);
       return { mode: "create" };
     };
 
@@ -1004,6 +1037,7 @@
       await postForm(actionUrl, params, actionUrl);
     };
 
+    // ========== Handlers ==========
     const handleFillProfileClick = async () => {
       if (state.busy) return notify("Уже выполняется другая операция.", "error");
       state.busy = true;
@@ -1025,12 +1059,12 @@
         const r = await createOrUpdatePage();
         notify(
           r.mode === "update"
-            ? "Страница персонажа обновлена (контент перезаписан)."
-            : "Страница персонажа создана. Проверьте список страниц.",
+            ? "Страница персонажа обновлена (контент перезаписан и проверен)."
+            : "Страница персонажа создана (проверено через edit_page).",
           "success"
         );
       } catch (err) {
-        console.error("Ошибка при создании страницы:", err);
+        console.error("Ошибка при создании/обновлении страницы:", err);
         notify(err.message || String(err), "error");
       } finally {
         state.busy = false;
@@ -1051,6 +1085,7 @@
       }
     };
 
+    // ========== UI ==========
     const mountButtons = () => {
       const targets = $$(config.selectors.insertAfter);
       targets.forEach((anchor) => {
@@ -1084,14 +1119,7 @@
 
     const init = () => {
       const fid = getForumId();
-      if (
-        !fid ||
-        !config.access.allowedForumIds
-          .map((n) => Number(n))
-          .includes(Number(fid))
-      ) {
-        return;
-      }
+      if (!fid || !config.access.allowedForumIds.map(Number).includes(Number(fid))) return;
 
       if (Array.isArray(config.access.allowedGroupIds) && config.access.allowedGroupIds.length) {
         const gid = getGroupId();
