@@ -953,14 +953,14 @@
       edgeOffset: 80,
     },
     settingsMenu: {
-      themes: {
-        title: 'Темы',
-        mount: 'themeSwitcher:initSection',
-      },
       texts: {
         open: 'Меню',
       },
       sections: {
+        themes: {
+          title: 'Темы',
+          mount: 'themeSwitcher:initSection',
+        },
         links: {
           title: 'Полезные ссылки',
           items: [
@@ -1147,6 +1147,7 @@
     },
   };
 })();
+
 
 
 
