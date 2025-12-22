@@ -440,7 +440,7 @@
         profileUrl: (uid) => `/profile.php?section=fields&id=${uid}`,
         profileFormSelector: 'form[action*="profile.php"][method="post"]',
         adminProfileUrl: (uid) => `/profile.php?section=admin&id=${uid}`,
-        adminEditPageUrl: (slug) => `/admin_pages.php?edit_page=${encodeURIComponent(String(slug || ""))}`,
+        adminEditPageUrl: (slug) => `/admin_pages.php?edit_page=${encodeURIComponent(slug)}`,
         adminProfileFormSelector:
           'form[action*="profile.php?section=admin"][method="post"], form#profile11',
         adminAddPageUrl: '/admin_pages.php?action=adddel',
@@ -1143,6 +1143,7 @@
     },
   };
 })();
+
 
 
 
