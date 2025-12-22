@@ -37,7 +37,7 @@
       profile: {
         moneyDefault: "0",
         postsDefault: "0",
-        targetGroupId: 6, // «Одарённый»
+        targetGroupId: 6,
         fieldNames: {
           race: "form[fld2]",
           title: "form[fld1]",
@@ -67,8 +67,6 @@
     const LABEL_CHANGE_GROUP =
       (config.ui && config.ui.changeGroupText) || "Перевести в группу";
 
-    // ================== NEW: helpers for template ==================
-
     const escapeHtml = (s) =>
       String(s ?? "")
         .replace(/&/g, "&amp;")
@@ -77,19 +75,14 @@
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#39;");
 
-    /**
-     * NEW: Updated page template for characterModal
-     * Generates HTML of the page that is fetched by id=pageSlug and inserted into the modal.
-     */
     const buildPageTemplate = (ctx) => {
       const uid = Number(ctx?.userId) || 0;
+      const nameEnRaw = String(ctx?.characterData?.name_en || "").trim();
       const nameEn = escapeHtml(ctx?.characterData?.name_en || "");
       const pairNameRaw = (ctx?.characterData?.pair_name || "").trim();
       const pairName = escapeHtml(pairNameRaw || "Неизвестно");
-      const nameHint = escapeHtml(ctx?.characterData?.name || "");
-      const raceHint = escapeHtml(ctx?.characterData?.race || "");
-      const ageHint =
-        ctx?.characterData?.age != null ? String(ctx.characterData.age) : "";
+      const roleRaw = String(ctx?.characterData?.role || "").trim();
+      const role = escapeHtml(roleRaw || "");
 
       return `
 <div class="character"
@@ -110,8 +103,8 @@
           <img src="https://placehold.co/200x250" alt="Аватар персонажа" loading="lazy" decoding="async" />
         </div>
         <div class="cm-side__meta">
-          <div class="cm-name" id="cm-title-left">${nameEn || "Неизвестно"}</div>
-          <div class="cm-role">Род деятельности</div>
+          <div class="cm-name" id="cm-title-left">${nameEn}</div>
+          <div class="cm-role">${role}</div>
         </div>
       </div>
 
@@ -460,6 +453,10 @@
       const pairName = textFrom(
         doc.querySelector(".custom_tag_charpair.char-pair, .custom_tag_charpair")
       );
+
+      const role = textFrom(
+        doc.querySelector(".custom_tag_charrole.char-role, .custom_tag_charrole")
+      );
     
       const hasAny = nameRu || nameEn || age !== null || race || pairName;
       if (!hasAny) return null;
@@ -470,6 +467,7 @@
         age,
         race: race || "",
         pair_name: pairName || "",
+        role: role || "",
       };
     };
 
@@ -823,8 +821,6 @@
       return params;
     };
 
-    // --- КОНТЕКСТЫ ---
-
     const ensureBasicContext = async () => {
       if (state.context) return state.context;
 
@@ -1102,6 +1098,7 @@
 
   bootstrap();
 })();
+
 
 
 
