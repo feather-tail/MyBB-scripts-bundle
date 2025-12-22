@@ -112,7 +112,6 @@
         <div class="cm-side__meta">
           <div class="cm-name" id="cm-title-left">${nameEn || "Неизвестно"}</div>
           <div class="cm-role">Род деятельности</div>
-          <!-- hint: ${nameHint}${raceHint || ageHint ? ` / ${raceHint}${ageHint ? `, ${ageHint}` : ""}` : ""} -->
         </div>
       </div>
 
@@ -444,7 +443,7 @@
     const parseProfileFromHtml = (html) => {
       if (!html) return null;
       const doc = parseHTML(html);
-
+    
       const nameRu = textFrom(
         doc.querySelector(".custom_tag_charname p, .char-name-ru p")
       );
@@ -457,19 +456,20 @@
       const race = textFrom(
         doc.querySelector(".custom_tag_charrace p, .char-race p")
       );
-
+    
       const pairName = textFrom(
         doc.querySelector(".custom_tag_charpair.char-pair, .custom_tag_charpair")
       );
-
-      const hasAny = nameRu || nameEn || age !== null || race;
+    
+      const hasAny = nameRu || nameEn || age !== null || race || pairName;
       if (!hasAny) return null;
-
+    
       return {
         name: nameRu || "",
         name_en: nameEn || "",
         age,
         race: race || "",
+        pair_name: pairName || "",
       };
     };
 
@@ -1102,6 +1102,7 @@
 
   bootstrap();
 })();
+
 
 
 
