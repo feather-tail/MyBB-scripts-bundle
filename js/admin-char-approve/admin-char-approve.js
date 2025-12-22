@@ -315,7 +315,7 @@
           <div class="cm-appearance">
             <section class="cm-frame">
               <div class="cm-frame__head">
-                <h3 class="cm-h3">Иконки профиля</h3>
+                <h3 class="cm-h3">Иконки</h3>
               </div>
               <div class="cm-frame__body">
                 <div class="cm-icons"></div>
@@ -324,7 +324,7 @@
 
             <section class="cm-frame">
               <div class="cm-frame__head">
-                <h3 class="cm-h3">Фоны профиля</h3>
+                <h3 class="cm-h3">Плашки</h3>
               </div>
               <div class="cm-frame__body">
                 <div class="cm-bgs"></div>
@@ -1098,6 +1098,7 @@
 
   bootstrap();
 })();
+
 
 
 
