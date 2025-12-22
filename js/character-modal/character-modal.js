@@ -498,7 +498,7 @@
 
   const setupAppearancePickers = (root) => {
     const icons = Array.from(root.querySelectorAll('.cm-icon'));
-    const bgs = Array.from(root.querySelectorAll('.cm-bg'));
+    const bgs = Array.from(root.querySelectorAll('.cm-plate'));
 
     const setActive = (list, el) => {
       list.forEach((x) => x.classList.remove('is-active'));
@@ -514,7 +514,7 @@
         btn.getAttribute('data-url') ||
         (btn.querySelector('img') &&
           (btn.querySelector('img').currentSrc || btn.querySelector('img').src)) ||
-        getBgUrl(btn.querySelector('.cm-bg__thumb') || btn);
+        getBgUrl(btn.querySelector('.cm-plate__thumb') || btn);
 
       if (!url) return;
 
