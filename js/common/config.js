@@ -953,6 +953,10 @@
       edgeOffset: 80,
     },
     settingsMenu: {
+      themes: {
+        title: 'Темы',
+        mount: 'themeSwitcher:initSection',
+      },
       texts: {
         open: 'Меню',
       },
@@ -1091,7 +1095,7 @@
       defaults: { style: 'classic', scheme: 'light', view: 'desktop' },
       styles: [
         { id: 'classic', label: 'Classic' },
-        { id: 'holiday', label: 'Holiday' },
+        { id: 'winter', label: 'Winter' },
       ],
       selectors: {
         root: 'html',
@@ -1143,6 +1147,7 @@
     },
   };
 })();
+
 
 
 
