@@ -27,7 +27,7 @@
       },
       selectors: {
         insertAfter: 'input.button.preview[name="preview"]',
-        lzSource: ".custom_tag_charpt, .char-pt, [data-bbcode=\"charpt\"]",
+        lzSource: '.custom_tag_charpt, .char-pt, [data-bbcode="charpt"]',
       },
       ui: {
         fillProfileText: "Автозаполнить профиль",
@@ -56,6 +56,10 @@
         adminAddPageUrl: "/admin_pages.php?action=adddel",
         adminAddPageFormSelector:
           'form[action*="admin_pages.php"][method="post"], form#addpage',
+
+        // ВАЖНО: для update нужен хелпер-URL (в оригинале ты его вызывал, но не было в конфиге)
+        adminEditPageUrl: (slug) =>
+          `/admin_pages.php?edit_page=${encodeURIComponent(String(slug || "").trim())}`,
       },
       requestTimeoutMs: 15000,
     });
@@ -77,7 +81,6 @@
 
     const buildPageTemplate = (ctx) => {
       const uid = Number(ctx?.userId) || 0;
-      const nameEnRaw = String(ctx?.characterData?.name_en || "").trim();
       const nameEn = escapeHtml(ctx?.characterData?.name_en || "");
       const pairNameRaw = (ctx?.characterData?.pair_name || "").trim();
       const pairName = escapeHtml(pairNameRaw || "Неизвестно");
@@ -382,9 +385,11 @@
       return parseHTML(html);
     };
 
+    // чтобы видеть текст ответа при 500 (очень помогает)
     const postForm = async (url, params, refUrl) => {
       const finalUrl = toAbsUrl(url);
       const ref = refUrl ? toAbsUrl(refUrl) : finalUrl;
+
       const res = await withTimeout(
         fetch(finalUrl, {
           method: "POST",
@@ -395,7 +400,14 @@
         }),
         config.requestTimeoutMs
       );
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+      if (!res.ok) {
+        const txt = await res.text().catch(() => "");
+        throw new Error(
+          `HTTP ${res.status}${txt ? `: ${txt.slice(0, 400)}` : ""}`
+        );
+      }
+
       return res;
     };
 
@@ -436,7 +448,7 @@
     const parseProfileFromHtml = (html) => {
       if (!html) return null;
       const doc = parseHTML(html);
-    
+
       const nameRu = textFrom(
         doc.querySelector(".custom_tag_charname p, .char-name-ru p")
       );
@@ -449,7 +461,7 @@
       const race = textFrom(
         doc.querySelector(".custom_tag_charrace p, .char-race p")
       );
-    
+
       const pairName = textFrom(
         doc.querySelector(".custom_tag_charpair.char-pair, .custom_tag_charpair")
       );
@@ -457,10 +469,10 @@
       const role = textFrom(
         doc.querySelector(".custom_tag_charrole.char-role, .custom_tag_charrole")
       );
-    
-      const hasAny = nameRu || nameEn || age !== null || race || pairName;
+
+      const hasAny = nameRu || nameEn || age !== null || race || pairName || role;
       if (!hasAny) return null;
-    
+
       return {
         name: nameRu || "",
         name_en: nameEn || "",
@@ -481,7 +493,7 @@
     };
 
     const getRaceLetter = (race) => {
-      const raceLower = race.toLowerCase();
+      const raceLower = String(race || "").toLowerCase();
       if (raceLower === "фамильяр") return "f";
       if (raceLower === "ведьма" || raceLower === "ведьмак") return "w";
       if (raceLower === "осквернённый") return "t";
@@ -490,7 +502,7 @@
     };
 
     const generateFileName = (nameEn) =>
-      nameEn
+      String(nameEn || "")
         .toLowerCase()
         .trim()
         .replace(/\s+/g, "_")
@@ -503,9 +515,7 @@
     };
 
     const getPostsForTopic = async (topicId) => {
-      const url = `${
-        config.endpoints.apiBase
-      }?method=post.get&topic_id=${encodeURIComponent(
+      const url = `${config.endpoints.apiBase}?method=post.get&topic_id=${encodeURIComponent(
         topicId
       )}&fields=id,topic_id,message,username,link&limit=100`;
       const data = await fetchJson(url);
@@ -523,7 +533,7 @@
 
     const getUserIdByUsername = async (username) => {
       if (!username) return null;
-      const encoded = encodeURIComponent(username.trim());
+      const encoded = encodeURIComponent(String(username).trim());
       const url = `${config.endpoints.apiBase}?method=users.get&username=${encoded}&fields=user_id`;
       const data = await fetchJson(url);
       if (
@@ -562,15 +572,19 @@
       return null;
     };
 
+    // IMPORTANT: submit всегда ASCII (value="1"), чтобы не ловить кракозябры на cp1251
     const findSubmitControl = (form) => {
       let x = form.querySelector('input[type="submit"][name]');
-      if (x) return { name: x.name, value: x.value || "1" };
+      if (x) return { name: x.name, value: "1" };
+
       x = form.querySelector('button[type="submit"][name]');
-      if (x) return { name: x.name, value: x.value || "1" };
+      if (x) return { name: x.name, value: "1" };
+
       x = form.querySelector(
         'input[name="update"],input[name="submit"],input[name="save"],input[name="add_page"],input[name="update_group_membership"]'
       );
-      if (x) return { name: x.name, value: x.value || "1" };
+      if (x) return { name: x.name, value: "1" };
+
       return null;
     };
 
@@ -611,96 +625,7 @@
       return { form, actionUrl };
     };
 
-    const tryUpdateExistingPage = async (pageSlug, newHtml) => {
-      const editUrl = config.endpoints.adminEditPageUrl(pageSlug);
-      const doc = await fetchDoc(editUrl);
-    
-      const form =
-        doc.querySelector('form[action*="admin_pages.php"][method="post"]') ||
-        doc.querySelector("form");
-    
-      if (!form) return false;
-    
-      const contentEl =
-        form.querySelector('textarea[name="content"]') ||
-        form.querySelector('textarea[name="text"]') ||
-        form.querySelector('textarea[name="message"]') ||
-        form.querySelector("textarea[name]");
-    
-      if (!contentEl || !contentEl.name) return false;
-    
-      const contentName = contentEl.name;
-    
-      const overrides = {
-        [contentName]: newHtml,
-      };
-    
-      const params = buildAddPageParams(form, overrides);
-      await postForm(editUrl, params, editUrl);
-    
-      return true;
-    };
-
-    const fetchAddPageForm = async () => {
-      const url = config.endpoints.adminAddPageUrl;
-      const doc = await fetchDoc(url);
-      const form =
-        doc.querySelector(config.endpoints.adminAddPageFormSelector) ||
-        doc.querySelector("form#addpage");
-      if (!form) {
-        throw new Error("Форма создания страницы не найдена в HTML админки.");
-      }
-      const actionRaw = form.getAttribute("action") || url;
-      const actionUrl = toAbsUrl(actionRaw);
-      return { form, actionUrl };
-    };
-
-    const findExistingPageEditHref = async (pageSlug) => {
-      const doc = await fetchDoc(config.endpoints.adminAddPageUrl);
-    
-      const slug = String(pageSlug || "").trim().toLowerCase();
-      if (!slug) return null;
-    
-      const links = Array.from(
-        doc.querySelectorAll('a[href*="admin_pages.php"][href*="action=edit"]')
-      );
-    
-      for (const a of links) {
-        const href = a.getAttribute("href");
-        if (!href) continue;
-    
-        const row = a.closest("tr") || a.closest("li") || a.parentElement;
-        const hay = String(row ? row.textContent : a.textContent || "")
-          .replace(/\s+/g, " ")
-          .trim()
-          .toLowerCase();
-    
-        if (hay.includes(slug)) {
-          return href;
-        }
-      }
-    
-      return null;
-    };
-    
-    const fetchEditPageForm = async (editHref) => {
-      const url = toAbsUrl(editHref);
-      const doc = await fetchDoc(url);
-    
-      const form =
-        doc.querySelector('form[action*="admin_pages.php"][method="post"]') ||
-        doc.querySelector("form");
-    
-      if (!form) {
-        throw new Error("Форма редактирования страницы не найдена в HTML админки.");
-      }
-    
-      const actionRaw = form.getAttribute("action") || url;
-      const actionUrl = toAbsUrl(actionRaw);
-    
-      return { form, actionUrl, editUrl: url };
-    };
-
+    // Параметры профиля (важно: checkbox/radio добавляем только если checked)
     const buildProfileParams = (form, overrideMap) => {
       const params = new URLSearchParams();
       const isHidden = (el) =>
@@ -710,11 +635,11 @@
 
       for (const el of Array.from(form.elements || [])) {
         if (!el.name || el.disabled) continue;
-        const type = (el.type || "").toLowerCase();
 
-        if (type === "submit") {
-          continue;
-        }
+        const type = (el.type || "").toLowerCase();
+        const tag = (el.tagName || "").toUpperCase();
+
+        if (type === "submit") continue;
 
         if (isHidden(el)) {
           params.append(el.name, el.value ?? "");
@@ -733,13 +658,16 @@
           continue;
         }
 
-        if (/^form\[\w+\]$/.test(el.name)) {
-          params.set(el.name, el.value ?? "");
+        // checkbox/radio — только checked
+        if (type === "checkbox" || type === "radio") {
+          if (el.checked) params.append(el.name, el.value ?? "1");
           continue;
         }
 
-        if ((type === "checkbox" || type === "radio") && el.checked) {
-          params.append(el.name, el.value ?? "1");
+        // select multiple
+        if (tag === "SELECT" && el.multiple) {
+          const selected = Array.from(el.options || []).filter((o) => o.selected);
+          selected.forEach((o) => params.append(el.name, o.value ?? ""));
           continue;
         }
 
@@ -762,6 +690,7 @@
       return params;
     };
 
+    // Параметры админ-страниц (важно: checkbox/radio только checked)
     const buildAddPageParams = (form, overrideMap) => {
       const params = new URLSearchParams();
       const isHidden = (el) =>
@@ -771,11 +700,11 @@
 
       for (const el of Array.from(form.elements || [])) {
         if (!el.name || el.disabled) continue;
-        const type = (el.type || "").toLowerCase();
 
-        if (type === "submit") {
-          continue;
-        }
+        const type = (el.type || "").toLowerCase();
+        const tag = (el.tagName || "").toUpperCase();
+
+        if (type === "submit") continue;
 
         if (isHidden(el)) {
           params.append(el.name, el.value ?? "");
@@ -789,18 +718,14 @@
           continue;
         }
 
-        if (
-          el.name === "title" ||
-          el.name === "name" ||
-          el.name === "content" ||
-          el.name === "tags"
-        ) {
-          params.set(el.name, el.value ?? "");
+        if (type === "checkbox" || type === "radio") {
+          if (el.checked) params.append(el.name, el.value ?? "1");
           continue;
         }
 
-        if ((type === "checkbox" || type === "radio") && el.checked) {
-          params.append(el.name, el.value ?? "1");
+        if (tag === "SELECT" && el.multiple) {
+          const selected = Array.from(el.options || []).filter((o) => o.selected);
+          selected.forEach((o) => params.append(el.name, o.value ?? ""));
           continue;
         }
 
@@ -819,6 +744,54 @@
       if (submit) params.append(submit.name, submit.value);
 
       return params;
+    };
+
+    const tryUpdateExistingPage = async (pageSlug, newHtml) => {
+      const editUrl = config.endpoints.adminEditPageUrl(pageSlug);
+      const doc = await fetchDoc(editUrl);
+
+      const form =
+        doc.querySelector('form[action*="admin_pages.php"][method="post"]') ||
+        doc.querySelector("form");
+
+      if (!form) return false;
+
+      const contentEl =
+        form.querySelector('textarea[name="content"]') ||
+        form.querySelector('textarea[name="text"]') ||
+        form.querySelector('textarea[name="message"]') ||
+        form.querySelector("textarea[name]");
+
+      if (!contentEl || !contentEl.name) return false;
+
+      const contentName = contentEl.name;
+
+      const overrides = {
+        [contentName]: newHtml,
+      };
+
+      // ВАЖНО: постим в action формы, а не в editUrl
+      const actionRaw = form.getAttribute("action") || editUrl;
+      const actionUrl = toAbsUrl(actionRaw);
+
+      const params = buildAddPageParams(form, overrides);
+      await postForm(actionUrl, params, editUrl);
+
+      return true;
+    };
+
+    const fetchAddPageForm = async () => {
+      const url = config.endpoints.adminAddPageUrl;
+      const doc = await fetchDoc(url);
+      const form =
+        doc.querySelector(config.endpoints.adminAddPageFormSelector) ||
+        doc.querySelector("form#addpage");
+      if (!form) {
+        throw new Error("Форма создания страницы не найдена в HTML админки.");
+      }
+      const actionRaw = form.getAttribute("action") || url;
+      const actionUrl = toAbsUrl(actionRaw);
+      return { form, actionUrl };
     };
 
     const ensureBasicContext = async () => {
@@ -850,9 +823,7 @@
         throw new Error("Не найдено имя персонажа (BB-код [charname]).");
       }
       if (!characterData.name_en) {
-        throw new Error(
-          "Не найдено английское имя персонажа (BB-код [charnameen])."
-        );
+        throw new Error("Не найдено английское имя персонажа (BB-код [charnameen]).");
       }
       if (!characterData.age) {
         throw new Error("Не найден возраст персонажа (BB-код [charage]).");
@@ -882,30 +853,31 @@
       return state.context;
     };
 
+    // LZ опционально: requireLz=false не валит создание страницы
     const ensureFullContext = async ({ requireLz = true } = {}) => {
       const ctx = await ensureBasicContext();
-    
-      if (!ctx.lzHtml) {
+
+      if (ctx.lzHtml === undefined) {
         const lzHtml = parseLzHtmlFromHtml(ctx.firstPostHtml);
-    
+
         if (!lzHtml && requireLz) {
           throw new Error(
             "Не найден HTML личного звания (BB-код [charpt]). Проверьте анкету."
           );
         }
-    
+
         ctx.lzHtml = lzHtml || "";
       }
-    
+
       if (!ctx.pageSlug) {
         ctx.pageSlug = generateFileName(ctx.characterData.name_en);
       }
-    
+
       return ctx;
     };
 
     const fillProfile = async () => {
-      const ctx = await ensureFullContext();
+      const ctx = await ensureFullContext({ requireLz: true });
       const { characterData, lzHtml, userId, topicUrl } = ctx;
 
       const raceLetter = getRaceLetter(characterData.race);
@@ -929,25 +901,26 @@
     };
 
     const createOrUpdatePage = async () => {
+      // ЛЗ НЕ обязательно для страницы
       const ctx = await ensureFullContext({ requireLz: false });
       const { pageSlug } = ctx;
-    
+
       const newContent = buildPageTemplate(ctx);
-    
+
       const updated = await tryUpdateExistingPage(pageSlug, newContent);
       if (updated) return { mode: "update" };
-    
+
       const { form, actionUrl } = await fetchAddPageForm();
-    
+
       const overrides = {
         title: pageSlug,
         name: pageSlug,
         content: newContent,
       };
-    
+
       const params = buildAddPageParams(form, overrides);
       await postForm(actionUrl, params, actionUrl);
-    
+
       return { mode: "create" };
     };
 
@@ -979,10 +952,7 @@
       state.busy = true;
       try {
         await fillProfile();
-        notify(
-          "Профиль обновлён. Проверьте вкладку «Дополнительно».",
-          "success"
-        );
+        notify("Профиль обновлён. Проверьте вкладку «Дополнительно».", "success");
       } catch (err) {
         console.error("Ошибка при автозаполнении профиля:", err);
         notify(err.message || String(err), "error");
@@ -1100,11 +1070,3 @@
 
   bootstrap();
 })();
-
-
-
-
-
-
-
-
