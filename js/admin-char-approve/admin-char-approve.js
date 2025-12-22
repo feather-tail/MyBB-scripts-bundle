@@ -1,5 +1,5 @@
 (() => {
-  "use strict";
+  'use strict';
 
   function bootstrap() {
     const helpers = window.helpers;
@@ -20,7 +20,7 @@
       getConfig,
     } = helpers;
 
-    const config = getConfig("charProfileTool", {
+    const config = getConfig('charProfileTool', {
       access: {
         allowedForumIds: [8, 9],
         allowedGroupIds: [1],
@@ -30,411 +30,59 @@
         lzSource: '.custom_tag_charpt, .char-pt, [data-bbcode="charpt"]',
       },
       ui: {
-        fillProfileText: "Автозаполнить профиль",
-        createPageText: "Создать страницу",
-        changeGroupText: "Перевести в группу",
+        fillProfileText: 'Автозаполнить профиль',
+        createPageText: 'Создать страницу',
+        changeGroupText: 'Перевести в группу',
       },
       profile: {
-        moneyDefault: "0",
-        postsDefault: "0",
+        moneyDefault: '0',
+        postsDefault: '0',
         targetGroupId: 6,
         fieldNames: {
-          race: "form[fld2]",
-          title: "form[fld1]",
-          badge: "form[fld3]",
-          money: "form[fld4]",
-          posts: "form[fld5]",
+          race: 'form[fld2]',
+          title: 'form[fld1]',
+          badge: 'form[fld3]',
+          money: 'form[fld4]',
+          posts: 'form[fld5]',
         },
       },
       endpoints: {
-        apiBase: "/api.php",
+        apiBase: '/api.php',
         profileUrl: (uid) => `/profile.php?section=fields&id=${uid}`,
         profileFormSelector: 'form[action*="profile.php"][method="post"]',
         adminProfileUrl: (uid) => `/profile.php?section=admin&id=${uid}`,
         adminProfileFormSelector:
           'form[action*="profile.php"][method="post"], form[id^="profile"]',
-        adminAddPageUrl: "/admin_pages.php?action=adddel",
+        adminAddPageUrl: '/admin_pages.php?action=adddel',
         adminAddPageFormSelector:
           'form[action*="admin_pages.php"][method="post"], form#addpage',
-        adminEditPageUrl: (slug) =>
-          `/admin_pages.php?edit_page=${encodeURIComponent(String(slug || "").trim())}`,
       },
       requestTimeoutMs: 15000,
     });
 
     const LABEL_FILL =
-      (config.ui && config.ui.fillProfileText) || "Автозаполнить профиль";
+      (config.ui && config.ui.fillProfileText) || 'Автозаполнить профиль';
     const LABEL_CREATE_PAGE =
-      (config.ui && config.ui.createPageText) || "Создать страницу";
+      (config.ui && config.ui.createPageText) || 'Создать страницу';
     const LABEL_CHANGE_GROUP =
-      (config.ui && config.ui.changeGroupText) || "Перевести в группу";
-
-    // ================== STATE ==================
-    const state = { busy: false, context: null };
-
-    const notify = (message, type = "info") => {
-      if (typeof showToast === "function") showToast(message, { type });
-      else console.log(`[${type}] ${message}`);
-    };
-
-    const toAbsUrl = (url) => {
-      if (!url) return url;
-      if (/^https?:\/\//i.test(url)) return url;
-      if (url.startsWith("/")) return url;
-      return "/" + String(url).replace(/^\/+/, "");
-    };
+      (config.ui && config.ui.changeGroupText) || 'Перевести в группу';
 
     const escapeHtml = (s) =>
-      String(s ?? "")
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#39;");
+      String(s ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
 
-    // ВАЖНО: безопасно для cp1251 — превращаем всё не-ASCII в &#NNNN;
-    const encodeNonAscii = (s) =>
-      String(s ?? "").replace(/[\u0080-\uFFFF]/g, (ch) => `&#${ch.charCodeAt(0)};`);
-
-    const fetchJson = (url) =>
-      withTimeout(
-        fetch(toAbsUrl(url), {
-          credentials: "same-origin",
-          cache: "no-store",
-          headers: { "Cache-Control": "no-cache", Pragma: "no-cache" },
-        }),
-        config.requestTimeoutMs
-      ).then((res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return res.json();
-      });
-
-    const fetchDoc = async (url) => {
-      const res = await withTimeout(
-        fetch(toAbsUrl(url), {
-          credentials: "same-origin",
-          cache: "no-store",
-          headers: { "Cache-Control": "no-cache", Pragma: "no-cache" },
-        }),
-        config.requestTimeoutMs
-      );
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const html = await res.text();
-      return parseHTML(html);
-    };
-
-    const findSubmitControl = (form) => {
-      let x = form.querySelector('input[type="submit"][name]');
-      if (x) return { name: x.name, value: x.value || "1" };
-
-      x = form.querySelector('button[type="submit"][name]');
-      if (x) return { name: x.name, value: x.value || "1" };
-
-      x = form.querySelector(
-        'input[name="save"],input[name="update"],input[name="submit"],input[name="add_page"]'
-      );
-      if (x) return { name: x.name, value: x.value || "1" };
-
-      return null;
-    };
-
-    // ========== IFRAME POST (как браузер) ==========
-    const iframePost = (actionUrl, params, refUrl) =>
-      new Promise((resolve, reject) => {
-        const action = toAbsUrl(actionUrl);
-        const ref = toAbsUrl(refUrl || actionUrl || "/");
-        const iframeName = `ks_if_${Date.now()}_${Math.random().toString(16).slice(2)}`;
-
-        const iframe = document.createElement("iframe");
-        iframe.name = iframeName;
-        iframe.style.cssText =
-          "position:absolute;left:-99999px;top:-99999px;width:1px;height:1px;opacity:0;";
-        document.body.appendChild(iframe);
-
-        let stage = 0;
-        let done = false;
-
-        const cleanup = () => {
-          if (done) return;
-          done = true;
-          try {
-            iframe.removeEventListener("load", onLoad);
-          } catch {}
-          try {
-            iframe.remove();
-          } catch {}
-        };
-
-        const fail = (err) => {
-          cleanup();
-          reject(err instanceof Error ? err : new Error(String(err)));
-        };
-
-        const succeed = (payload) => {
-          cleanup();
-          resolve(payload);
-        };
-
-        const onLoad = () => {
-          try {
-            const doc = iframe.contentDocument;
-            if (!doc) return;
-
-            if (stage === 0) {
-              stage = 1;
-
-              const form = doc.createElement("form");
-              form.method = "POST";
-              form.action = action;
-              form.target = iframeName;
-
-              // просим браузер кодировать как админка
-              form.setAttribute("accept-charset", "windows-1251");
-
-              for (const [k, v] of params.entries()) {
-                const input = doc.createElement("input");
-                input.type = "hidden";
-                input.name = k;
-                input.value = String(v ?? "");
-                form.appendChild(input);
-              }
-
-              doc.body.appendChild(form);
-              form.submit();
-              return;
-            }
-
-            // stage 1: пришёл ответ после POST
-            const title = String(doc.title || "");
-            const text = String(doc.body ? doc.body.innerText || "" : "");
-            const hay = (title + "\n" + text).toLowerCase();
-
-            if (hay.includes("500") && hay.includes("internal server error")) {
-              console.error("[charProfileTool] iframe POST got 500:", title);
-              console.error("[charProfileTool] snippet:", text.slice(0, 800));
-              fail(new Error("HTTP 500 (iframe submit)"));
-              return;
-            }
-
-            // частая ситуация: улетели на логин/ошибку прав
-            if (
-              hay.includes("вход") ||
-              hay.includes("login") ||
-              hay.includes("пароль") ||
-              hay.includes("доступ") ||
-              hay.includes("forbidden")
-            ) {
-              console.warn("[charProfileTool] iframe POST response подозрительный:", title);
-              console.warn("[charProfileTool] snippet:", text.slice(0, 800));
-              // не фейлим тут — решает проверка ниже
-            }
-
-            succeed({ title, text });
-          } catch (e) {
-            fail(e);
-          }
-        };
-
-        iframe.addEventListener("load", onLoad);
-
-        try {
-          iframe.src = ref; // чтобы referer был “админский”
-        } catch (e) {
-          fail(e);
-        }
-      });
-
-    const shouldUseIframeForUrl = (url) =>
-      /\/admin_pages\.php(\?|$)/i.test(String(url || ""));
-
-    const postForm = async (url, params, refUrl) => {
-      if (shouldUseIframeForUrl(url) || shouldUseIframeForUrl(refUrl)) {
-        await withTimeout(iframePost(url, params, refUrl), config.requestTimeoutMs);
-        return { ok: true };
-      }
-
-      const res = await withTimeout(
-        fetch(toAbsUrl(url), {
-          method: "POST",
-          credentials: "same-origin",
-          cache: "no-store",
-          headers: {
-            "Content-Type": "application/x-www-form-urlencoded",
-            "Cache-Control": "no-cache",
-            Pragma: "no-cache",
-          },
-          body: params.toString(),
-          referrer: toAbsUrl(refUrl || url),
-        }),
-        config.requestTimeoutMs
-      );
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return res;
-    };
-
-    // ========== Парсинг анкеты ==========
-    const toIntOrNull = (s) => {
-      const n = parseInt(String(s || "").replace(/[^\d\-]/g, ""), 10);
-      return Number.isFinite(n) ? n : null;
-    };
-
-    const textFrom = (el) =>
-      String((el && (el.textContent || el.innerText)) || "").trim();
-
-    const decodeHtmlEntities = (str) => {
-      if (!str) return "";
-      let out = String(str);
-      out = out.replace(/&#(\d+);/g, (_, num) =>
-        String.fromCharCode(Number(num) || 0)
-      );
-      out = out
-        .replace(/&lt;/g, "<")
-        .replace(/&gt;/g, ">")
-        .replace(/&quot;/g, '"')
-        .replace(/&#39;|&apos;/g, "'")
-        .replace(/&amp;/g, "&");
-      return out;
-    };
-
-    const parseProfileFromHtml = (html) => {
-      if (!html) return null;
-      const doc = parseHTML(html);
-
-      const nameRu = textFrom(
-        doc.querySelector(".custom_tag_charname p, .char-name-ru p")
-      );
-      const nameEn = textFrom(
-        doc.querySelector(".custom_tag_charnameen p, .char-name-en p")
-      );
-      const age = toIntOrNull(
-        textFrom(doc.querySelector(".custom_tag_charage p, .char-age p"))
-      );
-      const race = textFrom(
-        doc.querySelector(".custom_tag_charrace p, .char-race p")
-      );
-
-      const pairName = textFrom(
-        doc.querySelector(".custom_tag_charpair.char-pair, .custom_tag_charpair")
-      );
-
-      const role = textFrom(
-        doc.querySelector(".custom_tag_charrole.char-role, .custom_tag_charrole")
-      );
-
-      const hasAny = nameRu || nameEn || age !== null || race || pairName || role;
-      if (!hasAny) return null;
-
-      return {
-        name: nameRu || "",
-        name_en: nameEn || "",
-        age,
-        race: race || "",
-        pair_name: pairName || "",
-        role: role || "",
-      };
-    };
-
-    const parseLzHtmlFromHtml = (html) => {
-      if (!html) return "";
-      const doc = parseHTML(html);
-      const node = doc.querySelector(config.selectors.lzSource);
-      if (!node) return "";
-      return decodeHtmlEntities(String(node.innerHTML || "").trim());
-    };
-
-    const getRaceLetter = (race) => {
-      const r = String(race || "").toLowerCase();
-      if (r === "фамильяр") return "f";
-      if (r === "ведьма" || r === "ведьмак") return "w";
-      if (r === "осквернённый") return "t";
-      if (r === "человек") return "h";
-      return "";
-    };
-
-    const generateFileName = (nameEn) =>
-      String(nameEn || "")
-        .toLowerCase()
-        .trim()
-        .replace(/\s+/g, "_")
-        .replace(/[^a-zа-яё_]/g, "");
-
-    const getTopicIdFromUrl = (url) => {
-      const m = String(url).match(/viewtopic\.php\?id=(\d+)/);
-      return m ? m[1] : null;
-    };
-
-    const pickFirstPost = (posts) => {
-      if (!Array.isArray(posts) || !posts.length) return null;
-      const sorted = [...posts].sort((a, b) => Number(a.id) - Number(b.id));
-      return sorted[0] || null;
-    };
-
-    const getPostsForTopic = async (topicId) => {
-      const url = `${config.endpoints.apiBase}?method=post.get&topic_id=${encodeURIComponent(
-        topicId
-      )}&fields=id,topic_id,message,username,link&limit=100`;
-      const data = await fetchJson(url);
-      if (data && data.response) {
-        return data.response.map((post) => ({
-          id: Number(post.id),
-          topic_id: Number(post.topic_id),
-          username: String(post.username || ""),
-          message: String(post.message || ""),
-          link: String(post.link || ""),
-        }));
-      }
-      return [];
-    };
-
-    const getUserIdByUsername = async (username) => {
-      if (!username) return null;
-      const encoded = encodeURIComponent(String(username).trim());
-      const url = `${config.endpoints.apiBase}?method=users.get&username=${encoded}&fields=user_id`;
-      const data = await fetchJson(url);
-      if (
-        data &&
-        data.response &&
-        Array.isArray(data.response.users) &&
-        data.response.users.length > 0
-      ) {
-        return data.response.users[0].user_id;
-      }
-      return null;
-    };
-
-    const findUserId = async (characterData, firstPost) => {
-      let userId = null;
-
-      if (characterData.name_en) {
-        userId = await getUserIdByUsername(characterData.name_en);
-        if (userId) return userId;
-      }
-      if (characterData.name) {
-        userId = await getUserIdByUsername(characterData.name);
-        if (userId) return userId;
-      }
-      if (firstPost.username) {
-        userId = await getUserIdByUsername(firstPost.username);
-        if (userId) return userId;
-      }
-      if (characterData.name_en) {
-        const firstName = characterData.name_en.split(" ")[0];
-        if (firstName && firstName !== characterData.name_en) {
-          userId = await getUserIdByUsername(firstName);
-          if (userId) return userId;
-        }
-      }
-      return null;
-    };
-
-    // ========== Шаблон страницы ==========
     const buildPageTemplate = (ctx) => {
       const uid = Number(ctx?.userId) || 0;
-      const nameEn = escapeHtml(ctx?.characterData?.name_en || "");
-      const pairNameRaw = String(ctx?.characterData?.pair_name || "").trim();
-      const pairName = escapeHtml(pairNameRaw || "Неизвестно");
-      const roleRaw = String(ctx?.characterData?.role || "").trim();
-      const role = escapeHtml(roleRaw || "");
+      const nameEnRaw = String(ctx?.characterData?.name_en || '').trim();
+      const nameEn = escapeHtml(ctx?.characterData?.name_en || '');
+      const pairNameRaw = (ctx?.characterData?.pair_name || '').trim();
+      const pairName = escapeHtml(pairNameRaw || 'Неизвестно');
+      const roleRaw = String(ctx?.characterData?.role || '').trim();
+      const role = escapeHtml(roleRaw || '');
 
       return `
 <div class="character"
@@ -559,7 +207,7 @@
       <section class="modal__content" data-cm-content="inventory" role="tabpanel" aria-labelledby="cm-tab-inventory" id="cm-pane-inventory" tabindex="0">
         <div class="cm-pane" data-inventory>
           <div class="cm-toolbar">
-            <input class="cm-input" type="search" placeholder="Поиск по инвентарю..." data-inv-search />
+            <input class="cm-input" type="search" placeholder="Поиск по инвентарю…" data-inv-search />
             <div class="cm-toolbar__right">
               <button class="cm-btn cm-btn--icon" type="button" data-filters-toggle aria-expanded="false" aria-label="Фильтры">
                 <i class="fa-solid fa-filter" aria-hidden="true"></i>
@@ -691,265 +339,542 @@
       `.trim();
     };
 
-    // ========== Формы профиля ==========
+    // ================== STATE ==================
+
+    const state = {
+      busy: false,
+      // context:
+      // { topicId, topicUrl, characterData, userId, firstPostHtml, lzHtml?, pageSlug? }
+      context: null,
+    };
+
+    const notify = (message, type = 'info') => {
+      if (typeof showToast === 'function') {
+        showToast(message, { type });
+      } else {
+        console.log(`[${type}] ${message}`);
+      }
+    };
+
+    const toAbsUrl = (url) => {
+      if (!url) return url;
+      if (/^https?:\/\//i.test(url)) return url;
+      if (url.startsWith('/')) return url;
+      return '/' + String(url).replace(/^\/+/, '');
+    };
+
+    const fetchJson = (url) =>
+      withTimeout(
+        fetch(toAbsUrl(url), { credentials: 'same-origin' }),
+        config.requestTimeoutMs,
+      ).then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      });
+
+    const fetchDoc = async (url) => {
+      const res = await withTimeout(
+        fetch(toAbsUrl(url), { credentials: 'same-origin' }),
+        config.requestTimeoutMs,
+      );
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const html = await res.text();
+      return parseHTML(html);
+    };
+
+    const postForm = async (url, params, refUrl) => {
+      const finalUrl = toAbsUrl(url);
+      const ref = refUrl ? toAbsUrl(refUrl) : finalUrl;
+      const res = await withTimeout(
+        fetch(finalUrl, {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: params.toString(),
+          referrer: ref,
+        }),
+        config.requestTimeoutMs,
+      );
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res;
+    };
+
+    const encodeNonAscii = (s) =>
+      String(s).replace(/[\u0080-\uFFFF]/g, (ch) => `&#${ch.charCodeAt(0)};`);
+
+    const toIntOrNull = (s) => {
+      const n = parseInt(String(s || '').replace(/[^\d\-]/g, ''), 10);
+      return Number.isFinite(n) ? n : null;
+    };
+
+    const getTopicIdFromUrl = (url) => {
+      const m = String(url).match(/viewtopic\.php\?id=(\d+)/);
+      return m ? m[1] : null;
+    };
+
+    const textFrom = (el) =>
+      String((el && (el.textContent || el.innerText)) || '').trim();
+
+    const decodeHtmlEntities = (str) => {
+      if (!str) return '';
+      let out = String(str);
+
+      out = out.replace(/&#(\d+);/g, (_, num) =>
+        String.fromCharCode(Number(num) || 0),
+      );
+
+      out = out
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;|&apos;/g, "'")
+        .replace(/&amp;/g, '&');
+
+      return out;
+    };
+
+    const parseProfileFromHtml = (html) => {
+      if (!html) return null;
+      const doc = parseHTML(html);
+
+      const nameRu = textFrom(
+        doc.querySelector('.custom_tag_charname p, .char-name-ru p'),
+      );
+      const nameEn = textFrom(
+        doc.querySelector('.custom_tag_charnameen p, .char-name-en p'),
+      );
+      const age = toIntOrNull(
+        textFrom(doc.querySelector('.custom_tag_charage p, .char-age p')),
+      );
+      const race = textFrom(
+        doc.querySelector('.custom_tag_charrace p, .char-race p'),
+      );
+
+      const pairName = textFrom(
+        doc.querySelector(
+          '.custom_tag_charpair.char-pair, .custom_tag_charpair',
+        ),
+      );
+
+      const role = textFrom(
+        doc.querySelector(
+          '.custom_tag_charrole.char-role, .custom_tag_charrole',
+        ),
+      );
+
+      const hasAny = nameRu || nameEn || age !== null || race || pairName;
+      if (!hasAny) return null;
+
+      return {
+        name: nameRu || '',
+        name_en: nameEn || '',
+        age,
+        race: race || '',
+        pair_name: pairName || '',
+        role: role || '',
+      };
+    };
+
+    const parseLzHtmlFromHtml = (html) => {
+      if (!html) return '';
+      const doc = parseHTML(html);
+      const node = doc.querySelector(config.selectors.lzSource);
+      if (!node) return '';
+      const raw = node.innerHTML.trim();
+      return decodeHtmlEntities(raw);
+    };
+
+    const getRaceLetter = (race) => {
+      const raceLower = race.toLowerCase();
+      if (raceLower === 'фамильяр') return 'f';
+      if (raceLower === 'ведьма' || raceLower === 'ведьмак') return 'w';
+      if (raceLower === 'осквернённый') return 't';
+      if (raceLower === 'человек') return 'h';
+      return '';
+    };
+
+    const generateFileName = (nameEn) =>
+      nameEn
+        .toLowerCase()
+        .trim()
+        .replace(/\s+/g, '_')
+        .replace(/[^a-zа-яё_]/g, '');
+
+    const pickFirstPost = (posts) => {
+      if (!Array.isArray(posts) || !posts.length) return null;
+      const sorted = [...posts].sort((a, b) => Number(a.id) - Number(b.id));
+      return sorted[0] || null;
+    };
+
+    const getPostsForTopic = async (topicId) => {
+      const url = `${
+        config.endpoints.apiBase
+      }?method=post.get&topic_id=${encodeURIComponent(
+        topicId,
+      )}&fields=id,topic_id,message,username,link&limit=100`;
+      const data = await fetchJson(url);
+      if (data && data.response) {
+        return data.response.map((post) => ({
+          id: Number(post.id),
+          topic_id: Number(post.topic_id),
+          username: String(post.username || ''),
+          message: String(post.message || ''),
+          link: String(post.link || ''),
+        }));
+      }
+      return [];
+    };
+
+    const getUserIdByUsername = async (username) => {
+      if (!username) return null;
+      const encoded = encodeURIComponent(username.trim());
+      const url = `${config.endpoints.apiBase}?method=users.get&username=${encoded}&fields=user_id`;
+      const data = await fetchJson(url);
+      if (
+        data &&
+        data.response &&
+        Array.isArray(data.response.users) &&
+        data.response.users.length > 0
+      ) {
+        return data.response.users[0].user_id;
+      }
+      return null;
+    };
+
+    const findUserId = async (characterData, firstPost) => {
+      let userId = null;
+
+      if (characterData.name_en) {
+        userId = await getUserIdByUsername(characterData.name_en);
+        if (userId) return userId;
+      }
+      if (characterData.name) {
+        userId = await getUserIdByUsername(characterData.name);
+        if (userId) return userId;
+      }
+      if (firstPost.username) {
+        userId = await getUserIdByUsername(firstPost.username);
+        if (userId) return userId;
+      }
+      if (characterData.name_en) {
+        const firstName = characterData.name_en.split(' ')[0];
+        if (firstName && firstName !== characterData.name_en) {
+          userId = await getUserIdByUsername(firstName);
+          if (userId) return userId;
+        }
+      }
+      return null;
+    };
+
+    const findSubmitControl = (form) => {
+      let x = form.querySelector('input[type="submit"][name]');
+      if (x) return { name: x.name, value: x.value || '1' };
+      x = form.querySelector('button[type="submit"][name]');
+      if (x) return { name: x.name, value: x.value || '1' };
+      x = form.querySelector(
+        'input[name="update"],input[name="submit"],input[name="save"],input[name="add_page"],input[name="update_group_membership"]',
+      );
+      if (x) return { name: x.name, value: x.value || '1' };
+      return null;
+    };
+
     const fetchProfileForm = async (userId) => {
       const url = config.endpoints.profileUrl(userId);
       const doc = await fetchDoc(url);
       const form =
         doc.querySelector(config.endpoints.profileFormSelector) ||
         doc.querySelector('form[id^="profile"]');
-      if (!form) throw new Error("Форма профиля не найдена в HTML профиля.");
-      const actionRaw = form.getAttribute("action") || url;
+      if (!form) throw new Error('Форма профиля не найдена в HTML профиля.');
+      const actionRaw = form.getAttribute('action') || url;
       const actionUrl = toAbsUrl(actionRaw);
       return { form, actionUrl };
     };
 
     const fetchAdminProfileForm = async (userId) => {
-      const url =
-        typeof config.endpoints.adminProfileUrl === "function"
-          ? config.endpoints.adminProfileUrl(userId)
-          : `/profile.php?section=admin&id=${encodeURIComponent(userId)}`;
+      let url;
+      if (
+        config.endpoints &&
+        typeof config.endpoints.adminProfileUrl === 'function'
+      ) {
+        url = config.endpoints.adminProfileUrl(userId);
+      } else {
+        url = `/profile.php?section=admin&id=${encodeURIComponent(userId)}`;
+      }
 
       const doc = await fetchDoc(url);
       const form =
         doc.querySelector(config.endpoints.adminProfileFormSelector) ||
         doc.querySelector('form[id^="profile"]');
-      if (!form) throw new Error("Форма управления пользователем не найдена.");
-      const actionRaw = form.getAttribute("action") || url;
+      if (!form) {
+        throw new Error(
+          'Форма управления пользователем (группы) не найдена в профиле.',
+        );
+      }
+      const actionRaw = form.getAttribute('action') || url;
       const actionUrl = toAbsUrl(actionRaw);
       return { form, actionUrl };
     };
 
-    const buildProfileParams = (form, overrideMap) => {
-      const params = new URLSearchParams();
-      const overrideNames = new Set(Object.keys(overrideMap || {}));
-
-      for (const el of Array.from(form.elements || [])) {
-        if (!el.name || el.disabled) continue;
-
-        const type = (el.type || "").toLowerCase();
-        const tag = (el.tagName || "").toUpperCase();
-
-        if (type === "submit") continue;
-
-        if (overrideNames.has(el.name)) {
-          params.set(el.name, encodeNonAscii(overrideMap[el.name] ?? ""));
-          continue;
-        }
-
-        if (type === "checkbox" || type === "radio") {
-          if (el.checked) params.append(el.name, el.value ?? "1");
-          continue;
-        }
-
-        if (tag === "SELECT" && el.multiple) {
-          const selected = Array.from(el.options || []).filter((o) => o.selected);
-          selected.forEach((o) => params.append(el.name, o.value ?? ""));
-          continue;
-        }
-
-        params.append(el.name, el.value ?? "");
-      }
-
-      if (!params.has("form_sent")) params.set("form_sent", "1");
-
-      overrideNames.forEach((name) => {
-        if (!params.has(name)) params.set(name, encodeNonAscii(overrideMap[name] ?? ""));
-      });
-
-      const submit = findSubmitControl(form);
-      if (submit) params.append(submit.name, encodeNonAscii(submit.value));
-
-      return params;
-    };
-
-    // ========== Формы админ-страниц ==========
-    const fetchAddPageForm = async () => {
-      const url = config.endpoints.adminAddPageUrl;
-      const doc = await fetchDoc(url);
-      const form =
-        doc.querySelector(config.endpoints.adminAddPageFormSelector) ||
-        doc.querySelector("form#addpage");
-      if (!form) throw new Error("Форма создания страницы не найдена.");
-      return { form, pageUrl: url };
-    };
-
-    const fetchEditPageForm = async (pageSlug) => {
+    const tryUpdateExistingPage = async (pageSlug, newHtml) => {
       const editUrl = config.endpoints.adminEditPageUrl(pageSlug);
       const doc = await fetchDoc(editUrl);
 
       const form =
         doc.querySelector('form[action*="admin_pages.php"][method="post"]') ||
-        doc.querySelector("form");
-      if (!form) return { doc, form: null, editUrl };
+        doc.querySelector('form');
 
-      // Мы будем постить ВСЕГДА на editUrl (а не form.action), чтобы точно был ?edit_page=
-      return { doc, form, editUrl };
-    };
-
-    const buildAdminPageParamsFromForm = (form, overrides = {}) => {
-      const params = new URLSearchParams();
-      const overrideNames = new Set(Object.keys(overrides || {}));
-
-      for (const el of Array.from(form.elements || [])) {
-        if (!el.name || el.disabled) continue;
-
-        const type = (el.type || "").toLowerCase();
-        const tag = (el.tagName || "").toUpperCase();
-
-        if (type === "submit") continue;
-
-        if (overrideNames.has(el.name)) {
-          params.set(el.name, String(overrides[el.name] ?? ""));
-          continue;
-        }
-
-        if (type === "checkbox" || type === "radio") {
-          if (el.checked) params.append(el.name, el.value ?? "1");
-          continue;
-        }
-
-        if (tag === "SELECT" && el.multiple) {
-          const selected = Array.from(el.options || []).filter((o) => o.selected);
-          selected.forEach((o) => params.append(el.name, o.value ?? ""));
-          continue;
-        }
-
-        // textarea/input/select
-        params.append(el.name, el.value ?? "");
-      }
-
-      overrideNames.forEach((name) => {
-        if (!params.has(name)) params.set(name, String(overrides[name] ?? ""));
-      });
-
-      const submit = findSubmitControl(form);
-      if (submit) params.append(submit.name, String(submit.value || "1"));
-
-      return params;
-    };
-
-    const readAdminPageTextareaValue = (doc) => {
-      const ta =
-        doc.querySelector('textarea[name="content"]') ||
-        doc.querySelector('textarea[name="text"]') ||
-        doc.querySelector('textarea[name="message"]') ||
-        doc.querySelector("textarea[name]");
-      if (!ta) return "";
-      return String(ta.value || ta.textContent || "");
-    };
-
-    const assertPageUpdated = async (pageSlug, marker) => {
-      const { doc } = await fetchEditPageForm(pageSlug);
-      const val = readAdminPageTextareaValue(doc);
-      if (val.includes(marker)) return true;
-
-      // часто подсказка лежит прямо в HTML страницы
-      const title = String(doc.title || "");
-      const bodyText = String(doc.body ? doc.body.innerText || "" : "");
-      console.error("[charProfileTool] verify failed. title:", title);
-      console.error("[charProfileTool] verify failed. textarea snippet:", val.slice(0, 600));
-      console.error("[charProfileTool] verify failed. body snippet:", bodyText.slice(0, 800));
-
-      throw new Error(
-        "POST прошёл, но контент страницы не изменился (проверка не нашла новый шаблон). " +
-          "Смотри console: там есть куски ответа/страницы — обычно видно причину (права/валидация/редирект)."
-      );
-    };
-
-    const tryUpdateExistingPage = async (pageSlug, newHtml) => {
-      const { doc, form, editUrl } = await fetchEditPageForm(pageSlug);
       if (!form) return false;
 
-      // Подстрахуемся: перепишем ВСЕ textarea[name], вдруг имя не content
-      const textareas = Array.from(form.querySelectorAll("textarea[name]"));
-      if (!textareas.length) return false;
+      const contentEl =
+        form.querySelector('textarea[name="content"]') ||
+        form.querySelector('textarea[name="text"]') ||
+        form.querySelector('textarea[name="message"]') ||
+        form.querySelector('textarea[name]');
 
-      const encodedHtml = encodeNonAscii(newHtml);
+      if (!contentEl || !contentEl.name) return false;
 
-      const overrides = {};
-      textareas.forEach((ta) => {
-        overrides[ta.name] = encodedHtml;
-      });
+      const contentName = contentEl.name;
 
-      // часто есть title/name/edit_page — тоже проставим, если поля есть
-      const hasTitle = !!form.querySelector('input[name="title"]');
-      const hasName = !!form.querySelector('input[name="name"]');
-      if (hasTitle) overrides.title = pageSlug;
-      if (hasName) overrides.name = pageSlug;
+      const overrides = {
+        [contentName]: newHtml,
+      };
 
-      let params = buildAdminPageParamsFromForm(form, overrides);
-
-      // подстраховка: иногда edit_page хотят и в POST
-      params.set("edit_page", pageSlug);
-
-      // подстраховка: если submit не добавился — добавим save=1
-      if (!params.has("save") && !params.has("update") && !params.has("submit")) {
-        params.set("save", "1");
-      }
-
-      // POST делаем на editUrl, и ref тоже editUrl
+      const params = buildAddPageParams(form, overrides);
       await postForm(editUrl, params, editUrl);
-
-      // проверяем реальное изменение
-      await assertPageUpdated(pageSlug, "cm-shell");
 
       return true;
     };
 
-    const createNewPage = async (pageSlug, newHtml) => {
-      const { form, pageUrl } = await fetchAddPageForm();
-
-      const encodedHtml = encodeNonAscii(newHtml);
-
-      // title/name + все textarea
-      const overrides = {
-        title: pageSlug,
-        name: pageSlug,
-      };
-
-      const textareas = Array.from(form.querySelectorAll("textarea[name]"));
-      if (!textareas.length) throw new Error("В форме создания страницы нет textarea[name].");
-      textareas.forEach((ta) => {
-        overrides[ta.name] = encodedHtml;
-      });
-
-      let params = buildAdminPageParamsFromForm(form, overrides);
-
-      // подстраховка: если submit не добавился — добавим save=1
-      if (!params.has("save") && !params.has("add_page") && !params.has("submit")) {
-        params.set("save", "1");
+    const fetchAddPageForm = async () => {
+      const url = config.endpoints.adminAddPageUrl;
+      const doc = await fetchDoc(url);
+      const form =
+        doc.querySelector(config.endpoints.adminAddPageFormSelector) ||
+        doc.querySelector('form#addpage');
+      if (!form) {
+        throw new Error('Форма создания страницы не найдена в HTML админки.');
       }
-
-      await postForm(pageUrl, params, pageUrl);
-
-      // после создания проверяем через edit_page
-      await assertPageUpdated(pageSlug, "cm-shell");
+      const actionRaw = form.getAttribute('action') || url;
+      const actionUrl = toAbsUrl(actionRaw);
+      return { form, actionUrl };
     };
 
-    // ========== Контекст ==========
+    const findExistingPageEditHref = async (pageSlug) => {
+      const doc = await fetchDoc(config.endpoints.adminAddPageUrl);
+
+      const slug = String(pageSlug || '')
+        .trim()
+        .toLowerCase();
+      if (!slug) return null;
+
+      const links = Array.from(
+        doc.querySelectorAll('a[href*="admin_pages.php"][href*="action=edit"]'),
+      );
+
+      for (const a of links) {
+        const href = a.getAttribute('href');
+        if (!href) continue;
+
+        const row = a.closest('tr') || a.closest('li') || a.parentElement;
+        const hay = String(row ? row.textContent : a.textContent || '')
+          .replace(/\s+/g, ' ')
+          .trim()
+          .toLowerCase();
+
+        if (hay.includes(slug)) {
+          return href;
+        }
+      }
+
+      return null;
+    };
+
+    const fetchEditPageForm = async (editHref) => {
+      const url = toAbsUrl(editHref);
+      const doc = await fetchDoc(url);
+
+      const form =
+        doc.querySelector('form[action*="admin_pages.php"][method="post"]') ||
+        doc.querySelector('form');
+
+      if (!form) {
+        throw new Error(
+          'Форма редактирования страницы не найдена в HTML админки.',
+        );
+      }
+
+      const actionRaw = form.getAttribute('action') || url;
+      const actionUrl = toAbsUrl(actionRaw);
+
+      return { form, actionUrl, editUrl: url };
+    };
+
+    const buildProfileParams = (form, overrideMap) => {
+      const params = new URLSearchParams();
+      const isHidden = (el) =>
+        el.tagName === 'INPUT' && (el.type || '').toLowerCase() === 'hidden';
+
+      const overrideNames = new Set(Object.keys(overrideMap || {}));
+
+      for (const el of Array.from(form.elements || [])) {
+        if (!el.name || el.disabled) continue;
+        const type = (el.type || '').toLowerCase();
+
+        if (type === 'submit') {
+          continue;
+        }
+
+        if (isHidden(el)) {
+          params.append(el.name, el.value ?? '');
+          continue;
+        }
+
+        if (el.name === 'form_sent') {
+          params.set('form_sent', el.value || '1');
+          continue;
+        }
+
+        if (overrideNames.has(el.name)) {
+          const raw = overrideMap[el.name];
+          const val = encodeNonAscii(raw ?? '');
+          params.set(el.name, val);
+          continue;
+        }
+
+        if (/^form\[\w+\]$/.test(el.name)) {
+          params.set(el.name, el.value ?? '');
+          continue;
+        }
+
+        if ((type === 'checkbox' || type === 'radio') && el.checked) {
+          params.append(el.name, el.value ?? '1');
+          continue;
+        }
+
+        params.append(el.name, el.value ?? '');
+      }
+
+      if (!params.has('form_sent')) params.set('form_sent', '1');
+
+      overrideNames.forEach((name) => {
+        if (!params.has(name)) {
+          const raw = overrideMap[name];
+          const val = encodeNonAscii(raw ?? '');
+          params.set(name, val);
+        }
+      });
+
+      const submit = findSubmitControl(form);
+      if (submit) params.append(submit.name, submit.value);
+
+      return params;
+    };
+
+    const buildAddPageParams = (form, overrideMap) => {
+      const params = new URLSearchParams();
+      const isHidden = (el) =>
+        el.tagName === 'INPUT' && (el.type || '').toLowerCase() === 'hidden';
+
+      const overrideNames = new Set(Object.keys(overrideMap || {}));
+
+      for (const el of Array.from(form.elements || [])) {
+        if (!el.name || el.disabled) continue;
+        const type = (el.type || '').toLowerCase();
+
+        if (type === 'submit') {
+          continue;
+        }
+
+        if (isHidden(el)) {
+          params.append(el.name, el.value ?? '');
+          continue;
+        }
+
+        if (overrideNames.has(el.name)) {
+          const raw = overrideMap[el.name];
+          const val = encodeNonAscii(raw ?? '');
+          params.set(el.name, val);
+          continue;
+        }
+
+        if (
+          el.name === 'title' ||
+          el.name === 'name' ||
+          el.name === 'content' ||
+          el.name === 'tags'
+        ) {
+          params.set(el.name, el.value ?? '');
+          continue;
+        }
+
+        if ((type === 'checkbox' || type === 'radio') && el.checked) {
+          params.append(el.name, el.value ?? '1');
+          continue;
+        }
+
+        params.append(el.name, el.value ?? '');
+      }
+
+      overrideNames.forEach((name) => {
+        if (!params.has(name)) {
+          const raw = overrideMap[name];
+          const val = encodeNonAscii(raw ?? '');
+          params.set(name, val);
+        }
+      });
+
+      const submit = findSubmitControl(form);
+      if (submit) params.append(submit.name, submit.value);
+
+      return params;
+    };
+
     const ensureBasicContext = async () => {
       if (state.context) return state.context;
 
-      const topicUrl = location.href.split("#")[0];
+      const topicUrl = location.href.split('#')[0];
       const topicId = getTopicIdFromUrl(topicUrl);
-      if (!topicId) throw new Error("Не удалось определить ID темы из адреса.");
+      if (!topicId) {
+        throw new Error('Не удалось определить ID темы из адреса.');
+      }
 
       const posts = await getPostsForTopic(topicId);
-      if (!posts.length) throw new Error("В теме нет постов или тема не найдена.");
+      if (!posts.length) {
+        throw new Error('В теме нет постов или тема не найдена.');
+      }
 
       const firstPost = pickFirstPost(posts);
-      if (!firstPost) throw new Error("Не удалось найти первый пост в теме.");
+      if (!firstPost) {
+        throw new Error('Не удалось найти первый пост в теме.');
+      }
 
       const characterData = parseProfileFromHtml(firstPost.message);
-      if (!characterData) throw new Error("Не удалось распознать анкету персонажа.");
-      if (!characterData.name) throw new Error("Не найдено имя персонажа ([charname]).");
-      if (!characterData.name_en) throw new Error("Не найдено англ. имя ([charnameen]).");
-      if (!characterData.age) throw new Error("Не найден возраст ([charage]).");
-      if (!characterData.race) throw new Error("Не найдена раса ([charrace]).");
+      if (!characterData) {
+        throw new Error(
+          'Не удалось распознать анкету персонажа. Проверьте оформление BB-кодов.',
+        );
+      }
+      if (!characterData.name) {
+        throw new Error('Не найдено имя персонажа (BB-код [charname]).');
+      }
+      if (!characterData.name_en) {
+        throw new Error(
+          'Не найдено английское имя персонажа (BB-код [charnameen]).',
+        );
+      }
+      if (!characterData.age) {
+        throw new Error('Не найден возраст персонажа (BB-код [charage]).');
+      }
+      if (!characterData.race) {
+        throw new Error('Не найдена раса персонажа (BB-код [charrace]).');
+      }
 
       const userId = await findUserId(characterData, firstPost);
-      if (!userId) throw new Error("Не удалось определить user_id по имени персонажа.");
+      if (!userId) {
+        throw new Error(
+          'Не удалось определить user_id по имени персонажа. Проверьте пользователя в системе.',
+        );
+      }
 
       const pageSlug = generateFileName(characterData.name_en);
 
@@ -968,31 +893,33 @@
     const ensureFullContext = async ({ requireLz = true } = {}) => {
       const ctx = await ensureBasicContext();
 
-      if (ctx.lzHtml === undefined) {
+      if (!ctx.lzHtml) {
         const lzHtml = parseLzHtmlFromHtml(ctx.firstPostHtml);
+
         if (!lzHtml && requireLz) {
-          throw new Error("Не найден HTML личного звания ([charpt]).");
+          throw new Error(
+            'Не найден HTML личного звания (BB-код [charpt]). Проверьте анкету.',
+          );
         }
-        ctx.lzHtml = lzHtml || "";
+
+        ctx.lzHtml = lzHtml || '';
       }
 
-      if (!ctx.pageSlug) ctx.pageSlug = generateFileName(ctx.characterData.name_en);
+      if (!ctx.pageSlug) {
+        ctx.pageSlug = generateFileName(ctx.characterData.name_en);
+      }
+
       return ctx;
     };
 
-    // ========== Действия ==========
     const fillProfile = async () => {
-      const ctx = await ensureFullContext({ requireLz: true });
+      const ctx = await ensureFullContext();
       const { characterData, lzHtml, userId, topicUrl } = ctx;
 
       const raceLetter = getRaceLetter(characterData.race);
       const raceField = `<div title="${characterData.race}">${raceLetter}</div>`;
-      const lzField =
-        `<div class="lz-name"><a href="${topicUrl}">${characterData.name}</a>, ${characterData.age}</div>` +
-        ` <div class="lz-text">${lzHtml}</div>`;
-      const plahField =
-        `<pers-plah class="modal-link" id="${ctx.pageSlug}" data-user-id="${userId}" role="button" tabindex="0" style="cursor:pointer">` +
-        `<div class="pers-plah"><em class="pers-plah-text"> Two bodies, one soul </em></div></pers-plah>`;
+      const lzField = `<div class="lz-name"><a href="${topicUrl}">${characterData.name}</a>, ${characterData.age}</div> <div class="lz-text">${lzHtml}</div>`;
+      const plahField = `<pers-plah class="modal-link" id="${ctx.pageSlug}" data-user-id="${userId}" role="button" tabindex="0" style="cursor:pointer"><div class="pers-plah"><em class="pers-plah-text"> Two bodies, one soul </em></div></pers-plah>`;
 
       const { fieldNames, moneyDefault, postsDefault } = config.profile;
       const { form, actionUrl } = await fetchProfileForm(userId);
@@ -1016,10 +943,20 @@
       const newContent = buildPageTemplate(ctx);
 
       const updated = await tryUpdateExistingPage(pageSlug, newContent);
-      if (updated) return { mode: "update" };
+      if (updated) return { mode: 'update' };
 
-      await createNewPage(pageSlug, newContent);
-      return { mode: "create" };
+      const { form, actionUrl } = await fetchAddPageForm();
+
+      const overrides = {
+        title: pageSlug,
+        name: pageSlug,
+        content: newContent,
+      };
+
+      const params = buildAddPageParams(form, overrides);
+      await postForm(actionUrl, params, actionUrl);
+
+      return { mode: 'create' };
     };
 
     const changeGroup = async () => {
@@ -1030,100 +967,133 @@
       const { form, actionUrl } = await fetchAdminProfileForm(userId);
 
       const groupSelect = form.querySelector('select[name="group_id"]');
-      if (!groupSelect) throw new Error('Поле "group_id" не найдено.');
+      if (!groupSelect) {
+        throw new Error('Поле "group_id" не найдено в форме управления.');
+      }
 
-      const overrides = { group_id: targetGroupId };
+      const overrides = {
+        group_id: targetGroupId,
+      };
+
       const params = buildProfileParams(form, overrides);
       await postForm(actionUrl, params, actionUrl);
     };
 
-    // ========== Handlers ==========
     const handleFillProfileClick = async () => {
-      if (state.busy) return notify("Уже выполняется другая операция.", "error");
+      if (state.busy) {
+        notify('Уже выполняется другая операция, подождите.', 'error');
+        return;
+      }
       state.busy = true;
       try {
         await fillProfile();
-        notify("Профиль обновлён. Проверьте вкладку «Дополнительно».", "success");
+        notify(
+          'Профиль обновлён. Проверьте вкладку «Дополнительно».',
+          'success',
+        );
       } catch (err) {
-        console.error("Ошибка при автозаполнении профиля:", err);
-        notify(err.message || String(err), "error");
+        console.error('Ошибка при автозаполнении профиля:', err);
+        notify(err.message || String(err), 'error');
       } finally {
         state.busy = false;
       }
     };
 
     const handleCreatePageClick = async () => {
-      if (state.busy) return notify("Уже выполняется другая операция.", "error");
+      if (state.busy) {
+        notify('Уже выполняется другая операция, подождите.', 'error');
+        return;
+      }
       state.busy = true;
       try {
         const r = await createOrUpdatePage();
         notify(
-          r.mode === "update"
-            ? "Страница персонажа обновлена (контент перезаписан и проверен)."
-            : "Страница персонажа создана (проверено через edit_page).",
-          "success"
+          r.mode === 'update'
+            ? 'Страница персонажа обновлена (контент перезаписан).'
+            : 'Страница персонажа создана. Проверьте список страниц.',
+          'success',
         );
       } catch (err) {
-        console.error("Ошибка при создании/обновлении страницы:", err);
-        notify(err.message || String(err), "error");
+        console.error('Ошибка при создании страницы:', err);
+        notify(err.message || String(err), 'error');
       } finally {
         state.busy = false;
       }
     };
 
     const handleChangeGroupClick = async () => {
-      if (state.busy) return notify("Уже выполняется другая операция.", "error");
+      if (state.busy) {
+        notify('Уже выполняется другая операция, подождите.', 'error');
+        return;
+      }
       state.busy = true;
       try {
         await changeGroup();
-        notify("Группа пользователя обновлена на «Одарённый».", "success");
+        notify('Группа пользователя обновлена на «Одарённый».', 'success');
       } catch (err) {
-        console.error("Ошибка при смене группы:", err);
-        notify(err.message || String(err), "error");
+        console.error('Ошибка при смене группы:', err);
+        notify(err.message || String(err), 'error');
       } finally {
         state.busy = false;
       }
     };
 
-    // ========== UI ==========
+    // --- Монтирование кнопок ---
+
     const mountButtons = () => {
       const targets = $$(config.selectors.insertAfter);
       targets.forEach((anchor) => {
         if (!anchor || anchor.dataset.charProfileToolMounted) return;
-        anchor.dataset.charProfileToolMounted = "1";
+        anchor.dataset.charProfileToolMounted = '1';
 
-        const btnFill = document.createElement("input");
-        btnFill.type = "button";
+        const btnFill = document.createElement('input');
+        btnFill.type = 'button';
         btnFill.value = LABEL_FILL;
-        btnFill.className = "button ks-btn-fill-profile";
+        btnFill.className = 'button ks-btn-fill-profile';
 
-        const btnPage = document.createElement("input");
-        btnPage.type = "button";
+        const btnPage = document.createElement('input');
+        btnPage.type = 'button';
         btnPage.value = LABEL_CREATE_PAGE;
-        btnPage.className = "button ks-btn-create-page";
+        btnPage.className = 'button ks-btn-create-page';
 
-        const btnGroup = document.createElement("input");
-        btnGroup.type = "button";
+        const btnGroup = document.createElement('input');
+        btnGroup.type = 'button';
         btnGroup.value = LABEL_CHANGE_GROUP;
-        btnGroup.className = "button ks-btn-change-group";
+        btnGroup.className = 'button ks-btn-change-group';
 
-        anchor.insertAdjacentElement("afterend", btnFill);
-        btnFill.insertAdjacentElement("afterend", btnPage);
-        btnPage.insertAdjacentElement("afterend", btnGroup);
+        anchor.insertAdjacentElement('afterend', btnFill);
+        btnFill.insertAdjacentElement('afterend', btnPage);
+        btnPage.insertAdjacentElement('afterend', btnGroup);
 
-        btnFill.addEventListener("click", handleFillProfileClick);
-        btnPage.addEventListener("click", handleCreatePageClick);
-        btnGroup.addEventListener("click", handleChangeGroupClick);
+        btnFill.addEventListener('click', handleFillProfileClick);
+        btnPage.addEventListener('click', handleCreatePageClick);
+        btnGroup.addEventListener('click', handleChangeGroupClick);
       });
     };
 
     const init = () => {
       const fid = getForumId();
-      if (!fid || !config.access.allowedForumIds.map(Number).includes(Number(fid))) return;
+      if (
+        !fid ||
+        !config.access.allowedForumIds
+          .map((n) => Number(n))
+          .includes(Number(fid))
+      ) {
+        return;
+      }
 
-      if (Array.isArray(config.access.allowedGroupIds) && config.access.allowedGroupIds.length) {
+      if (
+        Array.isArray(config.access.allowedGroupIds) &&
+        config.access.allowedGroupIds.length > 0
+      ) {
         const gid = getGroupId();
-        if (!config.access.allowedGroupIds.map(Number).includes(Number(gid))) return;
+        if (
+          !config.access.allowedGroupIds
+            .map((n) => Number(n))
+            .includes(Number(gid))
+        ) {
+          return;
+        }
       }
 
       mountButtons();
@@ -1133,7 +1103,7 @@
     };
 
     runOnceOnReady(init);
-    if (helpers.register) helpers.register("charProfileTool", { init });
+    if (helpers.register) helpers.register('charProfileTool', { init });
   }
 
   bootstrap();
