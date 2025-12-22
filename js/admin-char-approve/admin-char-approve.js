@@ -616,23 +616,35 @@
     };
 
     const tryUpdateExistingPage = async (pageSlug, newHtml) => {
+      if (!config.endpoints || typeof config.endpoints.adminEditPageUrl !== 'function') {
+        return false;
+      }
+    
       const editUrl = config.endpoints.adminEditPageUrl(pageSlug);
-      const doc = await fetchDoc(editUrl);
+    
+      let doc;
+      try {
+        doc = await fetchDoc(editUrl);
+      } catch (e) {
+        const msg = String(e?.message || e || '');
+        if (msg.includes('HTTP 404')) return false;
+        throw e;
+      }
     
       const form =
         doc.querySelector('form[action*="admin_pages.php"][method="post"]') ||
-        doc.querySelector("form");
+        doc.querySelector('form');
     
       if (!form) return false;
     
-      const actionRaw = form.getAttribute("action") || editUrl;
+      const actionRaw = form.getAttribute('action') || editUrl;
       const actionUrl = toAbsUrl(actionRaw);
     
       const contentEl =
         form.querySelector('textarea[name="content"]') ||
         form.querySelector('textarea[name="text"]') ||
         form.querySelector('textarea[name="message"]') ||
-        form.querySelector("textarea[name]");
+        form.querySelector('textarea[name]');
     
       if (!contentEl || !contentEl.name) return false;
     
@@ -642,9 +654,9 @@
     
       const tagsEl = form.querySelector('input[name="tags"], textarea[name="tags"]');
       if (tagsEl && tagsEl.name) {
-        const t = String(tagsEl.value || "").trim();
-        if (t.toLowerCase() === "character") {
-          overrides[tagsEl.name] = "";
+        const t = String(tagsEl.value || '').trim();
+        if (t.toLowerCase() === 'character') {
+          overrides[tagsEl.name] = '';
         }
       }
     
@@ -948,23 +960,24 @@
     const createOrUpdatePage = async () => {
       const ctx = await ensureFullContext({ requireLz: false });
       const { pageSlug } = ctx;
-
+    
       const newContent = buildPageTemplate(ctx);
-
+    
       const updated = await tryUpdateExistingPage(pageSlug, newContent);
       if (updated) return { mode: 'update' };
-
+    
       const { form, actionUrl } = await fetchAddPageForm();
-
+    
       const overrides = {
         title: pageSlug,
         name: pageSlug,
         content: newContent,
+        tags: '',
       };
-
+    
       const params = buildAddPageParams(form, overrides);
       await postForm(actionUrl, params, actionUrl);
-
+    
       return { mode: 'create' };
     };
 
@@ -1117,4 +1130,5 @@
 
   bootstrap();
 })();
+
 
