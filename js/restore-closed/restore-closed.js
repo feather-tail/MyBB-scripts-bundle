@@ -61,12 +61,7 @@
       </div>
 
       <div class="ks-ctr__desc">
-        Вы попытались отправить пост в закрытую тему (<b>tid=${tid}</b>).<br>
-        Текст найден в <code>localStorage.ReservePost</code> и скопирован в:
-        <ul class="ks-ctr__ul">
-          <li><code>${safeKey1}</code></li>
-          <li><code>${safeKey2}</code></li>
-        </ul>
+        Вы попытались отправить пост в закрытую тему.
         На всякий случай скопируйте или скачайте текст ниже.
       </div>
 
@@ -161,3 +156,4 @@
 
   mount();
 })();
+
