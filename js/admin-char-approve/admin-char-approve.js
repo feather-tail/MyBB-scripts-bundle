@@ -882,23 +882,25 @@
       return state.context;
     };
 
-    const ensureFullContext = async () => {
+    const ensureFullContext = async ({ requireLz = true } = {}) => {
       const ctx = await ensureBasicContext();
-
+    
       if (!ctx.lzHtml) {
         const lzHtml = parseLzHtmlFromHtml(ctx.firstPostHtml);
-        if (!lzHtml) {
+    
+        if (!lzHtml && requireLz) {
           throw new Error(
             "Не найден HTML личного звания (BB-код [charpt]). Проверьте анкету."
           );
         }
-        ctx.lzHtml = lzHtml;
+    
+        ctx.lzHtml = lzHtml || "";
       }
-
+    
       if (!ctx.pageSlug) {
         ctx.pageSlug = generateFileName(ctx.characterData.name_en);
       }
-
+    
       return ctx;
     };
 
@@ -927,7 +929,7 @@
     };
 
     const createOrUpdatePage = async () => {
-      const ctx = await ensureFullContext();
+      const ctx = await ensureFullContext({ requireLz: false });
       const { pageSlug } = ctx;
     
       const newContent = buildPageTemplate(ctx);
@@ -1098,6 +1100,7 @@
 
   bootstrap();
 })();
+
 
 
 
