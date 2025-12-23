@@ -35,7 +35,7 @@
         changeGroupText: 'Перевести в группу',
       },
       profile: {
-        moneyDefault: '0',
+        moneyDefault: '40',
         postsDefault: '0',
         targetGroupId: 6,
         fieldNames: {
@@ -1130,6 +1130,7 @@
 
   bootstrap();
 })();
+
 
 
 
