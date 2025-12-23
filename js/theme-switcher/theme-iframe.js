@@ -65,6 +65,25 @@
     toRemove.forEach((c) => el.classList.remove(c));
   };
 
+  const ensureIframeCss = (doc) => {
+    const list = cfg?.iframeCss;
+    if (!Array.isArray(list) || !list.length) return;
+  
+    const head = doc.head || doc.getElementsByTagName('head')[0] || doc.documentElement;
+  
+    list.forEach((href, i) => {
+      if (!href) return;
+      const id = 'ks-iframe-css-' + i;
+      if (doc.getElementById(id)) return;
+  
+      const link = doc.createElement('link');
+      link.id = id;
+      link.rel = 'stylesheet';
+      link.href = href;
+      head.appendChild(link);
+    });
+  };
+  
   const applyStateToDoc = (doc, s) => {
     if (!doc) return;
     const html = doc.documentElement;
@@ -102,9 +121,10 @@
         frame.contentDocument ||
         (frame.contentWindow && frame.contentWindow.document);
       if (!doc) return;
-
+  
+      ensureIframeCss(doc);
       applyStateToDoc(doc, s);
-
+  
       const win = frame.contentWindow;
       if (win) {
         if (typeof win.setHeight === 'function') win.setHeight();
@@ -177,3 +197,4 @@
     document.addEventListener('DOMContentLoaded', init, { once: true });
   else init();
 })();
+
