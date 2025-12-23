@@ -778,12 +778,11 @@
       if (!params.has('form_sent')) params.set('form_sent', '1');
 
       overrideNames.forEach((name) => {
-        if (!params.has(name)) {
-          const raw = overrideMap[name];
-          const val = encodeNonAscii(raw ?? '');
-          params.set(name, val);
-        }
+        const raw = overrideMap[name];
+        const val = encodeNonAscii(raw ?? '');
+        params.set(name, val);
       });
+
 
       const submit = findSubmitControl(form);
       if (submit) params.append(submit.name, submit.value);
@@ -944,10 +943,6 @@
 
       const { fieldNames, moneyDefault, postsDefault } = config.profile;
       const { form, actionUrl } = await fetchProfileForm(userId);
-      console.log('money input exists?', !!form.querySelector('[name="form[fld4]"]'));
-console.log('money input:', form.querySelector('[name="form[fld4]"]'));
-console.log('all fld names:', [...form.querySelectorAll('[name^="form[fld"]')].map(x => x.name));
-
 
       const overrides = {
         [fieldNames.race]: raceField,
@@ -1134,8 +1129,3 @@ console.log('all fld names:', [...form.querySelectorAll('[name^="form[fld"]')].m
 
   bootstrap();
 })();
-
-
-
-
-
