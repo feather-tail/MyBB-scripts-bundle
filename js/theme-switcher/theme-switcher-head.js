@@ -1,30 +1,61 @@
-(function () {
-  try {
-    var storageKey = 'mybb.display.v1';
-    var raw = localStorage.getItem(storageKey);
+(() => {
+  'use strict';
 
-    var s = { style: 'classic', scheme: 'light', view: 'desktop' };
+  const helpers = window.helpers || {};
+  const getConfig =
+    helpers.getConfig ||
+    ((key, fallback = {}) => (window.ScriptConfig && window.ScriptConfig[key]) || fallback);
 
-    if (raw) {
+  const cfg = getConfig('themeSwitcher', {});
+  const storageKey =
+    (cfg?.storage?.key || 'mybb.display.v1') +
+    (cfg?.storage?.instance ? ':' + cfg.storage.instance : '');
+
+  const frameSelector =
+    cfg?.htmlFrameSelector ||
+    'iframe.html_frame, .html-post-box iframe.html_frame, .html-content iframe.html_frame';
+
+  const getState = () => {
+    try {
+      const s = window.DisplaySettings?.getState?.();
+      if (s && s.style && s.scheme && s.view) return s;
+    } catch {}
+
+    try {
+      const raw = localStorage.getItem(storageKey);
+      if (raw) {
+        const s = JSON.parse(raw);
+        if (s && s.style && s.scheme && s.view) return s;
+      }
+    } catch {}
+
+    return { style: 'classic', scheme: 'light', view: 'desktop' };
+  };
+
+  const makePayload = () => ({
+    eventName: 'displayChange',
+    state: getState(),
+    iframeCss: Array.isArray(cfg?.iframeCss) ? cfg.iframeCss : [],
+  });
+
+  const isKnownFrameSource = (srcWin) => {
+    if (!srcWin) return false;
+    const frames = document.querySelectorAll(frameSelector);
+    for (const fr of frames) {
       try {
-        var obj = JSON.parse(raw);
-        if (obj && typeof obj === 'object') {
-          if (obj.style)  s.style  = String(obj.style);
-          if (obj.scheme === 'dark' || obj.scheme === 'light') s.scheme = obj.scheme;
-          if (obj.view === 'mobile' || obj.view === 'desktop') s.view = obj.view;
-        }
-      } catch (e) {}
+        if (fr.contentWindow === srcWin) return true;
+      } catch {}
     }
+    return false;
+  };
 
-    var html = document.documentElement;
-    html.setAttribute('data-style',  s.style);
-    html.setAttribute('data-scheme', s.scheme);
-    html.setAttribute('data-view',   s.view);
+  window.addEventListener('message', (event) => {
+    const d = event.data || {};
+    if (d.eventName !== 'displayRequest') return;
+    if (!isKnownFrameSource(event.source)) return;
 
-    var body = document.body;
-    if (body) {
-      body.classList.remove('light', 'dark');
-      body.classList.add(s.scheme);
-    }
-  } catch (e) {}
+    try {
+      event.source?.postMessage(makePayload(), '*');
+    } catch {}
+  });
 })();
