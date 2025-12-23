@@ -1097,6 +1097,7 @@
         { id: 'classic', label: 'Classic' },
         { id: 'winter', label: 'Winter' },
       ],
+      htmlFrameSelector: 'iframe.html_frame, .html-post-box iframe.html_frame, .html-content iframe.html_frame',
       selectors: {
         root: 'html',
         targets: {
@@ -1147,6 +1148,7 @@
     },
   };
 })();
+
 
 
 
