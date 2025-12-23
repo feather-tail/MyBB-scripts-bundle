@@ -1091,8 +1091,8 @@
       ],
     },
     themeSwitcher: {
-      storage: { key: 'mybb.display.v1', instance: '' },
-      defaults: { style: 'classic', scheme: 'light', view: 'desktop' },
+      storage: { key: 'mybb.display.v1', instance: 'winter2025' },
+      defaults: { style: 'winter', scheme: 'light', view: 'desktop' },
       styles: [
         { id: 'classic', label: 'Classic' },
         { id: 'winter', label: 'Winter' },
@@ -1151,6 +1151,7 @@
     },
   };
 })();
+
 
 
 
