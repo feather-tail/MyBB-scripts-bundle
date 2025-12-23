@@ -944,6 +944,10 @@
 
       const { fieldNames, moneyDefault, postsDefault } = config.profile;
       const { form, actionUrl } = await fetchProfileForm(userId);
+      console.log('money input exists?', !!form.querySelector('[name="form[fld4]"]'));
+console.log('money input:', form.querySelector('[name="form[fld4]"]'));
+console.log('all fld names:', [...form.querySelectorAll('[name^="form[fld"]')].map(x => x.name));
+
 
       const overrides = {
         [fieldNames.race]: raceField,
@@ -1130,6 +1134,7 @@
 
   bootstrap();
 })();
+
 
 
 
