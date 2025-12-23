@@ -784,14 +784,6 @@
 
       const submit = findSubmitControl(form);
       if (submit) params.append(submit.name, submit.value);
-      console.log(
-  'fld4 inputs:',
-  [...form.querySelectorAll('[name="form[fld4]"]')].map(el => ({
-    tag: el.tagName,
-    type: (el.type || '').toLowerCase(),
-    value: el.value
-  }))
-);
 
       return params;
     };
@@ -1135,4 +1127,5 @@
 
   bootstrap();
 })();
+
 
