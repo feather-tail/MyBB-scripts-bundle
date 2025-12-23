@@ -1,23 +1,13 @@
 (() => {
-  const ALLOWED_PARENT = /^https:\/\/kindredspirits\.ru$/;
+  'use strict';
 
-  const ensureCssList = (arr) => {
-    if (!Array.isArray(arr)) return;
-    const head = document.head || document.documentElement;
-    arr.forEach((href, i) => {
-      if (!href) return;
-      const id = 'ks-iframe-css-' + i;
-      if (document.getElementById(id)) return;
-      const link = document.createElement('link');
-      link.id = id;
-      link.rel = 'stylesheet';
-      link.href = href;
-      head.appendChild(link);
-    });
-  };
+  if (self === top) return;
+  const frameName = String(window.name || '');
+  if (!frameName.startsWith('html_frame')) return;
 
   const apply = (s) => {
     if (!s) return;
+
     const style  = String(s.style || 'classic');
     const scheme = (s.scheme === 'dark') ? 'dark' : 'light';
     const view   = (s.view === 'mobile') ? 'mobile' : 'desktop';
@@ -27,26 +17,37 @@
     html.setAttribute('data-scheme', scheme);
     html.setAttribute('data-view', view);
 
-    html.classList.remove('classic','winter');
-    html.classList.add(style);
-
-    const body = document.body;
-    if (body) {
-      body.classList.remove('light','dark');
-      body.classList.add(scheme);
+    if (document.body) {
+      document.body.classList.remove('light', 'dark');
+      document.body.classList.add(scheme);
     }
 
     html.classList.toggle('force-mobile', view === 'mobile');
+
+    try { window.setHeight?.(); } catch {}
   };
 
-  window.addEventListener('message', (event) => {
-    if (!ALLOWED_PARENT.test(event.origin)) return;
-    const d = event.data || {};
+  const request = () => {
+    const msg = { eventName: 'displayRequest' };
+    try { window.parent?.postMessage(msg, '*'); } catch {}
+    try { window.top?.postMessage(msg, '*'); } catch {}
+  };
+
+  window.addEventListener('message', (e) => {
+    const d = e.data || {};
     if (d.eventName !== 'displayChange') return;
-
-    ensureCssList(d.iframeCss);
-
     apply(d.state);
   });
-})();
 
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+      request();
+      setTimeout(request, 300);
+      setTimeout(request, 1200);
+    }, { once: true });
+  } else {
+    request();
+    setTimeout(request, 300);
+    setTimeout(request, 1200);
+  }
+})();
