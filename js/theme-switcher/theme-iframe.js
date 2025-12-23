@@ -1,4 +1,3 @@
-<script>
 (() => {
   const ALLOWED_PARENT = /^https:\/\/kindredspirits\.ru$/;
 
@@ -50,4 +49,4 @@
     apply(d.state);
   });
 })();
-</script>
+
