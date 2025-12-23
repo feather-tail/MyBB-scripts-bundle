@@ -343,8 +343,6 @@
 
     const state = {
       busy: false,
-      // context:
-      // { topicId, topicUrl, characterData, userId, firstPostHtml, lzHtml?, pageSlug? }
       context: null,
     };
 
@@ -786,6 +784,14 @@
 
       const submit = findSubmitControl(form);
       if (submit) params.append(submit.name, submit.value);
+      console.log(
+  'fld4 inputs:',
+  [...form.querySelectorAll('[name="form[fld4]"]')].map(el => ({
+    tag: el.tagName,
+    type: (el.type || '').toLowerCase(),
+    value: el.value
+  }))
+);
 
       return params;
     };
@@ -1129,3 +1135,4 @@
 
   bootstrap();
 })();
+
