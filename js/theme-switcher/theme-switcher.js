@@ -154,7 +154,8 @@
     const msg = {
       eventName: 'displayChange',
       state: { style: s.style, scheme: s.scheme, view: s.view },
-      iframeCss: Array.isArray(cfg?.iframeCss) ? cfg.iframeCss : []
+      iframeCss: Array.isArray(cfg?.iframeCss) ? cfg.iframeCss : [],
+      styles: Array.isArray(cfg?.styles) ? cfg.styles.map(x => x.id).filter(Boolean) : []
     };
     document.querySelectorAll(C.htmlFrameSelector).forEach(fr => {
       try { fr.contentWindow?.postMessage(msg, '*'); } catch {}
