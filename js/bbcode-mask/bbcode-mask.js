@@ -818,29 +818,34 @@
   const processPosts = async () => {
     const posts = [...$$(SELECTORS.post)];
     if (!posts.length) return;
-
+  
     const changed = [];
     for (const post of posts) {
       if (post.dataset.masked) continue;
+  
       const content = post.querySelector(SELECTORS.content);
       if (!content) continue;
+  
       const html = content.innerHTML;
       const data = extractMaskTags(html);
       if (!Object.keys(data).length) continue;
+  
       changed.push({ post, content, data, html });
     }
     if (!changed.length) return;
-
+  
     const forum = getForumName() || '';
-
+  
     const userIds = changed
       .map(({ post }) => {
         const d = post.dataset.userId || post.getAttribute('data-user-id');
         if (d) return String(d);
+  
         const a =
           post.querySelector('.post-author a[href*="profile.php?id="]') ||
           post.querySelector('a[href*="profile.php?id="]');
         if (!a) return '';
+  
         try {
           const u = new URL(a.href, location.origin);
           return u.searchParams.get('id') || '';
@@ -849,37 +854,65 @@
         }
       })
       .filter(Boolean);
-
+  
     const users = await fetchUsersInfo(userIds);
-
+  
     const allowedGroups = Array.isArray(config.allowedGroups)
       ? config.allowedGroups.map(Number)
       : [];
-
+  
+    const updatedRoots = new Set();
+  
     for (const item of changed) {
       const uid =
         item.post.dataset.userId ||
         item.post.getAttribute('data-user-id') ||
         '';
       const uinfo = users[String(uid)] || null;
-
+  
       const authorAllowed = uinfo
         ? allowedGroups.includes(Number(uinfo.groupId))
         : false;
-
+  
       const access = authorAllowed
         ? computeAccessForUser(uinfo, forum)
         : { common: false, extended: false };
-
+  
       item.content.innerHTML = Cache.getCleaned(item.html);
-
+      updatedRoots.add(item.content);
+  
       if (authorAllowed) {
         applyMaskToPost(item.post, item.data, access);
         item.post.querySelector(SELECTORS.profile)?.classList.add('hv-mask');
+  
+        updatedRoots.add(item.post);
       }
-
+  
       item.post.dataset.masked = '1';
     }
+  
+    try {
+      const fn = processPosts;
+  
+      if (!fn._ksTypoRoots) fn._ksTypoRoots = new Set();
+      for (const r of updatedRoots) fn._ksTypoRoots.add(r);
+  
+      if (fn._ksTypoTimer) clearTimeout(fn._ksTypoTimer);
+  
+      fn._ksTypoTimer = setTimeout(() => {
+        try {
+          const roots = fn._ksTypoRoots ? [...fn._ksTypoRoots] : [];
+          fn._ksTypoRoots?.clear();
+          fn._ksTypoTimer = null;
+  
+          if (!roots.length) return;
+  
+          document.dispatchEvent(
+            new CustomEvent('ks_content_updated', { detail: { roots } }),
+          );
+        } catch {}
+      }, 80);
+    } catch {}
   };
 
   const getActiveTextarea = () => {
