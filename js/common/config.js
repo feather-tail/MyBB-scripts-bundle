@@ -1146,11 +1146,11 @@
       },
       users: [
         {
-          userId: 10,
-          login: 'Lenny St. Clair',
+          userId: 0,
+          login: '',
           block: {
-            topicIds: [257],
-            subjectIncludes: ['Мысли'],
+            topicIds: [],
+            subjectIncludes: [''],
           },
         },
       ],
@@ -1179,3 +1179,4 @@
     },
   };
 })();
+
