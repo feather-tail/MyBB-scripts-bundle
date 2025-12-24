@@ -440,7 +440,8 @@
         profileUrl: (uid) => `/profile.php?section=fields&id=${uid}`,
         profileFormSelector: 'form[action*="profile.php"][method="post"]',
         adminProfileUrl: (uid) => `/profile.php?section=admin&id=${uid}`,
-        adminEditPageUrl: (slug) => `/admin_pages.php?edit_page=${encodeURIComponent(slug)}`,
+        adminEditPageUrl: (slug) =>
+          `/admin_pages.php?edit_page=${encodeURIComponent(slug)}`,
         adminProfileFormSelector:
           'form[action*="profile.php?section=admin"][method="post"], form#profile11',
         adminAddPageUrl: '/admin_pages.php?action=adddel',
@@ -1097,7 +1098,8 @@
         { id: 'classic', label: 'Classic' },
         { id: 'winter', label: 'Winter' },
       ],
-      htmlFrameSelector: 'iframe.html_frame, .html-post-box iframe.html_frame, .html-content iframe.html_frame',
+      htmlFrameSelector:
+        'iframe.html_frame, .html-post-box iframe.html_frame, .html-content iframe.html_frame',
       iframeCss: [
         'https://forumstatic.ru/styles/001c/8d/fd/style.1766488328.css',
       ],
@@ -1127,6 +1129,32 @@
         activeControl: 'is-active',
       },
     },
+    topicAccessGuard: {
+      debug: false,
+      listReplacementText: 'Доступ запрещён',
+      overlay: {
+        title: 'Доступ запрещён',
+        text: 'У вас нет доступа к этой теме.',
+        homeUrl: '/',
+        showBackButton: true,
+      },
+      behavior: {
+        hideInLists: true,
+        blockView: true,
+        disablePosting: true,
+        useObserver: true,
+      },
+      users: [
+        {
+          userId: 10,
+          login: 'Lenny St. Clair',
+          block: {
+            topicIds: [257],
+            subjectIncludes: ['Мысли'],
+          },
+        },
+      ],
+    },
     userActivityIndicator: {
       selectors: {
         post: '.post',
@@ -1151,15 +1179,3 @@
     },
   };
 })();
-
-
-
-
-
-
-
-
-
-
-
-
