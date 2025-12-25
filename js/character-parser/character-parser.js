@@ -22,10 +22,7 @@
   const mountId = config.mountId || 'characters-root';
   const cacheTtlMs = Number(config.cacheTtlMs) || 30 * 60 * 1000;
 
-  const imageIndex = Math.min(
-    2,
-    Math.max(0, (Number(config.imageIndex) || 1) - 1),
-  );
+  const preferredImageNumber = Math.max(1, Number(config.imageIndex) || 2);
 
   const UI = config.ui || {};
   const UIText = {
@@ -126,10 +123,18 @@
     if (k === 'ведьма' || k === 'ведьмак') return 'ведьма/ведьмак';
     return k;
   }
+  
   function pickPreferredImage(item) {
-    const arr = Array.isArray(item.images) ? item.images : [];
-    if (arr[imageIndex]) return arr[imageIndex];
-    return arr.find(Boolean) || item.img || '';
+    const images = Array.isArray(item.images)
+      ? item.images.map((x) => String(x || '').trim()).filter(Boolean)
+      : [];
+  
+    if (images.length) {
+      const idx = Math.max(0, Math.min(images.length - 1, preferredImageNumber - 1));
+      return images[idx];
+    }
+  
+    return String(item.img || '').trim();
   }
 
   const mainName = (it) => it.name_en || it.name || '(без имени)';
@@ -1373,6 +1378,7 @@
   helpers.runOnceOnReady(init);
   helpers.register('charactersParser', { init });
 })();
+
 
 
 
