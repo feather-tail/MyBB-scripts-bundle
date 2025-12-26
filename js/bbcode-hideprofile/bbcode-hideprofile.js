@@ -7,6 +7,7 @@
 
   const SELECTOR_POST = cfg.selectors?.post || '.post, .post-item, .postmsg';
   const SELECTOR_BODY = cfg.selectors?.postBody || '.post-body, .post_body, .postmsg';
+  const SELECTOR_SIG  = cfg.selectors?.signature || 'dl.post-sig'; // ← ДОБАВИЛИ
   const HIDE_CLASS = cfg.hideClass || 'hide-profile';
   const TAG_RAW = cfg.tag || '[hideprofile]';
 
@@ -23,14 +24,17 @@
 
   function applyToPost(post) {
     if (!post || post.classList.contains(HIDE_CLASS)) return;
+
     const body = post.querySelector(SELECTOR_BODY);
     if (!body) return;
 
     const html = body.innerHTML;
-    if (hasTag(html)) {
-      post.classList.add(HIDE_CLASS);
-      body.innerHTML = stripTag(html);
-    }
+    if (!hasTag(html)) return;
+
+    post.classList.add(HIDE_CLASS);
+    body.innerHTML = stripTag(html);
+
+    body.querySelectorAll(SELECTOR_SIG).forEach(el => el.remove());
   }
 
   function scan(root = document) {
