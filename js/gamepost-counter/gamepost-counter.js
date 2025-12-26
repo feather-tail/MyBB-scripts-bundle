@@ -12,6 +12,9 @@
   const SETTINGS_SECTION = config.settingsMenuSection || "";
   const INTENT_TTL_MS = 120000;
 
+  const FORUM_TOTAL_LABEL = config.ui?.forumTotalLabel || "Игровых постов: ";
+  const FORUM_TOTAL_ENABLED = config.ui?.showForumTotal !== false;
+
   const last = (sel, root = document) => {
     const L = root.querySelectorAll(sel);
     return L.length ? L[L.length - 1] : null;
@@ -423,6 +426,52 @@
     tdRef.parentNode.insertBefore(td, tdRef.nextSibling);
   }
 
+  function getForumStatsAnchorItem2() {
+    const pun = document.getElementById("pun-stats");
+    if (!pun) return null;
+    const info = pun.querySelector(".statsinfo");
+    if (!info) return null;
+    const item2 = info.querySelector("li.item2");
+    return item2 || null;
+  }
+
+  function upsertForumTotal(total) {
+    if (!FORUM_TOTAL_ENABLED) return;
+    const item2 = getForumStatsAnchorItem2();
+    if (!item2) return;
+
+    let li = item2.parentElement?.querySelector("li.gpc-forum-total");
+    if (!li) {
+      li = document.createElement("li");
+      li.className = "item2 gpc-forum-total";
+      li.innerHTML = `<span>${FORUM_TOTAL_LABEL}</span><strong>0</strong>`;
+      item2.insertAdjacentElement("afterend", li);
+    }
+
+    const strong = li.querySelector("strong") || li.appendChild(document.createElement("strong"));
+    strong.textContent = String(toNum(total));
+    li.style.removeProperty("display");
+  }
+
+  function removeForumTotal() {
+    document.querySelectorAll("li.gpc-forum-total").forEach((n) => n.remove());
+  }
+
+  async function refreshForumTotal() {
+    if (!FORUM_TOTAL_ENABLED) return;
+    if (!hasViewerAccess()) return;
+    if (!isEnabled()) return;
+
+    const item2 = getForumStatsAnchorItem2();
+    if (!item2) return;
+
+    const data = await getTable();
+    if (!data?.ok) return;
+
+    const totalAll = toNum(data.totalAll ?? data.total_all ?? 0);
+    upsertForumTotal(totalAll);
+  }
+
   function removeCounters() {
     $$(".gpc-open-td").forEach((n) => n.remove());
     $$(".post-author li.pa-fld" + config.ui.fieldId).forEach((li) => {
@@ -435,6 +484,7 @@
       document.querySelector("#viewprofile-next li.pa-fld" + config.ui.fieldId);
 
     if (profileLi) profileLi.style.display = "none";
+    removeForumTotal();
   }
 
   const INTENT_ADD_KEY = "gpc_add_intent";
@@ -559,6 +609,9 @@
         const val = valueFromUserObj(res.user, config.ui.badgeSource || "week");
         optimisticUpdate(payload.userId, val);
       }
+      if (res?.ok && typeof res.totalAll !== "undefined") {
+        upsertForumTotal(res.totalAll);
+      }
     });
   }
 
@@ -583,11 +636,14 @@
 
     writeDelIntent({ ...info, sent: true });
 
-    sendUpdateFetch(payload).then(async () => {
+    sendUpdateFetch(payload).then(async (res) => {
       const user = await getUserStats(payload.userId).catch(() => null);
       if (user) {
         const val = valueFromUserObj(user, config.ui.badgeSource || "week");
         optimisticUpdate(payload.userId, val);
+      }
+      if (res?.ok && typeof res.totalAll !== "undefined") {
+        upsertForumTotal(res.totalAll);
       }
       clearDelIntent();
     });
@@ -778,7 +834,10 @@
       for (const m of muts) {
         if (m.addedNodes && m.addedNodes.length) {
           for (const n of m.addedNodes) {
-            if (n.nodeType === 1 && ((n.classList && n.classList.contains("post")) || n.querySelector?.(".post"))) {
+            if (
+              n.nodeType === 1 &&
+              ((n.classList && n.classList.contains("post")) || n.querySelector?.(".post"))
+            ) {
               postAdded = true;
               break;
             }
@@ -805,6 +864,7 @@
     injectLauncher();
     decorateAuthorsOnTopic();
     decorateProfilePage();
+    refreshForumTotal();
 
     if (!intentsSent) {
       intentsSent = true;
@@ -874,9 +934,11 @@
     config,
     SETTINGS: config,
     getUserStats,
+    getTable,
     renderToggle,
     initToggle,
     initSection,
+    refreshForumTotal,
     updateGlobal({ userId, username, action = "add", fid, tid, isFirstPost = false }) {
       const payload = {
         subscription: config.backend.subscription,
@@ -889,11 +951,25 @@
         isFirstPost: !!isFirstPost,
       };
 
-      if (!isCountable({ fid: String(payload.forumId || ""), tid: String(payload.topicId || "0"), isFirstPost: payload.isFirstPost })) {
+      if (
+        !isCountable({
+          fid: String(payload.forumId || ""),
+          tid: String(payload.topicId || "0"),
+          isFirstPost: payload.isFirstPost,
+        })
+      ) {
         return;
       }
 
-      sendUpdateFetch(payload);
+      sendUpdateFetch(payload).then((res) => {
+        if (res?.ok && res.user) {
+          const val = valueFromUserObj(res.user, config.ui.badgeSource || "week");
+          optimisticUpdate(payload.userId, val);
+        }
+        if (res?.ok && typeof res.totalAll !== "undefined") {
+          upsertForumTotal(res.totalAll);
+        }
+      });
     },
   });
 })();
