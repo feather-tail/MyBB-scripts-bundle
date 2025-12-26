@@ -1,6 +1,9 @@
 (() => {
   "use strict";
 
+  if (window.__ks_gamepostCounter_loaded) return;
+  window.__ks_gamepostCounter_loaded = true;
+
   const helpers = window.helpers;
   const { $, $$, createEl } = helpers;
   const config = helpers.getConfig("gamepostCounter", {});
@@ -20,6 +23,20 @@
   };
 
   const getUser = () => helpers.getUserInfo();
+
+  const toNum = (v) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : 0;
+  };
+
+  const hasViewerAccess = () => {
+    const u = getUser();
+    const groupNum = toNum(u?.group);
+    const allowed = Array.isArray(config.viewerGroups)
+      ? config.viewerGroups.map(toNum).includes(groupNum)
+      : true;
+    return allowed;
+  };
 
   const isEnabled = () => {
     try {
@@ -79,12 +96,18 @@
 
   function isCountable({ fid, tid, isFirstPost }) {
     if (!config.includeFirstPost && isFirstPost) return false;
-    const r = config.forumsRules.perForum.get(String(fid));
-    const mode = r?.mode || config.forumsRules.defaultMode || "all";
+
+    const fidStr = String(fid ?? "");
+    const tidNum = toNum(String(tid ?? "0").split(".")[0] || 0);
+
+    const r = config.forumsRules?.perForum?.get?.(fidStr);
+    const mode = r?.mode || config.forumsRules?.defaultMode || "all";
     if (mode === "all") return true;
+
     const topics = r?.topics || new Set();
-    if (mode === "include") return topics.has(Number(tid));
-    if (mode === "exclude") return !topics.has(Number(tid));
+    if (mode === "include") return topics.has(tidNum);
+    if (mode === "exclude") return !topics.has(tidNum);
+
     return false;
   }
 
@@ -104,7 +127,7 @@
       `${config.backend.endpoint}?method=get_user` +
       `&subscription=${encodeURIComponent(config.backend.subscription)}` +
       `&tableKey=${encodeURIComponent(config.backend.tableKey)}` +
-      `&userId=${userId}`;
+      `&userId=${toNum(userId)}`;
     const data = await helpers
       .request(u, { responseType: "json" })
       .catch(() => null);
@@ -116,8 +139,8 @@
       `${config.backend.endpoint}?method=get_table` +
       `&subscription=${encodeURIComponent(config.backend.subscription)}` +
       `&tableKey=${encodeURIComponent(config.backend.tableKey)}` +
-      `&limit=${config.backend.limit}` +
-      `&scope=${config.backend.scope}`;
+      `&limit=${encodeURIComponent(config.backend.limit)}` +
+      `&scope=${encodeURIComponent(config.backend.scope)}`;
     return helpers.request(url, { responseType: "json" }).catch(() => null);
   }
 
@@ -128,11 +151,10 @@
     let started = !nameSpan;
     const toRemove = [];
     let existingStrong = null;
+
     for (let n = li.firstChild; n; n = n.nextSibling) {
       if (!started) {
-        if (n === nameSpan) {
-          started = true;
-        }
+        if (n === nameSpan) started = true;
         continue;
       }
       if (n.nodeType === Node.ELEMENT_NODE && n.tagName === "STRONG") {
@@ -142,11 +164,12 @@
         toRemove.push(n);
       }
     }
+
     toRemove.forEach((n) => li.removeChild(n));
+
     if (!existingStrong) {
       existingStrong = document.createElement("strong");
-      if (nameSpan)
-        nameSpan.after(document.createTextNode(" "), existingStrong);
+      if (nameSpan) nameSpan.after(document.createTextNode(" "), existingStrong);
       else {
         li.textContent = "";
         li.appendChild(existingStrong);
@@ -158,6 +181,7 @@
   async function renderTable(container) {
     const data = await getTable();
     if (!data?.ok) return;
+
     const block = (title, s) => `
       <div class="gpc-table">
         <h4>${title} <em>Всего: ${s.total}</em></h4>
@@ -167,17 +191,14 @@
               ? s.rows
                   .map(
                     (r, i) =>
-                      `<tr><td>${i + 1}.</td><td><a href="/profile.php?id=${
-                        r.user_id
-                      }" target="_blank">${r.username}</a></td><td>${
-                        r.score
-                      }</td></tr>`
+                      `<tr><td>${i + 1}.</td><td><a href="/profile.php?id=${r.user_id}" target="_blank">${r.username}</a></td><td>${r.score}</td></tr>`
                   )
                   .join("")
               : "<tr><td>—</td><td>—</td><td>0</td></tr>"
           }
         </tbody></table>
       </div>`;
+
     container.innerHTML =
       block("Текущая неделя", data.week) +
       block("Прошлая неделя", data.prevWeek) +
@@ -185,10 +206,33 @@
       block("Прошлый месяц", data.prevMonth);
   }
 
-  function injectBadgeIntoPost(postEl, value) {
-    const li = postEl.querySelector(
-      `.post-author li.pa-fld${config.ui.fieldId}`
+  const getPostUserId = (postEl) => {
+    if (!postEl) return 0;
+
+    const du = postEl.getAttribute("data-user-id") || postEl.dataset?.userId;
+    if (du && /^\d+$/.test(String(du))) return toNum(du);
+
+    const a = postEl.querySelector(
+      '.post-author .pa-author a[href*="/profile.php?id="], a[href*="/profile.php?id="]'
     );
+    const m = a?.href?.match(/profile\.php\?id=(\d+)/);
+    return m ? toNum(m[1]) : 0;
+  };
+
+  const getProfileFieldLi = () => {
+    const idSel = `pa-fld${config.ui.fieldId}`;
+    return (
+      document.getElementById(idSel) ||
+      document.querySelector(`#pun-profile li#${CSS.escape(idSel)}`) ||
+      document.querySelector(`#viewprofile-next li#${CSS.escape(idSel)}`) ||
+      document.querySelector(`#pun-profile li.pa-fld${config.ui.fieldId}`) ||
+      document.querySelector(`#viewprofile-next li.pa-fld${config.ui.fieldId}`) ||
+      document.querySelector(`li.pa-fld${config.ui.fieldId}`)
+    );
+  };
+
+  function injectBadgeIntoPost(postEl, value) {
+    const li = postEl.querySelector(`.post-author li.pa-fld${config.ui.fieldId}`);
     if (li) normalizeCounterLi(li, value);
   }
 
@@ -201,14 +245,17 @@
   }
 
   function updateUserValueInDom(userId, value) {
-    $$(".post[data-user-id]").forEach((post) => {
-      if (Number(post.getAttribute("data-user-id")) === Number(userId)) {
+    const uidNum = toNum(userId);
+
+    $$(".post").forEach((post) => {
+      if (getPostUserId(post) === uidNum) {
         injectBadgeIntoPost(post, String(value));
       }
     });
+
     const profBox = $("#viewprofile-next");
-    if (profBox && profBox.className.includes(`id-${userId}`)) {
-      const li = document.getElementById(`pa-fld${config.ui.fieldId}`);
+    if (profBox && profBox.className.includes(`id-${uidNum}`)) {
+      const li = getProfileFieldLi();
       if (li) normalizeCounterLi(li, String(value));
     }
   }
@@ -221,13 +268,14 @@
 
   async function decorateAuthorsOnTopic() {
     if (!config.ui.showBadgesInTopic) return;
-    const { group, id: myId } = getUser();
-    if (!config.viewerGroups.includes(group)) return;
+    if (!hasViewerAccess()) return;
 
-    const posts = $$(".post[data-user-id]");
-    const allIds = Array.from(
-      new Set(posts.map((p) => Number(p.getAttribute("data-user-id"))))
-    );
+    const me = getUser();
+    const myId = toNum(me?.id);
+    if (!myId) return;
+
+    const posts = $$(".post");
+    const allIds = Array.from(new Set(posts.map(getPostUserId).filter((x) => x > 0)));
     if (!allIds.includes(myId)) allIds.push(myId);
 
     let ids = allIds;
@@ -248,7 +296,7 @@
 
     const source = config.ui.badgeSource || "week";
     for (const post of posts) {
-      const id = Number(post.getAttribute("data-user-id"));
+      const id = getPostUserId(post);
       const user = cache.get(id);
       if (!user) continue;
       injectBadgeIntoPost(post, String(valueFromUserObj(user, source)));
@@ -258,22 +306,23 @@
   async function decorateProfilePage() {
     const root = document.getElementById("pun-profile");
     if (!root) return;
+    if (!hasViewerAccess()) return;
 
-    let uid = Number(parseQuery().id || 0);
+    let uid = toNum(parseQuery().id || 0);
     if (!uid) {
       const box = document.getElementById("viewprofile-next");
       const m = box?.className.match(/\bid-(\d+)\b/);
-      if (m) uid = Number(m[1]);
+      if (m) uid = toNum(m[1]);
     }
     if (!uid) return;
 
     const data = await getUserStats(uid);
     if (!data) return;
 
-    const source =
-      config.ui.profileBadgeSource || config.ui.badgeSource || "week";
+    const source = config.ui.profileBadgeSource || config.ui.badgeSource || "week";
     const value = valueFromUserObj(data, source);
-    const li = document.getElementById(`pa-fld${config.ui.fieldId}`);
+
+    const li = getProfileFieldLi();
     if (li) normalizeCounterLi(li, value);
   }
 
@@ -316,24 +365,20 @@
     body.appendChild(wrap);
 
     content.append(title, body);
-    const { close } = window.helpers.modal.openModal(content);
+    window.helpers.modal.openModal(content);
     renderTable(wrap);
   }
 
   async function injectLauncher() {
-    const { group } = getUser();
-    if (!config.viewerGroups.includes(group)) return;
+    if (!hasViewerAccess()) return;
 
-    const fidNum = Number(getForumId());
+    const fidNum = toNum(getForumId());
     const allowed =
       !config.ui.forumsOnly ||
-      (Array.isArray(config.ui.forumsOnly) &&
-        config.ui.forumsOnly.includes(fidNum));
+      (Array.isArray(config.ui.forumsOnly) && config.ui.forumsOnly.includes(fidNum));
     if (!allowed) return;
 
-    document
-      .querySelectorAll("#form-buttons li.gpc-open-li")
-      .forEach((n) => n.remove());
+    document.querySelectorAll("#form-buttons li.gpc-open-li").forEach((n) => n.remove());
 
     const anchorSel = config.ui.launcherAfter || "#button-addition";
     const anchor = await waitForElement(anchorSel);
@@ -352,6 +397,7 @@
     btn.type = "button";
     btn.className = "gpc-open-btn";
     btn.textContent = config.ui.launcherIcon || "?";
+
     ["pointerdown", "mousedown", "mouseup", "pointerup"].forEach((t) => {
       btn.addEventListener(
         t,
@@ -382,111 +428,136 @@
     $$(".post-author li.pa-fld" + config.ui.fieldId).forEach((li) => {
       li.style.display = "none";
     });
-    const profileLi = document.getElementById("pa-fld" + config.ui.fieldId);
+
+    const profileLi =
+      document.getElementById("pa-fld" + config.ui.fieldId) ||
+      document.querySelector("#pun-profile li.pa-fld" + config.ui.fieldId) ||
+      document.querySelector("#viewprofile-next li.pa-fld" + config.ui.fieldId);
+
     if (profileLi) profileLi.style.display = "none";
   }
 
- const INTENT_ADD_KEY = "gpc_add_intent";
+  const INTENT_ADD_KEY = "gpc_add_intent";
   const INTENT_DEL_KEY = "gpc_del_intent";
-  
+
   const saveAddIntent = (v) => {
-    try { localStorage.setItem(INTENT_ADD_KEY, JSON.stringify(v)); } catch {}
+    try {
+      localStorage.setItem(INTENT_ADD_KEY, JSON.stringify(v));
+    } catch {}
   };
   const readAddIntent = () => {
     const r = localStorage.getItem(INTENT_ADD_KEY);
     if (!r) return null;
-    try { return JSON.parse(r); } catch { return null; }
+    try {
+      return JSON.parse(r);
+    } catch {
+      return null;
+    }
   };
   const clearAddIntent = () => {
-    try { localStorage.removeItem(INTENT_ADD_KEY); } catch {}
+    try {
+      localStorage.removeItem(INTENT_ADD_KEY);
+    } catch {}
   };
-  
+
   const readDelIntent = () => {
     const r = localStorage.getItem(INTENT_DEL_KEY);
     if (!r) return null;
-    try { return JSON.parse(r); } catch { return null; }
+    try {
+      return JSON.parse(r);
+    } catch {
+      return null;
+    }
   };
   const writeDelIntent = (obj) => {
-    try { localStorage.setItem(INTENT_DEL_KEY, JSON.stringify(obj)); } catch {}
+    try {
+      localStorage.setItem(INTENT_DEL_KEY, JSON.stringify(obj));
+    } catch {}
   };
   const clearDelIntent = () => {
-    try { localStorage.removeItem(INTENT_DEL_KEY); } catch {}
+    try {
+      localStorage.removeItem(INTENT_DEL_KEY);
+    } catch {}
   };
 
   function buildPayload(fid, tid, isFirstPost, { userId, username, action }) {
     return {
       subscription: config.backend.subscription,
       tableKey: config.backend.tableKey,
-      userId,
+      userId: toNum(userId),
       username,
       action,
-      forumId: Number(fid || 0),
-      topicId: Number(tid || 0),
+      forumId: toNum(fid || 0),
+      topicId: toNum(String(tid || 0).split(".")[0] || 0),
       isFirstPost: !!isFirstPost,
     };
   }
 
   const collectMyPostIds = () => {
     const me = getUser();
-    if (!me?.id) return [];
-    return Array.from($$(".post[data-user-id]"))
-      .filter(
-        (p) => Number(p.getAttribute("data-user-id")) === Number(me.id)
-      )
+    const myId = toNum(me?.id);
+    if (!myId) return [];
+
+    return Array.from($$(".post"))
+      .filter((p) => getPostUserId(p) === myId)
       .map((p) => p.id || "")
       .filter(Boolean);
   };
 
   function trySendFromIntent() {
     if (!isEnabled()) return;
-  
+
     const intent = readAddIntent();
     if (!intent) return;
     if (intent.sent) return;
-  
+
     if (!intent.t || Date.now() - intent.t > INTENT_TTL_MS) {
       clearAddIntent();
       return;
     }
-  
+
     if (document.querySelector('form#post[action*="edit.php"]')) return;
-  
+
     const u = getUser();
-    if (!u.id || !u.name) return;
-  
+    if (!u?.id || !u?.name) return;
+
     let fid = intent.fid || getForumId();
     const originalTid = intent.tid || "0";
-    let tid = (originalTid && originalTid !== "0") ? originalTid : (getTopicId() || "0");
+    let tid =
+      originalTid && originalTid !== "0" ? originalTid : getTopicId() || "0";
     const isFirstPost = Boolean(intent.isFirstPost || originalTid === "0");
-  
+
     if (!fid) fid = getForumId();
     if (!tid) tid = getTopicId() || "0";
-  
+
     if (!isCountable({ fid, tid, isFirstPost })) {
       clearAddIntent();
       return;
     }
-  
+
     const before = new Set(Array.isArray(intent.snapshotIds) ? intent.snapshotIds : []);
-    const after  = new Set(collectMyPostIds());
+    const after = new Set(collectMyPostIds());
     let hasNewMine = false;
     for (const id of after) {
-      if (!before.has(id)) { hasNewMine = true; break; }
+      if (!before.has(id)) {
+        hasNewMine = true;
+        break;
+      }
     }
     if (!hasNewMine && !isFirstPost) return;
-  
+
     clearAddIntent();
-  
+
     const payload = buildPayload(fid, tid, isFirstPost, {
       userId: u.id,
       username: u.name,
       action: "add",
     });
-  
+
     sendUpdateFetch(payload).then((res) => {
       if (res?.ok && res.user) {
         const val = valueFromUserObj(res.user, config.ui.badgeSource || "week");
-        optimisticUpdate(u.id, val);
+        optimisticUpdate(payload.userId, val);
       }
     });
   }
@@ -494,19 +565,13 @@
   function sendSubtractOnce(info) {
     if (!isEnabled() || !info || info.sent) return;
 
-    if (
-      !isCountable({
-        fid: info.fid,
-        tid: info.tid,
-        isFirstPost: !!info.isFirstPost,
-      })
-    ) {
+    if (!isCountable({ fid: info.fid, tid: info.tid, isFirstPost: !!info.isFirstPost })) {
       clearDelIntent();
       return;
     }
 
     const payload = buildPayload(info.fid, info.tid, !!info.isFirstPost, {
-      userId: Number(info.uid || 0),
+      userId: toNum(info.uid || 0),
       username: info.uname || "",
       action: "subtract",
     });
@@ -517,6 +582,7 @@
     }
 
     writeDelIntent({ ...info, sent: true });
+
     sendUpdateFetch(payload).then(async () => {
       const user = await getUserStats(payload.userId).catch(() => null);
       if (user) {
@@ -529,43 +595,42 @@
 
   function trySendFromDelIntent() {
     if (!isEnabled() || !PATH.isTopic()) return;
+
     const info = readDelIntent();
     if (!info) return;
+
     const tidNow = getTopicId();
     const fidNow = getForumId();
     if (!tidNow || !fidNow) return;
-    if (
-      String(fidNow) !== String(info.fid) ||
-      String(tidNow) !== String(info.tid)
-    )
-      return;
+
+    if (String(fidNow) !== String(info.fid) || String(tidNow) !== String(info.tid)) return;
+
     if (!document.getElementById("p" + info.postId)) sendSubtractOnce(info);
   }
 
   function hookPostSubmit() {
     const form = $('form#post[action]');
     if (!form) return;
-  
+
     const isCreateForm = (f) => !!f?.action && /\/post\.php\b/i.test(f.action);
-  
+
     form.addEventListener(
       "submit",
       (e) => {
         if (!isEnabled()) return;
         if (!isCreateForm(form)) return;
-  
+
         const sb = e.submitter || document.activeElement;
-        if (sb && (sb.classList?.contains("preview") || sb.name === "preview"))
-          return;
-  
+        if (sb && (sb.classList?.contains("preview") || sb.name === "preview")) return;
+
         const u = getUser();
-        if (!u.id || !u.name) return;
-  
+        if (!u?.id || !u?.name) return;
+
         const fid = (form.action.match(/fid=(\d+)/) || [])[1] || getForumId();
         const tidRaw = (form.action.match(/tid=(\d+(\.\d+)*)/) || [])[1] || "";
         const tid = tidRaw ? tidRaw.split(".")[0] : "";
         const isFirstPost = !!(fid && !tid);
-  
+
         saveAddIntent({
           action: "add",
           fid: String(fid || ""),
@@ -576,24 +641,23 @@
           t: Date.now(),
           sent: false,
         });
-  
       },
       { passive: true }
     );
-  
+
     const prepIntent = (e) => {
       if (!isEnabled()) return;
+
       const btn = e?.currentTarget;
-      if (btn && (btn.classList?.contains("preview") || btn.name === "preview"))
-        return;
-  
+      if (btn && (btn.classList?.contains("preview") || btn.name === "preview")) return;
+
       const f = btn?.form || document.querySelector("form#post");
       if (!isCreateForm(f)) return;
-  
+
       const fid = getForumId();
       const tidRaw = getTopicId();
       const isFirstPost = !!(fid && !tidRaw);
-  
+
       saveAddIntent({
         action: "add",
         fid: String(fid || ""),
@@ -605,15 +669,11 @@
         sent: false,
       });
     };
-  
+
     form
-      .querySelectorAll(
-        "input[type=submit], button[type=submit], input[name=submit], button[name=submit]"
-      )
-      .forEach((btn) =>
-        btn.addEventListener("click", prepIntent, { passive: true })
-      );
-  
+      .querySelectorAll('input[type=submit], button[type=submit], input[name=submit], button[name=submit]')
+      .forEach((btn) => btn.addEventListener("click", prepIntent, { passive: true }));
+
     form.addEventListener("keydown", (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
         const active = document.activeElement;
@@ -624,6 +684,7 @@
           const fid = getForumId();
           const tidRaw = getTopicId();
           const isFirstPost = !!(fid && !tidRaw);
+
           saveAddIntent({
             action: "add",
             fid: String(fid || ""),
@@ -644,13 +705,15 @@
       "click",
       (ev) => {
         if (!PATH.isTopic() || !isEnabled()) return;
+
         const a = ev.target.closest('.pl-delete a[href*="/delete.php?id="]');
         if (!a) return;
+
         const post = a.closest(".post");
-        const postId = Number(
-          (a.href.match(/delete\.php\?id=(\d+)/) || [])[1] || 0
-        );
-        const uid = Number(post?.getAttribute("data-user-id") || 0);
+        const postId = toNum((a.href.match(/delete\.php\?id=(\d+)/) || [])[1] || 0);
+
+        const uid = getPostUserId(post);
+
         const uname = (
           post?.querySelector(".post-author .pa-author a")?.textContent ||
           helpers.getUserInfo().name ||
@@ -659,16 +722,16 @@
 
         let isFirstPost = false;
         const liDel = post?.querySelector("li.pl-delete");
-        const mNum =
-          liDel?.textContent && liDel.textContent.match(/Сообщение\s+(\d+)/i);
-        if (mNum) isFirstPost = Number(mNum[1]) === 1;
+        const mNum = liDel?.textContent && liDel.textContent.match(/Сообщение\s+(\d+)/i);
+        if (mNum) isFirstPost = toNum(mNum[1]) === 1;
         else {
           const n = post?.querySelector("h3 > span > strong");
-          if (n) isFirstPost = Number((n.textContent || "").trim()) === 1;
+          if (n) isFirstPost = toNum((n.textContent || "").trim()) === 1;
         }
 
         const fid = getForumId();
         const tid = getTopicId() || "0";
+
         writeDelIntent({
           postId,
           uid,
@@ -686,11 +749,14 @@
 
   function hookDeleteConfirmPage() {
     if (!PATH.isDelete()) return;
+
     const m = location.search.match(/(?:^|[?&])id=(\d+)/);
     const postId = (m && m[1]) || null;
     if (!postId) return;
+
     const info = readDelIntent();
     if (!info || String(info.postId) !== String(postId)) return;
+
     const form = document.querySelector('form[action*="/delete.php"]');
     if (form)
       form.addEventListener(
@@ -708,14 +774,11 @@
     const mo = new MutationObserver((muts) => {
       let postAdded = false;
       let hasRem = false;
+
       for (const m of muts) {
         if (m.addedNodes && m.addedNodes.length) {
           for (const n of m.addedNodes) {
-            if (
-              n.nodeType === 1 &&
-              ((n.classList && n.classList.contains("post")) ||
-                n.querySelector?.(".post"))
-            ) {
+            if (n.nodeType === 1 && ((n.classList && n.classList.contains("post")) || n.querySelector?.(".post"))) {
               postAdded = true;
               break;
             }
@@ -724,9 +787,11 @@
         if (m.removedNodes?.length) hasRem = true;
         if (postAdded) break;
       }
+
       if (postAdded) trySendFromIntent();
       if (postAdded || hasRem) trySendFromDelIntent();
     });
+
     mo.observe(target, { childList: true, subtree: true });
   }
 
@@ -740,6 +805,7 @@
     injectLauncher();
     decorateAuthorsOnTopic();
     decorateProfilePage();
+
     if (!intentsSent) {
       intentsSent = true;
       setTimeout(() => trySendFromIntent(), 0);
@@ -751,13 +817,16 @@
     const label = createEl("label");
     const cb = createEl("input", { type: "checkbox" });
     cb.checked = isEnabled();
+
     label.append(cb, document.createTextNode(" " + TOGGLE_LABEL));
+
     cb.addEventListener("change", () => {
       const on = cb.checked;
       saveState(on);
       if (on) applyCounters();
       else removeCounters();
     });
+
     if (container) container.append(label);
     return label;
   }
@@ -777,11 +846,10 @@
           clearInterval(timer);
         }
       };
-      const timer = window.settingsMenu?.registerSection
-        ? null
-        : setInterval(tryRegister, 100);
+      const timer = window.settingsMenu?.registerSection ? null : setInterval(tryRegister, 100);
       tryRegister();
     }
+
     if (config.toggleInsertAfter) {
       const anchor = document.querySelector(config.toggleInsertAfter);
       if (anchor) anchor.insertAdjacentElement("afterend", renderToggle());
@@ -794,6 +862,7 @@
     hookDeleteConfirmPage();
     hookDomObserver();
     hookPageShow();
+
     if (isEnabled()) applyCounters();
     else removeCounters();
   }
@@ -808,32 +877,19 @@
     renderToggle,
     initToggle,
     initSection,
-    updateGlobal({
-      userId,
-      username,
-      action = "add",
-      fid,
-      tid,
-      isFirstPost = false,
-    }) {
+    updateGlobal({ userId, username, action = "add", fid, tid, isFirstPost = false }) {
       const payload = {
         subscription: config.backend.subscription,
         tableKey: config.backend.tableKey,
-        userId,
+        userId: toNum(userId),
         username,
         action,
-        forumId: Number(fid || getForumId() || 0),
-        topicId: Number(tid || getTopicId() || 0),
+        forumId: toNum(fid || getForumId() || 0),
+        topicId: toNum(tid || getTopicId() || 0),
         isFirstPost: !!isFirstPost,
       };
 
-      if (
-        !isCountable({
-          fid: String(payload.forumId || ""),
-          tid: String(payload.topicId || "0"),
-          isFirstPost: payload.isFirstPost,
-        })
-      ) {
+      if (!isCountable({ fid: String(payload.forumId || ""), tid: String(payload.topicId || "0"), isFirstPost: payload.isFirstPost })) {
         return;
       }
 
