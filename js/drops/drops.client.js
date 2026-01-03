@@ -463,6 +463,12 @@
 
       if (!resp || resp.ok !== true) return;
 
+      const eligible = !!resp.data?.eligible;
+      if (!eligible) {
+        stop();
+        return;
+      }
+
       const serverNowMs = C.toInt(resp.data?.server_time_ms);
       if (serverNowMs > 0) {
         state.clock.offsetMs = Date.now() - serverNowMs;
@@ -830,3 +836,4 @@
     ensureInit();
   });
 })();
+
