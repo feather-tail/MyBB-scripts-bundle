@@ -15,9 +15,7 @@
     if (!H) return;
 
     const cfg = C.getCfg();
-    const root = document.getElementById(
-      cfg.admin?.mountId || 'ks-drops-admin-root',
-    );
+    const root = document.getElementById(cfg.admin?.mountId || 'ks-drops-admin-root');
     if (!root) return;
 
     const isAdmin = () => {
@@ -27,8 +25,7 @@
     };
 
     if (!isAdmin()) {
-      root.innerHTML =
-        '<div class="ks-drops-admin__muted">Только для админов.</div>';
+      root.innerHTML = '<div class="ks-drops-admin__muted">Только для админов.</div>';
       return;
     }
 
@@ -39,9 +36,7 @@
       const wrap = el('div', { className: 'ks-drops-admin__list' });
 
       if (!items || !items.length) {
-        wrap.appendChild(
-          el('div', { className: 'ks-drops-admin__muted', text: 'Пусто' }),
-        );
+        wrap.appendChild(el('div', { className: 'ks-drops-admin__muted', text: 'Пусто' }));
         return wrap;
       }
 
@@ -90,8 +85,7 @@
           retries: cfg.polling?.retries || 0,
         },
       );
-      if (resp?.ok !== true)
-        throw new Error(resp?.error?.message || 'admin_state error');
+      if (resp?.ok !== true) throw new Error(resp?.error?.message || 'admin_state error');
       return resp.data;
     };
 
@@ -108,8 +102,7 @@
           group_id: C.getGroupId(H),
         }),
       });
-      if (resp?.ok !== true)
-        throw new Error(resp?.error?.message || 'admin_transfer error');
+      if (resp?.ok !== true) throw new Error(resp?.error?.message || 'admin_transfer error');
       return resp.data;
     };
 
@@ -118,27 +111,17 @@
 
       const mkSel = (labelText, name, opts) => {
         const w = el('label', { className: 'ks-drops-admin__field' });
-        w.appendChild(
-          el('div', { className: 'ks-drops-admin__label', text: labelText }),
-        );
+        w.appendChild(el('div', { className: 'ks-drops-admin__label', text: labelText }));
         const s = el('select', { name, className: 'ks-drops-admin__input' });
-        for (const o of opts)
-          s.appendChild(el('option', { value: o.value, text: o.text }));
+        for (const o of opts) s.appendChild(el('option', { value: o.value, text: o.text }));
         w.appendChild(s);
         return { w, s };
       };
 
       const mkInp = (labelText, name, type = 'text', ph = '') => {
         const w = el('label', { className: 'ks-drops-admin__field' });
-        w.appendChild(
-          el('div', { className: 'ks-drops-admin__label', text: labelText }),
-        );
-        const i = el('input', {
-          name,
-          type,
-          placeholder: ph,
-          className: 'ks-drops-admin__input',
-        });
+        w.appendChild(el('div', { className: 'ks-drops-admin__label', text: labelText }));
+        const i = el('input', { name, type, placeholder: ph, className: 'ks-drops-admin__input' });
         w.appendChild(i);
         return { w, i };
       };
@@ -152,20 +135,11 @@
       const to = mkSel('Куда', 'to_type', [
         { value: 'bank', text: 'bank' },
         { value: 'user', text: 'user' },
+        { value: 'burn', text: 'burn (удалить)' },
       ]);
 
-      const fromUid = mkInp(
-        'from_user_id (если user)',
-        'from_user_id',
-        'number',
-        'например 2',
-      );
-      const toUid = mkInp(
-        'to_user_id (если user)',
-        'to_user_id',
-        'number',
-        'например 16',
-      );
+      const fromUid = mkInp('from_user_id (если user)', 'from_user_id', 'number', 'например 2');
+      const toUid = mkInp('to_user_id (если user)', 'to_user_id', 'number', 'например 16');
 
       const itemSel = mkSel(
         'Предмет',
@@ -181,36 +155,33 @@
 
       const note = mkInp('Комментарий (лог)', 'note', 'text', 'опционально');
 
-      const btn = el('button', {
-        type: 'submit',
-        className: 'ks-drops-admin__btn',
-        text: 'Выполнить',
-      });
+      const btn = el('button', { type: 'submit', className: 'ks-drops-admin__btn', text: 'Выполнить' });
 
-      form.append(
-        from.w,
-        to.w,
-        fromUid.w,
-        toUid.w,
-        itemSel.w,
-        qty.w,
-        note.w,
-        btn,
-      );
+      form.append(from.w, to.w, fromUid.w, toUid.w, itemSel.w, qty.w, note.w, btn);
+
+      const syncVisibility = () => {
+        const ft = String(from.s.value || '');
+        const tt = String(to.s.value || '');
+        fromUid.w.style.display = ft === 'user' ? '' : 'none';
+        toUid.w.style.display = tt === 'user' ? '' : 'none';
+      };
+
+      from.s.addEventListener('change', syncVisibility);
+      to.s.addEventListener('change', syncVisibility);
+      syncVisibility();
 
       form.addEventListener('submit', (e) => {
         e.preventDefault();
         const fd = new FormData(form);
 
+        const ft = String(fd.get('from_type') || '');
+        const tt = String(fd.get('to_type') || '');
+
         const payload = {
-          from_type: String(fd.get('from_type') || ''),
-          to_type: String(fd.get('to_type') || ''),
-          from_user_id: fd.get('from_user_id')
-            ? C.toInt(fd.get('from_user_id'))
-            : null,
-          to_user_id: fd.get('to_user_id')
-            ? C.toInt(fd.get('to_user_id'))
-            : null,
+          from_type: ft,
+          to_type: tt,
+          from_user_id: ft === 'user' && fd.get('from_user_id') ? C.toInt(fd.get('from_user_id')) : null,
+          to_user_id: tt === 'user' && fd.get('to_user_id') ? C.toInt(fd.get('to_user_id')) : null,
           item_id: C.toInt(fd.get('item_id')),
           qty: Math.max(1, C.toInt(fd.get('qty'))),
           note: String(fd.get('note') || ''),
@@ -226,9 +197,7 @@
     root.innerHTML = '';
 
     const head = el('div', { className: 'ks-drops-admin__head' });
-    head.appendChild(
-      el('div', { className: 'ks-drops-admin__h', text: 'Админка Drops' }),
-    );
+    head.appendChild(el('div', { className: 'ks-drops-admin__h', text: 'Админка Drops' }));
 
     const targetWrap = el('div', { className: 'ks-drops-admin__target' });
     const targetInp = el('input', {
@@ -236,30 +205,19 @@
       className: 'ks-drops-admin__input',
       placeholder: 'user_id для просмотра',
     });
-    const targetBtn = el('button', {
-      type: 'button',
-      className: 'ks-drops-admin__btn',
-      text: 'Загрузить',
-    });
+    const targetBtn = el('button', { type: 'button', className: 'ks-drops-admin__btn', text: 'Загрузить' });
     targetWrap.append(targetInp, targetBtn);
 
     head.appendChild(targetWrap);
     root.appendChild(head);
 
     const userBox = el('div', { className: 'ks-drops-admin__box' });
-    userBox.append(
-      el('div', {
-        className: 'ks-drops-admin__boxh',
-        text: 'Инвентарь пользователя',
-      }),
-    );
+    userBox.appendChild(el('div', { className: 'ks-drops-admin__boxh', text: 'Инвентарь пользователя' }));
     const userBody = el('div', { className: 'ks-drops-admin__boxb' });
     userBox.appendChild(userBody);
 
     const formBox = el('div', { className: 'ks-drops-admin__box' });
-    formBox.append(
-      el('div', { className: 'ks-drops-admin__boxh', text: 'Переводы / mint' }),
-    );
+    formBox.appendChild(el('div', { className: 'ks-drops-admin__boxh', text: 'Переводы / mint' }));
     const formBody = el('div', { className: 'ks-drops-admin__boxb' });
     formBox.appendChild(formBody);
 
@@ -277,15 +235,8 @@
       pool = data.item_pool || [];
 
       userBody.innerHTML = '';
-      if (data.target_inventory?.items)
-        userBody.appendChild(renderList(data.target_inventory.items));
-      else
-        userBody.appendChild(
-          el('div', {
-            className: 'ks-drops-admin__muted',
-            text: 'Пользователь не выбран.',
-          }),
-        );
+      if (data.target_inventory?.items) userBody.appendChild(renderList(data.target_inventory.items));
+      else userBody.appendChild(el('div', { className: 'ks-drops-admin__muted', text: 'Пользователь не выбран.' }));
 
       if (!formBody.querySelector('form')) {
         const form = buildTransferForm(pool, async (payload) => {
@@ -295,16 +246,9 @@
             if (res.success) {
               C.toast(H, 'Ок', 'success');
 
-              if (res.bank)
-                C.dispatch('ks:drops:bankUpdated', { bank: res.bank });
-              if (
-                res.touched_inventory &&
-                res.touched_user_id &&
-                C.toInt(res.touched_user_id) === C.getUserId(H)
-              ) {
-                C.dispatch('ks:drops:inventoryUpdated', {
-                  inventory: res.touched_inventory,
-                });
+              if (res.bank) C.dispatch('ks:drops:bankUpdated', { bank: res.bank });
+              if (res.touched_inventory && res.touched_user_id && C.toInt(res.touched_user_id) === C.getUserId(H)) {
+                C.dispatch('ks:drops:inventoryUpdated', { inventory: res.touched_inventory });
               }
 
               if (res.touched_inventory?.items) {
@@ -325,14 +269,10 @@
 
     targetBtn.addEventListener('click', () => {
       const uid = C.toInt(targetInp.value || 0);
-      load(uid > 0 ? uid : 0).catch(() =>
-        C.toast(H, 'Не удалось загрузить admin_state', 'error'),
-      );
+      load(uid > 0 ? uid : 0).catch(() => C.toast(H, 'Не удалось загрузить admin_state', 'error'));
     });
 
-    load(0).catch(() =>
-      C.toast(H, 'Не удалось загрузить admin_state', 'error'),
-    );
+    load(0).catch(() => C.toast(H, 'Не удалось загрузить admin_state', 'error'));
   };
 
   init().catch(() => {});
