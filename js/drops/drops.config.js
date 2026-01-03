@@ -7,7 +7,7 @@
     debug: false,
 
     access: {
-      allowAllUsers: true,
+      allowAllUsers: false,
       hideForGuests: true,
       whitelistGroups: [1, 2],
       adminGroup: 1,
@@ -30,3 +30,4 @@
     },
   };
 })();
+
