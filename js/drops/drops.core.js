@@ -1,203 +1,127 @@
 (() => {
   'use strict';
 
-  if (window.KS_DROPS_CORE) return;
-
-  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-
-  const domReady = () => {
-    if (document.readyState === 'loading') {
-      return new Promise((resolve) =>
-        document.addEventListener('DOMContentLoaded', resolve, { once: true }),
-      );
-    }
-    return Promise.resolve();
-  };
-
-  const waitForHelpers = async (maxMs = 15000, stepMs = 50) => {
-    const t0 = Date.now();
-    while (Date.now() - t0 < maxMs) {
-      const H = window.helpers;
-      if (H && typeof H.request === 'function') return H;
-      await sleep(stepMs);
-    }
-    return null;
-  };
-
-  const toInt = (v) => {
-    const n = parseInt(String(v ?? '').trim(), 10);
-    return Number.isFinite(n) ? n : 0;
-  };
-
-  const normalizeIntArray = (arr) =>
-    (Array.isArray(arr) ? arr : []).map(toInt).filter((n) => n > 0);
-
-  const deepMerge = (base, patch) => {
-    const isObj = (x) => x && typeof x === 'object' && !Array.isArray(x);
-    const out = Array.isArray(base) ? base.slice() : { ...(base || {}) };
-    if (!patch) return out;
-    if (Array.isArray(patch)) return patch.slice();
-    for (const [k, v] of Object.entries(patch)) {
-      if (isObj(v) && isObj(out[k])) out[k] = deepMerge(out[k], v);
-      else out[k] = v;
-    }
-    return out;
-  };
+  const KS = (window.KS_DROPS = window.KS_DROPS || {});
+  KS.version = '2026-01-03';
 
   const DEFAULTS = {
-    apiBase: 'https://feathertail.ru/ks/drops/api/index.php',
-    debug: false,
-    access: {
-      allowAllUsers: true,
-      hideForGuests: true,
-      whitelistGroups: [],
-      adminGroup: 1,
-    },
-    polling: {
-      requestTimeoutMs: 12000,
-      retries: 0,
-      onlinePollIntervalMs: 30000,
-    },
-    inventory: {
-      mountId: 'ks-drops-inventory-root',
-      allowAllUsers: true,
-      allowDepositToBank: true,
-      showOnlineBox: true,
-      showBankBox: true,
-    },
-    admin: {
-      mountId: 'ks-drops-admin-root',
+    apiBase: 'https://feathertail.ru/ks/drops/api.php',
+    pollMs: 8000,
+    uiMountId: 'ks-drops-root',
+    enabledKey: 'ks_drops_enabled',
+    debugKey: 'ks_drops_debug',
+    credentials: 'omit',
+    itemLabels: {
+      1: 'Ресурс #1',
+      2: 'Ресурс #2',
+      3: 'Ресурс #3',
+      4: 'Ресурс #4',
+      5: 'Ресурс #5',
+      6: 'Ресурс #6',
+      7: 'Ресурс #7',
+      8: 'Ресурс #8',
+      9: 'Ресурс #9',
+      10: 'Ресурс #10',
+      11: 'Ресурс #11',
+      12: 'Ресурс #12',
     },
   };
 
-  const getUserId = (H) => toInt(H?.getUserId?.() ?? window.UserID ?? 0);
-  const getGroupId = (H) => toInt(H?.getGroupId?.() ?? window.GroupID ?? 0);
-  const getForumId = (H) => toInt(H?.getForumId?.() ?? window.BoardID ?? 0);
+  const state = {
+    lastTick: null,
+    lastState: null,
+    lastError: null,
+  };
 
-  const getCfg = () => {
-    const base = deepMerge(DEFAULTS, window.ScriptConfig?.drops || {});
-    const H = window.helpers;
+  const cfg = () => {
+    const c = (window.ScriptConfig && window.ScriptConfig.drops) ? window.ScriptConfig.drops : {};
+    return { ...DEFAULTS, ...c };
+  };
 
-    if (H && typeof H.getConfig === 'function') {
-      try {
-        const fromHelpers = H.getConfig('drops', window.ScriptConfig?.drops || {});
-        return deepMerge(DEFAULTS, fromHelpers || {});
-      } catch {
-        return base;
-      }
+  const isDebug = () => {
+    try {
+      return String(localStorage.getItem(cfg().debugKey) || '') === '1';
+    } catch (_) {
+      return false;
     }
-
-    return base;
   };
 
-  const buildQuery = (params) => {
-    const sp = new URLSearchParams();
-    Object.entries(params || {}).forEach(([k, v]) => {
-      if (v === undefined || v === null || v === '') return;
-      sp.set(k, String(v));
+  const log = (...a) => {
+    if (isDebug()) console.log('[KS_DROPS]', ...a);
+  };
+
+  const waitFor = (check, maxMs = 10000, stepMs = 50) =>
+    new Promise((resolve, reject) => {
+      const t0 = Date.now();
+      (function tick() {
+        try {
+          if (check()) return resolve(true);
+        } catch (_) {}
+        if (Date.now() - t0 >= maxMs) return reject(new Error('waitFor timeout'));
+        setTimeout(tick, stepMs);
+      })();
     });
-    return sp.toString();
+
+  const getUserId = () => {
+    if (window.helpers && typeof window.helpers.getUserId === 'function') {
+      const uid = window.helpers.getUserId();
+      if (Number.isFinite(uid) && uid > 0) return uid;
+    }
+    const v = parseInt(String(window.UserID || ''), 10);
+    return Number.isFinite(v) && v > 0 ? v : 0;
   };
 
-  const apiUrl = (cfg, action, params) => {
-    const base = String((cfg?.apiBase || DEFAULTS.apiBase) ?? '').trim();
-    const q = buildQuery({ action, ...(params || {}) });
-    return base + (base.includes('?') ? '&' : '?') + q;
-  };
+  const requestJson = async (url, bodyObj) => {
+    const c = cfg();
 
-  const el = (_H, tag, props) => {
-    const node = document.createElement(tag);
-    const p = props || {};
-
-    if (p.className) node.className = String(p.className);
-    if (p.text !== undefined && p.text !== null) node.textContent = String(p.text);
-    if (p.html !== undefined && p.html !== null) node.innerHTML = String(p.html);
-
-    if (p.dataset && typeof p.dataset === 'object') {
-      for (const [k, v] of Object.entries(p.dataset)) {
-        if (v === undefined || v === null) continue;
-        node.dataset[k] = String(v);
-      }
+    if (window.helpers && typeof window.helpers.request === 'function') {
+      const res = await window.helpers.request(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(bodyObj),
+        timeoutMs: 15000,
+        retries: 1,
+        retryDelayMs: 400,
+      });
+      return res;
     }
 
-    if (p.style && typeof p.style === 'object') {
-      for (const [k, v] of Object.entries(p.style)) {
-        if (v === undefined || v === null) continue;
-        try {
-          node.style[k] = String(v);
-        } catch {}
-      }
-    }
+    const r = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(bodyObj),
+      credentials: c.credentials,
+      cache: 'no-store',
+    });
 
-    for (const [k, v] of Object.entries(p)) {
-      if (
-        k === 'className' ||
-        k === 'text' ||
-        k === 'html' ||
-        k === 'dataset' ||
-        k === 'style'
-      ) {
-        continue;
-      }
-      if (v === undefined || v === null) continue;
-
-      try {
-        if (k in node) node[k] = v;
-        else node.setAttribute(k, String(v));
-      } catch {
-        try {
-          node.setAttribute(k, String(v));
-        } catch {}
-      }
-    }
-
-    return node;
-  };
-
-  const toast = (H, msg, type = 'info') => {
-    if (H && typeof H.showToast === 'function') {
-      H.showToast(String(msg), type);
-      return;
-    }
+    const txt = await r.text();
+    let json = null;
     try {
-      alert(String(msg));
-    } catch {}
+      json = JSON.parse(txt);
+    } catch (_) {
+      json = { ok: false, error: { code: 'BAD_JSON', message: txt.slice(0, 300) } };
+    }
+    if (!r.ok) {
+      const msg = (json && json.error && json.error.message) ? json.error.message : ('HTTP ' + r.status);
+      throw new Error(msg);
+    }
+    return json;
   };
 
-  const dispatch = (name, detail) => {
-    try {
-      window.dispatchEvent(new CustomEvent(name, { detail: detail || {} }));
-    } catch {}
-  };
-
-  const isEligibleByAccess = (H, access) => {
-    const a = access || {};
-    const uid = getUserId(H);
-    const gid = getGroupId(H);
-
-    if (a.hideForGuests && uid <= 0) return false;
-    if (a.allowAllUsers !== false) return uid > 0;
-
-    const wl = normalizeIntArray(a.whitelistGroups || []);
-    if (!wl.length) return uid > 0;
-    return uid > 0 && wl.includes(gid);
-  };
-
-  window.KS_DROPS_CORE = {
-    sleep,
-    domReady,
-    waitForHelpers,
-    toInt,
-    normalizeIntArray,
-    deepMerge,
-    getCfg,
-    apiUrl,
-    el,
-    toast,
-    dispatch,
+  KS.core = {
+    cfg,
+    waitFor,
     getUserId,
-    getGroupId,
-    getForumId,
-    isEligibleByAccess,
+    log,
+    state,
+    requestJson,
   };
+
+  KS.debugState = () => ({
+    version: KS.version,
+    cfg: cfg(),
+    internal: { ...state },
+    userId: getUserId(),
+    debug: isDebug(),
+  });
 })();
