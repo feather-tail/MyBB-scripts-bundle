@@ -63,6 +63,13 @@
               }`,
           )
           .join('|');
+      const buildBankQtyMap = (bank) => {
+        const map = new Map();
+        (bank?.items || []).forEach((it) => {
+          map.set(toInt(it.item_id), toInt(it.qty));
+        });
+        return map;
+      };
 
       const renderChest = (H, cfg, ui, inv, onOpen, state) => {
         if (!cfg.chest?.enabled) {
@@ -273,12 +280,307 @@
         ui.bankBox.replaceChildren(frag);
       };
 
+      const renderBuildings = (H, cfg, ui, buildingsState, bank, state) => {
+        const buildings = buildingsState?.items || [];
+        if (!buildings.length || buildingsState?.enabled === false) {
+          ui.buildingsBox.hidden = true;
+          state.buildingsKey = null;
+          return;
+        }
+        ui.buildingsBox.hidden = false;
+
+        const bankKey = bank
+          ? `${bank?.total_qty ?? 0}|${buildItemsKey(bank?.items || [])}`
+          : 'nobank';
+        const buildingsKey = buildings
+          .map(
+            (b) =>
+              `${b.id}:${b.built ? 1 : 0}:${b.main_building_id || ''}:${
+                (b.resources || []).map((r) => `${r.item_id}:${r.qty}`).join(',')
+              }`,
+          )
+          .join('|');
+        const key = `${buildingsKey}|${bankKey}`;
+        if (state.buildingsKey === key) return;
+        state.buildingsKey = key;
+
+        const builtMap = new Map();
+        for (const b of buildings) {
+          builtMap.set(b.id, !!b.built);
+        }
+        const bankMap = buildBankQtyMap(bank);
+
+        const wrap = H.createEl('div', {
+          className: 'ks-drops-buildings__wrap',
+        });
+        wrap.appendChild(
+          H.createEl('div', {
+            className: 'ks-drops-buildings__title',
+            text: 'Здания и помещения',
+          }),
+        );
+
+        const grid = H.createEl('div', {
+          className: 'ks-drops-buildings__grid',
+        });
+
+        for (const b of buildings) {
+          const mainId = b.main_building_id || '';
+          const mainBuilt = mainId ? builtMap.get(mainId) : true;
+          const locked = !!mainId && !mainBuilt && !b.built;
+
+          const card = H.createEl('div', {
+            className: [
+              'ks-drops-buildings__card',
+              b.built ? 'is-built' : '',
+              locked ? 'is-locked' : '',
+            ]
+              .filter(Boolean)
+              .join(' '),
+          });
+
+          const imgWrap = H.createEl('div', {
+            className: 'ks-drops-buildings__imgwrap',
+          });
+          imgWrap.appendChild(
+            H.createEl('img', {
+              src: b.image_url || '',
+              alt: b.title || '',
+              className: 'ks-drops-buildings__img',
+            }),
+          );
+          card.appendChild(imgWrap);
+
+          const meta = H.createEl('div', {
+            className: 'ks-drops-buildings__meta',
+          });
+          meta.appendChild(
+            H.createEl('div', {
+              className: 'ks-drops-buildings__name',
+              text: b.title || b.id || 'Здание',
+            }),
+          );
+          if (b.description) {
+            meta.appendChild(
+              H.createEl('div', {
+                className: 'ks-drops-buildings__desc',
+                text: b.description,
+              }),
+            );
+          }
+          if (mainId) {
+            const mainTitle =
+              b.main_building_title || mainId || 'Основное здание';
+            meta.appendChild(
+              H.createEl('div', {
+                className: 'ks-drops-buildings__main',
+                text: `Основное здание: ${mainTitle}`,
+              }),
+            );
+          }
+          if (b.built) {
+            meta.appendChild(
+              H.createEl('div', {
+                className: 'ks-drops-buildings__status is-built',
+                text: 'Построено',
+              }),
+            );
+          } else if (locked) {
+            const mainTitle =
+              b.main_building_title || mainId || 'основное здание';
+            meta.appendChild(
+              H.createEl('div', {
+                className: 'ks-drops-buildings__status is-locked',
+                text: `Недоступно: требуется ${mainTitle}`,
+              }),
+            );
+          }
+
+          const resList = H.createEl('div', {
+            className: 'ks-drops-buildings__resources',
+          });
+          const resources = b.resources || [];
+          if (!resources.length) {
+            resList.appendChild(
+              H.createEl('div', {
+                className: 'ks-drops-buildings__res ks-drops-buildings__res--empty',
+                text: 'Ресурсы не указаны',
+              }),
+            );
+          } else {
+            for (const r of resources) {
+              const have = bankMap.get(toInt(r.item_id)) || 0;
+              const need = toInt(r.qty);
+              const enough = have >= need && need > 0;
+              const res = H.createEl('div', {
+                className: [
+                  'ks-drops-buildings__res',
+                  enough ? 'is-enough' : '',
+                ]
+                  .filter(Boolean)
+                  .join(' '),
+              });
+
+              if (r.image_url) {
+                res.appendChild(
+                  H.createEl('img', {
+                    className: 'ks-drops-buildings__resimg',
+                    src: r.image_url || '',
+                    alt: r.title || '',
+                  }),
+                );
+              }
+              res.appendChild(
+                H.createEl('div', {
+                  className: 'ks-drops-buildings__restitle',
+                  text: r.title || `Ресурс #${r.item_id}`,
+                }),
+              );
+              res.appendChild(
+                H.createEl('div', {
+                  className: 'ks-drops-buildings__resqty',
+                  text: `${have}/${need}`,
+                }),
+              );
+              resList.appendChild(res);
+            }
+          }
+
+          meta.appendChild(resList);
+          card.appendChild(meta);
+          grid.appendChild(card);
+        }
+
+        wrap.appendChild(grid);
+        ui.buildingsBox.replaceChildren(wrap);
+      };
+
+      const renderVoting = (H, cfg, ui, buildingsState, state, handlers) => {
+        const buildings = buildingsState?.items || [];
+        const voting = buildingsState?.voting || {};
+        if (!voting.enabled || !buildings.length) {
+          ui.voteBox.hidden = true;
+          state.voteKey = null;
+          return;
+        }
+        ui.voteBox.hidden = false;
+
+        const counts = voting.counts || {};
+        const builtMap = new Map();
+        for (const b of buildings) {
+          builtMap.set(b.id, !!b.built);
+        }
+
+        const available = buildings.filter((b) => {
+          if (b.built) return false;
+          const mainId = b.main_building_id || '';
+          if (!mainId) return true;
+          return builtMap.get(mainId);
+        });
+
+        const countKey = Object.keys(counts)
+          .sort()
+          .map((k) => `${k}:${counts[k]}`)
+          .join('|');
+        const key = [
+          available.map((b) => b.id).join(','),
+          voting.user_vote || '',
+          countKey,
+        ].join('|');
+        if (state.voteKey === key) return;
+        state.voteKey = key;
+
+        const wrap = H.createEl('div', {
+          className: 'ks-drops-vote__wrap',
+        });
+        wrap.appendChild(
+          H.createEl('div', {
+            className: 'ks-drops-vote__title',
+            text: 'Голосование за следующее строительство',
+          }),
+        );
+
+        if (voting.user_vote) {
+          const picked = buildings.find((b) => b.id === voting.user_vote);
+          wrap.appendChild(
+            H.createEl('div', {
+              className: 'ks-drops-vote__subtitle',
+              text: `Ваш голос: ${picked?.title || voting.user_vote}`,
+            }),
+          );
+        }
+
+        const list = H.createEl('div', { className: 'ks-drops-vote__list' });
+
+        if (!available.length) {
+          list.appendChild(
+            H.createEl('div', {
+              className: 'ks-drops-vote__empty',
+              text: 'Нет доступных зданий для голосования.',
+            }),
+          );
+        } else {
+          for (const b of available) {
+            const row = H.createEl('div', {
+              className: [
+                'ks-drops-vote__item',
+                voting.user_vote === b.id ? 'is-selected' : '',
+              ]
+                .filter(Boolean)
+                .join(' '),
+            });
+
+            const left = H.createEl('div', {
+              className: 'ks-drops-vote__left',
+            });
+            if (b.image_url) {
+              left.appendChild(
+                H.createEl('img', {
+                  className: 'ks-drops-vote__img',
+                  src: b.image_url || '',
+                  alt: b.title || '',
+                }),
+              );
+            }
+            left.appendChild(
+              H.createEl('div', {
+                className: 'ks-drops-vote__name',
+                text: b.title || b.id,
+              }),
+            );
+            row.appendChild(left);
+
+            row.appendChild(
+              H.createEl('div', {
+                className: 'ks-drops-vote__count',
+                text: `Голоса: ${counts[b.id] || 0}`,
+              }),
+            );
+
+            const btn = H.createEl('button', {
+              type: 'button',
+              className: 'ks-drops-vote__btn',
+              text: voting.user_vote === b.id ? 'Ваш выбор' : 'Голосовать',
+            });
+            btn.disabled = voting.user_vote === b.id;
+            btn.addEventListener('click', () => handlers.onVote(b.id, btn));
+            row.appendChild(btn);
+
+            list.appendChild(row);
+          }
+        }
+
+        wrap.appendChild(list);
+        ui.voteBox.replaceChildren(wrap);
+      };
+
       const renderInventory = (
         H,
         cfg,
         ui,
         inv,
         bank,
+        buildingsState,
         handlers,
         state,
       ) => {
@@ -289,6 +591,8 @@
           if (cfg.inventory?.showBankBox !== false) ui.bankBox.hidden = true;
           state.bankKey = null;
         }
+        renderBuildings(H, cfg, ui, buildingsState, bank, state);
+        renderVoting(H, cfg, ui, buildingsState, state, handlers);
 
         const chestId = toInt(cfg.chest?.chestItemId || 0);
         const hideChestInGrid = cfg.chest?.hideInGrid !== false;
@@ -396,6 +700,44 @@
         return resp.data?.bank;
       };
 
+      const fetchBuildingsState = async () => {
+        const resp = await H.request(
+          apiUrl('buildings_state', {
+            user_id: toInt(H.getUserId()),
+            group_id: toInt(H.getGroupId()),
+          }),
+          {
+            method: 'GET',
+            timeout: cfg.polling?.requestTimeoutMs || 12000,
+            responseType: 'json',
+            retries: cfg.polling?.retries || 0,
+          },
+        );
+
+        if (resp?.ok !== true)
+          throw new Error(resp?.error?.message || 'buildings_state error');
+        return resp.data?.buildings_state || null;
+      };
+
+      const postBuildingVote = async (buildingId) => {
+        const resp = await H.request(apiUrl('building_vote', {}), {
+          method: 'POST',
+          timeout: cfg.polling?.requestTimeoutMs || 12000,
+          responseType: 'json',
+          headers: { 'Content-Type': 'application/json' },
+          data: JSON.stringify({
+            user_id: toInt(H.getUserId()),
+            group_id: toInt(H.getGroupId()),
+            building_id: buildingId,
+          }),
+          retries: cfg.polling?.retries || 0,
+        });
+
+        if (resp?.ok !== true)
+          throw new Error(resp?.error?.message || 'building_vote error');
+        return resp.data || {};
+      };
+
       const postDeposit = async (itemId, qty) => {
         const resp = await H.request(apiUrl('bank_deposit', {}), {
           method: 'POST',
@@ -434,6 +776,10 @@
         const ui = {
           chestBox: H.createEl('div', { className: 'ks-drops-chest' }),
           bankBox: H.createEl('div', { className: 'ks-drops-bank' }),
+          buildingsBox: H.createEl('div', {
+            className: 'ks-drops-buildings',
+          }),
+          voteBox: H.createEl('div', { className: 'ks-drops-vote' }),
           header: H.createEl('div', { className: 'ks-drops-inv__header' }),
           totalEl: H.createEl('div', { className: 'ks-drops-inv__total' }),
           grid: H.createEl('div', { className: 'ks-drops-inv__grid' }),
@@ -448,6 +794,8 @@
         root.append(
           ui.chestBox,
           ui.bankBox,
+          ui.buildingsBox,
+          ui.voteBox,
           ui.header,
           ui.grid,
         );
@@ -455,17 +803,29 @@
         const uid = toInt(H.getUserId());
         let inv = null;
         let bank = null;
+        let buildingsState = null;
         let online = null;
         const renderState = {
           chestKey: null,
           bankKey: null,
           invKey: null,
+          buildingsKey: null,
+          voteKey: null,
         };
         let renderScheduled = false;
 
         const rerender = () => {
           renderScheduled = false;
-          renderInventory(H, cfg, ui, inv, bank, handlers, renderState);
+          renderInventory(
+            H,
+            cfg,
+            ui,
+            inv,
+            bank,
+            buildingsState,
+            handlers,
+            renderState,
+          );
         };
 
         const scheduleRender = () => {
@@ -636,18 +996,50 @@
                 }
               }
             },
+
+            onVote: async (buildingId, btn) => {
+              if (!buildingId) return;
+              if (btn) {
+                btn.disabled = true;
+                btn.classList.add('is-busy');
+              }
+
+              try {
+                const res = await postBuildingVote(buildingId);
+                if (!res.success) {
+                  toast(res.message || 'Ошибка голосования', 'error');
+                } else {
+                  toast(res.message || 'Голос учтен', 'success');
+                }
+                if (res.buildings_state) {
+                  buildingsState = res.buildings_state;
+                }
+                scheduleRender();
+              } catch (e) {
+                log('vote error', e);
+                toast('Не удалось отправить голос', 'error');
+              } finally {
+                if (btn) {
+                  btn.classList.remove('is-busy');
+                  btn.disabled = false;
+                }
+              }
+            },
           };
 
         try {
-          const [invRes, bankRes] = await Promise.allSettled([
+          const [invRes, bankRes, buildingsRes] = await Promise.allSettled([
             fetchInventory(uid),
             fetchBankState(),
+            fetchBuildingsState(),
           ]);
 
           if (invRes.status !== 'fulfilled') throw invRes.reason;
           inv = invRes.value;
 
           bank = bankRes.status === 'fulfilled' ? bankRes.value : null;
+          buildingsState =
+            buildingsRes.status === 'fulfilled' ? buildingsRes.value : null;
 
           scheduleRender();
         } catch (e) {
@@ -679,6 +1071,7 @@
     })
     .catch((e) => console.warn('[drops:inv] init failed:', e));
 })();
+
 
 
 
