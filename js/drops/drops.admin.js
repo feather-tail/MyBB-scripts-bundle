@@ -210,6 +210,23 @@
         return resp.data;
       };
 
+      const postBuildingVoteReset = async () => {
+        const resp = await H.request(apiUrl('admin_building_vote_reset', {}), {
+          method: 'POST',
+          timeout: cfg.polling?.requestTimeoutMs || 12000,
+          responseType: 'json',
+          headers: { 'Content-Type': 'application/json' },
+          data: JSON.stringify({
+            user_id: getUserId(),
+            group_id: getGroupId(),
+          }),
+          retries: cfg.polling?.retries || 0,
+        });
+        if (resp?.ok !== true)
+          throw new Error(resp?.error?.message || 'vote reset error');
+        return resp.data;
+      };
+
       const renderPurchaseRequests = (items, onProcess, onDelete) => {
         const wrap = el('div', { className: 'ks-drops-admin__list' });
 
@@ -404,6 +421,30 @@
         head.appendChild(
           el('div', { className: 'ks-drops-admin__h', text: 'Админка' }),
         );
+        const voteResetBtn = el('button', {
+          type: 'button',
+          className: 'ks-drops-admin__btn',
+          text: 'Сбросить голосование',
+        });
+        voteResetBtn.addEventListener('click', async () => {
+          voteResetBtn.disabled = true;
+          voteResetBtn.classList.add('is-busy');
+          try {
+            const res = await postBuildingVoteReset();
+            if (!res?.success) {
+              toast(res?.message || 'Ошибка сброса голосования', 'error');
+            } else {
+              toast(res?.message || 'Голосование сброшено', 'success');
+            }
+          } catch (e) {
+            log('vote reset error', e);
+            toast('Не удалось сбросить голосование', 'error');
+          } finally {
+            voteResetBtn.classList.remove('is-busy');
+            voteResetBtn.disabled = false;
+          }
+        });
+        head.appendChild(voteResetBtn);
 
         const targetWrap = el('div', { className: 'ks-drops-admin__target' });
         const targetInp = el('input', {
@@ -633,4 +674,5 @@
       console.warn('[drops:admin] init failed:', e);
     });
 })();
+
 
