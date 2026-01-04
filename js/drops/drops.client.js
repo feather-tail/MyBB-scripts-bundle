@@ -227,7 +227,7 @@
       btn.innerHTML = `
         <span class="ks-drops-toggle__icon" aria-hidden="true">
           <i class="${iconClass}"></i>
-          <span class="ks-drops-toggle__fallback">◆</span>
+          <span class="ks-drops-toggle__fallback"></span>
         </span>
       `;
 
@@ -836,4 +836,5 @@
     ensureInit();
   });
 })();
+
 
