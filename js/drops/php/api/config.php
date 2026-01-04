@@ -20,6 +20,7 @@ $cfg = [
     'bank_items' => 'ks_drops_bank_items',
     'log_claims' => 'ks_drops_log_claims',
     'log_transfers' => 'ks_drops_log_transfers',
+    'purchase_requests' => 'ks_drops_purchase_requests',
     'meta' => 'ks_drops_meta',
     'cache' => 'ks_drops_cache',
     'forum_users' => 'forum_users',

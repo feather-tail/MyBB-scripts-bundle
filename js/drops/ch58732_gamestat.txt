@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Хост: localhost
--- Время создания: Янв 04 2026 г., 15:22
+-- Время создания: Янв 04 2026 г., 16:05
 -- Версия сервера: 5.7.35-38
 -- Версия PHP: 7.4.33
 
@@ -98,7 +98,7 @@ CREATE TABLE IF NOT EXISTS `ks_drops` (
   KEY `idx_scope_status_expires` (`scope_key`,`status`,`expires_at`),
   KEY `idx_claimed_by` (`claimed_by`,`claimed_at`),
   KEY `idx_created_at` (`created_at`)
-) ENGINE=InnoDB AUTO_INCREMENT=1791 DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB AUTO_INCREMENT=1813 DEFAULT CHARSET=utf8mb4;
 
 --
 -- Дамп данных таблицы `ks_drops`
@@ -1897,7 +1897,29 @@ INSERT INTO `ks_drops` (`id`, `scope_key`, `item_id`, `status`, `created_at`, `e
 (1787, 'u:2', 11, 'active', '2026-01-04 12:20:55', '2026-01-04 12:21:25', NULL, NULL),
 (1788, 'u:2', 2, 'active', '2026-01-04 12:21:27', '2026-01-04 12:21:57', NULL, NULL),
 (1789, 'u:2', 8, 'active', '2026-01-04 12:21:59', '2026-01-04 12:22:29', NULL, NULL),
-(1790, 'u:2', 11, 'active', '2026-01-04 12:22:31', '2026-01-04 12:23:01', NULL, NULL);
+(1790, 'u:2', 11, 'active', '2026-01-04 12:22:31', '2026-01-04 12:23:01', NULL, NULL),
+(1791, 'u:2', 1, 'active', '2026-01-04 12:23:03', '2026-01-04 12:23:33', NULL, NULL),
+(1792, 'u:2', 9, 'active', '2026-01-04 12:23:39', '2026-01-04 12:24:09', NULL, NULL),
+(1793, 'u:2', 9, 'active', '2026-01-04 12:24:10', '2026-01-04 12:24:40', NULL, NULL),
+(1794, 'u:2', 4, 'active', '2026-01-04 12:24:42', '2026-01-04 12:25:12', NULL, NULL),
+(1795, 'u:2', 12, 'active', '2026-01-04 12:25:12', '2026-01-04 12:25:42', NULL, NULL),
+(1796, 'u:2', 8, 'active', '2026-01-04 12:25:45', '2026-01-04 12:26:15', NULL, NULL),
+(1797, 'u:2', 10, 'active', '2026-01-04 12:26:15', '2026-01-04 12:26:45', NULL, NULL),
+(1798, 'u:2', 9, 'claimed', '2026-01-04 12:26:48', '2026-01-04 12:27:18', 2, '2026-01-04 12:27:16'),
+(1799, 'u:2', 2, 'active', '2026-01-04 12:27:19', '2026-01-04 12:27:49', NULL, NULL),
+(1800, 'u:2', 11, 'active', '2026-01-04 12:29:27', '2026-01-04 12:29:57', NULL, NULL),
+(1801, 'u:2', 11, 'active', '2026-01-04 12:30:36', '2026-01-04 12:31:06', NULL, NULL),
+(1802, 'u:2', 9, 'active', '2026-01-04 12:31:18', '2026-01-04 12:31:48', NULL, NULL),
+(1803, 'u:2', 1, 'active', '2026-01-04 12:35:05', '2026-01-04 12:35:35', NULL, NULL),
+(1804, 'u:2', 10, 'active', '2026-01-04 12:35:37', '2026-01-04 12:36:07', NULL, NULL),
+(1805, 'u:2', 1, 'active', '2026-01-04 12:36:09', '2026-01-04 12:36:39', NULL, NULL),
+(1806, 'u:2', 11, 'active', '2026-01-04 12:44:25', '2026-01-04 12:44:55', NULL, NULL),
+(1807, 'u:2', 10, 'active', '2026-01-04 12:52:48', '2026-01-04 12:53:18', NULL, NULL),
+(1808, 'u:2', 1, 'claimed', '2026-01-04 12:57:57', '2026-01-04 12:58:27', 2, '2026-01-04 12:58:15'),
+(1809, 'u:2', 1, 'active', '2026-01-04 12:58:29', '2026-01-04 12:58:59', NULL, NULL),
+(1810, 'u:2', 1, 'active', '2026-01-04 13:02:15', '2026-01-04 13:02:45', NULL, NULL),
+(1811, 'u:2', 11, 'active', '2026-01-04 13:02:54', '2026-01-04 13:03:24', NULL, NULL),
+(1812, 'u:2', 6, 'active', '2026-01-04 13:03:28', '2026-01-04 13:03:58', NULL, NULL);
 
 -- --------------------------------------------------------
 
@@ -1942,7 +1964,7 @@ CREATE TABLE IF NOT EXISTS `ks_drops_cache` (
 --
 
 INSERT INTO `ks_drops_cache` (`cache_key`, `payload_json`, `fetched_at`, `expires_at`) VALUES
-('online_metrics_v1', '{\"count\":18,\"user_ids\":[2,10,11,27,31,36,41,57,59,61,63,85,86,94,99,106,109,110],\"whitelist_count\":0,\"known_groups_count\":0,\"unknown_groups_count\":18,\"fetched_at_ms\":1767529359311}', '2026-01-04 12:22:39', '2026-01-04 12:24:39');
+('online_metrics_v1', '{\"count\":24,\"user_ids\":[2,10,11,16,18,23,24,26,27,31,45,57,60,64,75,76,81,85,94,99,106,107,110,111],\"whitelist_count\":0,\"known_groups_count\":0,\"unknown_groups_count\":24,\"fetched_at_ms\":1767531939183}', '2026-01-04 13:05:39', '2026-01-04 13:07:39');
 
 -- --------------------------------------------------------
 
@@ -2412,11 +2434,33 @@ INSERT INTO `ks_drops_meta` (`meta_key`, `meta_value`, `updated_at`) VALUES
 ('spawn:u:10', '1767453359', '2026-01-03 15:18:56'),
 ('spawn:u:15', '1767461598', '2026-01-03 17:33:19'),
 ('spawn:u:16', '1767475336', '2026-01-03 21:22:16'),
-('spawn:u:2', '1767529351', '2026-01-04 12:22:31'),
+('spawn:u:2', '1767531808', '2026-01-04 13:03:28'),
 ('spawn:u:36', '1767475801', '2026-01-03 21:33:18'),
 ('spawn:u:39', '1767475960', '2026-01-03 21:32:40'),
 ('spawn:u:4', '1767450962', '2026-01-03 14:36:02'),
 ('spawn:u:9', '1767521770', '2026-01-04 10:16:10');
+
+-- --------------------------------------------------------
+
+--
+-- Структура таблицы `ks_drops_purchase_requests`
+--
+
+CREATE TABLE IF NOT EXISTS `ks_drops_purchase_requests` (
+  `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `user_id` int(10) UNSIGNED NOT NULL,
+  `qty` int(10) UNSIGNED NOT NULL,
+  `price_per_chest` int(10) UNSIGNED NOT NULL,
+  `total_price` int(10) UNSIGNED NOT NULL,
+  `user_currency` int(10) UNSIGNED DEFAULT NULL,
+  `status` enum('pending','processed') NOT NULL DEFAULT 'pending',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `processed_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_user_id` (`user_id`),
+  KEY `idx_status` (`status`),
+  KEY `idx_created_at` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- --------------------------------------------------------
 
@@ -2439,7 +2483,7 @@ CREATE TABLE IF NOT EXISTS `ks_drops_user_items` (
 --
 
 INSERT INTO `ks_drops_user_items` (`user_id`, `item_id`, `qty`, `last_obtained_at`) VALUES
-(2, 1, 49, '2026-01-04 12:18:21'),
+(2, 1, 50, '2026-01-04 12:58:15'),
 (2, 2, 26, '2026-01-04 00:29:37'),
 (2, 3, 22, '2026-01-03 18:59:57'),
 (2, 4, 13, '2026-01-03 20:12:08'),
@@ -2447,7 +2491,7 @@ INSERT INTO `ks_drops_user_items` (`user_id`, `item_id`, `qty`, `last_obtained_a
 (2, 6, 1, '2026-01-03 16:35:45'),
 (2, 7, 24, '2026-01-04 12:19:33'),
 (2, 8, 27, '2026-01-04 12:18:49'),
-(2, 9, 23, '2026-01-03 20:12:22'),
+(2, 9, 26, '2026-01-04 12:27:16'),
 (2, 10, 1, '2026-01-03 19:52:44'),
 (2, 11, 43, '2026-01-04 02:06:23'),
 (2, 12, 5, '2026-01-03 20:27:54'),
@@ -2534,9 +2578,10 @@ CREATE TABLE IF NOT EXISTS `ks_drops_user_loot` (
 --
 
 INSERT INTO `ks_drops_user_loot` (`user_id`, `item_id`, `qty`) VALUES
-(2, 1, 4),
+(2, 1, 5),
 (2, 7, 7),
-(2, 8, 5);
+(2, 8, 5),
+(2, 9, 3);
 
 -- --------------------------------------------------------
 
@@ -2617,7 +2662,7 @@ INSERT INTO `stats` (`site_key`, `table_key`, `user_id`, `username`, `total`, `w
 ('kindredspirits', 'ks-global', 13, 'Timothee Gorsky', 4, '2026-W01', 0, '2025-W52', 0, '2026-01', 0, '2025-12', 1, 1767485301),
 ('kindredspirits', 'ks-global', 15, 'Arno Summerset', 2, '2026-W01', 0, '2025-W52', 2, '2026-01', 0, '2025-12', 2, 1767485301),
 ('kindredspirits', 'ks-global', 16, 'River Rivera', 18, '2026-W01', 2, '2025-W52', 3, '2026-01', 0, '2025-12', 13, 1767485301),
-('kindredspirits', 'ks-global', 18, 'Atticus Zanotto', 23, '2026-W01', 1, '2025-W52', 0, '2026-01', 1, '2025-12', 9, 1767485301),
+('kindredspirits', 'ks-global', 18, 'Atticus Zanotto', 24, '2026-W01', 2, '2025-W52', 0, '2026-01', 2, '2025-12', 9, 1767529998),
 ('kindredspirits', 'ks-global', 20, 'Emrys Grover', 1, '2026-W01', 0, '2025-W52', 0, '2026-01', 0, '2025-12', 0, 1767485301),
 ('kindredspirits', 'ks-global', 22, 'Ian Thunder', 18, '2026-W01', 1, '2025-W52', 2, '2026-01', 1, '2025-12', 10, 1767485301),
 ('kindredspirits', 'ks-global', 24, 'Cyril Chase', 18, '2026-W01', 3, '2025-W52', 2, '2026-01', 1, '2025-12', 9, 1767485301),
