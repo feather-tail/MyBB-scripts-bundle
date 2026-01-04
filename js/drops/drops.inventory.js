@@ -54,7 +54,7 @@
         return it ? toInt(it.qty) : 0;
       };
 
-      const renderOnline = (root, online) => {
+      const renderOnline = (H, root, online) => {
         if (cfg.inventory?.showOnlineBox === false) return;
 
         let box = root.querySelector('.ks-drops-online');
@@ -86,29 +86,29 @@
 
         let box = root.querySelector('.ks-drops-chest');
         if (!box) {
-          box = C.el(H, 'div', { className: 'ks-drops-chest' });
+          box = H.createEl('div', { className: 'ks-drops-chest' });
           root.prepend(box);
         }
 
-        const chestQty = findChestQty(cfg, inv);
+        const chestQty = findChestQty(inv);
         box.innerHTML = '';
 
-        const left = C.el(H, 'div', { className: 'ks-drops-chest__left' });
-        const img = C.el(H, 'img', {
+        const left = H.createEl('div', { className: 'ks-drops-chest__left' });
+        const img = H.createEl('img', {
           className: 'ks-drops-chest__img',
           src: cfg.chest?.imageUrl || '',
           alt: cfg.chest?.title || 'Сундук',
         });
 
-        const meta = C.el(H, 'div', { className: 'ks-drops-chest__meta' });
+        const meta = H.createEl('div', { className: 'ks-drops-chest__meta' });
         meta.appendChild(
-          C.el(H, 'div', {
+          H.createEl('div', {
             className: 'ks-drops-chest__title',
             text: cfg.chest?.title || 'Сундук',
           }),
         );
         meta.appendChild(
-          C.el(H, 'div', {
+          H.createEl('div', {
             className: 'ks-drops-chest__qty',
             text: `В наличии: ${chestQty}`,
           }),
@@ -116,20 +116,20 @@
 
         const purchaseCfg = cfg.chest?.purchase || {};
         const purchaseEnabled =
-          purchaseCfg.enabled !== false && C.toInt(purchaseCfg.price) > 0;
+          purchaseCfg.enabled !== false && toInt(purchaseCfg.price) > 0;
 
         let purchaseBox = null;
         if (purchaseEnabled) {
           const currencyField = purchaseCfg.currencyField || 'UserFld4';
           const rawCurrency = window[currencyField];
-          const currencyValue = C.toInt(rawCurrency);
+          const currencyValue = toInt(rawCurrency);
           const maxAffordable = Math.floor(
-            currencyValue / Math.max(1, C.toInt(purchaseCfg.price)),
+            currencyValue / Math.max(1, toInt(purchaseCfg.price)),
           );
 
-          purchaseBox = C.el(H, 'div', { className: 'ks-drops-chest__buy' });
+          purchaseBox = H.createEl('div', { className: 'ks-drops-chest__buy' });
           purchaseBox.appendChild(
-            C.el(H, 'div', {
+            H.createEl('div', {
               className: 'ks-drops-chest__currency',
               text: `${purchaseCfg.currencyLabel || 'Валюта'}: ${
                 rawCurrency ?? '0'
@@ -137,16 +137,16 @@
             }),
           );
           purchaseBox.appendChild(
-            C.el(H, 'div', {
+            H.createEl('div', {
               className: 'ks-drops-chest__price',
-              text: `Цена: ${C.toInt(purchaseCfg.price)} за сундук`,
+              text: `Цена: ${toInt(purchaseCfg.price)} за сундук`,
             }),
           );
 
-          const buyRow = C.el(H, 'div', {
+          const buyRow = H.createEl('div', {
             className: 'ks-drops-chest__buyrow',
           });
-          const qtyInput = C.el(H, 'input', {
+          const qtyInput = H.createEl('input', {
             type: 'number',
             min: 1,
             max: Math.max(1, maxAffordable),
@@ -155,19 +155,19 @@
           });
           qtyInput.disabled = maxAffordable <= 0;
 
-          const totalText = C.el(H, 'div', {
+          const totalText = H.createEl('div', {
             className: 'ks-drops-chest__total',
-            text: `К оплате: ${C.toInt(purchaseCfg.price)}`,
+            text: `К оплате: ${toInt(purchaseCfg.price)}`,
           });
 
           const syncTotal = () => {
             const max = Math.max(0, maxAffordable);
-            let val = C.toInt(qtyInput.value || 0);
+            let val = toInt(qtyInput.value || 0);
             if (val < 1) val = 1;
             if (max > 0 && val > max) val = max;
             qtyInput.value = String(val);
             totalText.textContent = `К оплате: ${
-              val * Math.max(1, C.toInt(purchaseCfg.price))
+              val * Math.max(1, toInt(purchaseCfg.price))
             }`;
           };
 
@@ -689,3 +689,4 @@
     })
     .catch((e) => console.warn('[drops:inv] init failed:', e));
 })();
+
