@@ -406,12 +406,28 @@
         userBox.appendChild(userBody);
 
         const requestsBox = el('div', { className: 'ks-drops-admin__box' });
-        requestsBox.appendChild(
+        const requestsHead = el('div', {
+          className: 'ks-drops-admin__boxh',
+          style: {
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '8px',
+          },
+        });
+        requestsHead.appendChild(
           el('div', {
-            className: 'ks-drops-admin__boxh',
+            className: 'ks-drops-admin__boxtitle',
             text: 'Заявки на сундуки',
           }),
         );
+        const requestsRefreshBtn = el('button', {
+          type: 'button',
+          className: 'ks-drops-admin__btn',
+          text: 'Обновить',
+        });
+        requestsHead.appendChild(requestsRefreshBtn);
+        requestsBox.appendChild(requestsHead);
         const requestsBody = el('div', { className: 'ks-drops-admin__boxb' });
         requestsBox.appendChild(requestsBody);
 
@@ -429,6 +445,70 @@
 
         let pool = [];
         let lastTargetUserId = 0;
+
+        const renderRequests = (items) => {
+          requestsBody.innerHTML = '';
+          requestsBody.appendChild(
+            renderPurchaseRequests(
+              items || [],
+              async (item, btn) => {
+                btn.disabled = true;
+                try {
+                  const res = await postPurchaseAction(
+                    'admin_purchase_process',
+                    { id: item.id },
+                  );
+                  if (!res.success) {
+                    toast(res.message || 'Ошибка обработки', 'error');
+                  } else {
+                    toast('Заявка обработана', 'success');
+                    await refreshRequests();
+                  }
+                } catch {
+                  toast('Не удалось обновить заявку', 'error');
+                } finally {
+                  btn.disabled = item.status === 'processed';
+                }
+              },
+              async (item, btn) => {
+                if (!confirm('Удалить заявку?')) return;
+                btn.disabled = true;
+                try {
+                  const res = await postPurchaseAction(
+                    'admin_purchase_delete',
+                    { id: item.id },
+                  );
+                  if (!res.success) {
+                    toast(res.message || 'Ошибка удаления', 'error');
+                  } else {
+                    toast('Заявка удалена', 'success');
+                    await refreshRequests();
+                  }
+                } catch {
+                  toast('Не удалось удалить заявку', 'error');
+                } finally {
+                  btn.disabled = item.status !== 'processed';
+                }
+              },
+            ),
+          );
+        };
+
+        const refreshRequests = async () => {
+          requestsRefreshBtn.disabled = true;
+          requestsBody.innerHTML = 'Загрузка...';
+          try {
+            const data = await fetchAdminState(lastTargetUserId);
+            if (data.bank) emitBankUpdated(data.bank);
+            pool = data.item_pool || pool;
+            renderRequests(data.purchase_requests || []);
+          } catch (e) {
+            log('refresh requests error', e);
+            toast('Не удалось обновить заявки', 'error');
+          } finally {
+            requestsRefreshBtn.disabled = false;
+          }
+        };
 
         const load = async (targetUserId) => {
           userBody.innerHTML = 'Загрузка...';
@@ -452,51 +532,7 @@
               }),
             );
 
-          requestsBody.innerHTML = '';
-          requestsBody.appendChild(
-            renderPurchaseRequests(
-              data.purchase_requests || [],
-              async (item, btn) => {
-                btn.disabled = true;
-                try {
-                  const res = await postPurchaseAction(
-                    'admin_purchase_process',
-                    { id: item.id },
-                  );
-                  if (!res.success) {
-                    toast(res.message || 'Ошибка обработки', 'error');
-                  } else {
-                    toast('Заявка обработана', 'success');
-                    await load(lastTargetUserId);
-                  }
-                } catch {
-                  toast('Не удалось обновить заявку', 'error');
-                } finally {
-                  btn.disabled = item.status === 'processed';
-                }
-              },
-              async (item, btn) => {
-                if (!confirm('Удалить заявку?')) return;
-                btn.disabled = true;
-                try {
-                  const res = await postPurchaseAction(
-                    'admin_purchase_delete',
-                    { id: item.id },
-                  );
-                  if (!res.success) {
-                    toast(res.message || 'Ошибка удаления', 'error');
-                  } else {
-                    toast('Заявка удалена', 'success');
-                    await load(lastTargetUserId);
-                  }
-                } catch {
-                  toast('Не удалось удалить заявку', 'error');
-                } finally {
-                  btn.disabled = item.status !== 'processed';
-                }
-              },
-            ),
-          );
+          renderRequests(data.purchase_requests || []);
 
           if (!formBody.querySelector('form')) {
             const form = buildTransferForm(pool, async (payload) => {
@@ -540,6 +576,10 @@
           });
         });
 
+        requestsRefreshBtn.addEventListener('click', () => {
+          refreshRequests();
+        });
+
         load(0).catch((e) => {
           log('initial load error', e);
           toast('Не удалось загрузить admin_state', 'error');
@@ -552,4 +592,5 @@
       console.warn('[drops:admin] init failed:', e);
     });
 })();
+
 
