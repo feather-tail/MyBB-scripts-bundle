@@ -214,7 +214,7 @@
         head.appendChild(
           H.createEl('div', {
             className: 'ks-drops-bank__title',
-            text: 'Общий банк (строительство)',
+            text: 'Склад',
           }),
         );
         head.appendChild(
@@ -441,7 +441,7 @@
         ui.header.appendChild(
           H.createEl('div', {
             className: 'ks-drops-inv__title',
-            text: 'Ресурсы',
+            text: 'Инвентарь',
           }),
         );
         ui.header.appendChild(ui.totalEl);
@@ -679,6 +679,7 @@
     })
     .catch((e) => console.warn('[drops:inv] init failed:', e));
 })();
+
 
 
 
