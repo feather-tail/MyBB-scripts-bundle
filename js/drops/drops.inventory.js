@@ -689,7 +689,6 @@
               }
             },
           };
-        };
 
         try {
           const [invRes, bankRes, onlineRes] = await Promise.allSettled([
@@ -755,6 +754,7 @@
     })
     .catch((e) => console.warn('[drops:inv] init failed:', e));
 })();
+
 
 
 
