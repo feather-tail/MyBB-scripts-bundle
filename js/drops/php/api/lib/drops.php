@@ -80,6 +80,25 @@ function drops_cleanup(PDO $pdo, array $cfg): void {
          AND created_at < (UTC_TIMESTAMP() - INTERVAL {$grace} SECOND)"
     );
   }
+
+  // NEW: retention логов
+  $logCfg = $cfg['logging']['claim_log'] ?? null;
+  $tLogClaims = (string)($cfg['tables']['log_claims'] ?? '');
+  if (is_array($logCfg) && $tLogClaims !== '' && drops_db_table_exists($pdo, $tLogClaims)) {
+    $days = (int)($logCfg['retention_days'] ?? 0);
+    if ($days > 0) {
+      $pdo->exec("DELETE FROM `$tLogClaims` WHERE created_at < (UTC_TIMESTAMP() - INTERVAL {$days} DAY)");
+    }
+  }
+
+  $trCfg = $cfg['logging']['transfer_log'] ?? null;
+  $tLogTransfers = (string)($cfg['tables']['log_transfers'] ?? '');
+  if (is_array($trCfg) && $tLogTransfers !== '' && drops_db_table_exists($pdo, $tLogTransfers)) {
+    $days = (int)($trCfg['retention_days'] ?? 0);
+    if ($days > 0) {
+      $pdo->exec("DELETE FROM `$tLogTransfers` WHERE created_at < (UTC_TIMESTAMP() - INTERVAL {$days} DAY)");
+    }
+  }
 }
 
 function drops_get_active(PDO $pdo, array $cfg, string $scopeKey): array {
@@ -292,7 +311,7 @@ function drops_claim(PDO $pdo, array $cfg, int $dropId, int $userId): array {
 
   $pdo->beginTransaction();
   try {
-    $stmt = $pdo->prepare("SELECT * FROM `$tDrops` WHERE id=? FOR UPDATE");
+    $stmt = $pdo->prepare("SELECT id, scope_key, item_id, status, expires_at FROM `$tDrops` WHERE id=? FOR UPDATE");
     $stmt->execute([$dropId]);
     $drop = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -311,6 +330,15 @@ function drops_claim(PDO $pdo, array $cfg, int $dropId, int $userId): array {
       return ['ok' => false, 'code' => 'TAKEN', 'item' => null, 'qty' => 0];
     }
 
+    $exp = (string)($drop['expires_at'] ?? '');
+    if ($exp !== '' && (int)strtotime($exp . ' UTC') <= time()) {
+      $stmtE = $pdo->prepare("UPDATE `$tDrops` SET status='expired' WHERE id=? AND status='active'");
+      $stmtE->execute([$dropId]);
+
+      $pdo->commit();
+      return ['ok' => false, 'code' => 'EXPIRED', 'item' => null, 'qty' => 0];
+    }
+
     $stmt = $pdo->prepare(
       "UPDATE `$tDrops`
        SET status='claimed', claimed_by=?, claimed_at=UTC_TIMESTAMP()
@@ -320,7 +348,7 @@ function drops_claim(PDO $pdo, array $cfg, int $dropId, int $userId): array {
 
     if ($stmt->rowCount() <= 0) {
       $pdo->commit();
-      return ['ok' => false, 'code' => 'TAKEN', 'item' => null, 'qty' => 0];
+      return ['ok' => false, 'code' => 'EXPIRED', 'item' => null, 'qty' => 0];
     }
 
     $itemId = (int)($drop['item_id'] ?? 0);
@@ -499,6 +527,24 @@ function drops_inventory(PDO $pdo, array $cfg, int $userId): array {
 function drops_log_claim(PDO $pdo, array $cfg, int $dropId, int $userId, string $code, ?string $message): void {
   $tLog = (string)($cfg['tables']['log_claims'] ?? '');
   if ($tLog === '') return;
+
+  $logCfg = $cfg['logging']['claim_log'] ?? null;
+  if (is_array($logCfg)) {
+    if (empty($logCfg['enabled'])) return;
+
+    $mode = (string)($logCfg['mode'] ?? 'all');
+    if ($mode === 'off') return;
+
+    if ($mode === 'errors') {
+      $success = $logCfg['success_codes'] ?? ['OK'];
+      if (is_array($success) && in_array($code, $success, true)) return;
+    }
+
+    $maxLen = (int)($logCfg['message_max_len'] ?? 0);
+    if ($maxLen > 0 && $message !== null && strlen($message) > $maxLen) {
+      $message = substr($message, 0, $maxLen);
+    }
+  }
 
   $stmt = $pdo->prepare(
     "INSERT INTO `$tLog` (drop_id, user_id, result_code, message, ip, user_agent, created_at)
