@@ -83,7 +83,32 @@ function sort_desc_assoc(array $m): array {
   return $m;
 }
 
+function build_ranked_top(array $scores, int $limit): array {
+  if ($limit <= 0 || !$scores) return [];
+  arsort($scores, SORT_NUMERIC);
+
+  $ranks = [];
+  $rank = 0;
+  $prevScore = null;
+
+  foreach ($scores as $uid => $score) {
+    $score = (int)$score;
+    if ($prevScore === null || $score < $prevScore) {
+      $rank++;
+      if ($rank > $limit) break;
+      $ranks[$rank] = ['score' => $score, 'uids' => []];
+      $prevScore = $score;
+    }
+
+    if ($rank > $limit) break;
+    $ranks[$rank]['uids'][] = (int)$uid;
+  }
+
+  return $ranks;
+}
+
 $cfg = drops_config();
+$warnings = [];
 
 try {
   $pdo = drops_pdo($cfg);
@@ -94,7 +119,6 @@ try {
   exit;
 }
 
-// ---- Date range (UTC, by created_at) ----
 $from = isset($_GET['from']) ? trim((string)$_GET['from']) : '';
 $to   = isset($_GET['to']) ? trim((string)$_GET['to']) : '';
 
@@ -105,15 +129,13 @@ if (is_ymd($to)) {
   if ($ts !== false) $toUtcExcl = gmdate('Y-m-d H:i:s', $ts + 86400);
 }
 if ($fromUtc && !$toUtcExcl) {
-  // если задан from, но нет to — берём "до завтра" (UTC)
   $toUtcExcl = gmdate('Y-m-d H:i:s', time() + 86400);
 }
 
-// ---- Items meta ----
 $pool = drops_item_pool($cfg);
 $chestId = (int)($cfg['chest']['chest_item_id'] ?? 0);
 
-$items = []; // itemId => ['title','image_url']
+$items = [];
 foreach ($pool as $p) {
   $id = (int)($p['id'] ?? 0);
   if ($id <= 0) continue;
@@ -125,21 +147,19 @@ foreach ($pool as $p) {
   ];
 }
 
-// ---- Stats holders ----
-$collectedByItemUser = [];   // [itemId][uid] => qty
-$collectedByUserItem = [];   // [uid][itemId] => qty
-$collectedTotalByUser = [];  // [uid] => qty
-$collectedTotalByItem = [];  // [itemId] => qty
-$participants = [];          // [uid] => true (claims + chest actions)
+$collectedByItemUser = [];
+$collectedByUserItem = [];
+$collectedTotalByUser = [];
+$collectedTotalByItem = [];
+$participants = [];
 $claimsRows = 0;
 
-$depositTotalByUser = [];    // [uid] => qty
-$depositByUserItem = [];     // [uid][itemId] => qty
-$depositUsers = [];          // [uid] => true
+$depositTotalByUser = [];
+$depositByUserItem = [];
+$depositUsers = [];
 $transRows = 0;
 
-// ---- Load claims logs ----
-$tClaims = (string)$cfg['tables']['log_claims'];
+$tClaims = (string)($cfg['tables']['log_claims'] ?? '');
 $where = "user_id > 0";
 $params = [];
 
@@ -152,45 +172,45 @@ if ($toUtcExcl) {
   $params[] = $toUtcExcl;
 }
 
-$sqlClaims = "SELECT user_id, result_code, message, created_at FROM `$tClaims` WHERE $where ORDER BY created_at ASC";
-$stmt = $pdo->prepare($sqlClaims);
-$stmt->execute($params);
+if ($tClaims === '' || !drops_db_table_exists($pdo, $tClaims)) {
+  $warnings[] = 'Лог дропов/сундуков недоступен (таблица log_claims не найдена).';
+} else {
+  $sqlClaims = "SELECT user_id, result_code, message, created_at FROM `$tClaims` WHERE $where ORDER BY created_at ASC";
+  $stmt = $pdo->prepare($sqlClaims);
+  $stmt->execute($params);
 
-while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-  $claimsRows++;
-  $uid = (int)($row['user_id'] ?? 0);
-  if ($uid <= 0) continue;
+  while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+    $claimsRows++;
+    $uid = (int)($row['user_id'] ?? 0);
+    if ($uid <= 0) continue;
 
-  $code = (string)($row['result_code'] ?? '');
-  // участие: любые действия в логе сундуков/дропов
-  if ($code !== '') $participants[$uid] = true;
+    $code = (string)($row['result_code'] ?? '');
+    if ($code !== '') $participants[$uid] = true;
 
-  // собранные ресурсы: только успешные получения (дроп или сундук)
-  if ($code !== 'OK' && $code !== 'CHEST_OK') continue;
+    if ($code !== 'OK' && $code !== 'CHEST_OK') continue;
 
-  $msg = (string)($row['message'] ?? '');
-  $j = $msg !== '' ? json_decode($msg, true) : null;
-  if (!is_array($j)) continue;
+    $msg = (string)($row['message'] ?? '');
+    $j = $msg !== '' ? json_decode($msg, true) : null;
+    if (!is_array($j)) continue;
 
-  $itemId = (int)($j['item_id'] ?? 0);
-  $qty = (int)($j['qty'] ?? 0);
-  if ($itemId <= 0 || $qty <= 0) continue;
+    $itemId = (int)($j['item_id'] ?? 0);
+    $qty = (int)($j['qty'] ?? 0);
+    if ($itemId <= 0 || $qty <= 0) continue;
 
-  // учитываем только предметы из пула (кроме сундука)
-  if (!isset($items[$itemId])) continue;
+    if (!isset($items[$itemId])) continue;
 
-  $collectedByItemUser[$itemId] = $collectedByItemUser[$itemId] ?? [];
-  $collectedByItemUser[$itemId][$uid] = (int)($collectedByItemUser[$itemId][$uid] ?? 0) + $qty;
+    $collectedByItemUser[$itemId] = $collectedByItemUser[$itemId] ?? [];
+    $collectedByItemUser[$itemId][$uid] = (int)($collectedByItemUser[$itemId][$uid] ?? 0) + $qty;
 
-  $collectedByUserItem[$uid] = $collectedByUserItem[$uid] ?? [];
-  $collectedByUserItem[$uid][$itemId] = (int)($collectedByUserItem[$uid][$itemId] ?? 0) + $qty;
+    $collectedByUserItem[$uid] = $collectedByUserItem[$uid] ?? [];
+    $collectedByUserItem[$uid][$itemId] = (int)($collectedByUserItem[$uid][$itemId] ?? 0) + $qty;
 
-  $collectedTotalByUser[$uid] = (int)($collectedTotalByUser[$uid] ?? 0) + $qty;
-  $collectedTotalByItem[$itemId] = (int)($collectedTotalByItem[$itemId] ?? 0) + $qty;
+    $collectedTotalByUser[$uid] = (int)($collectedTotalByUser[$uid] ?? 0) + $qty;
+    $collectedTotalByItem[$itemId] = (int)($collectedTotalByItem[$itemId] ?? 0) + $qty;
+  }
 }
 
-// ---- Load deposits to bank (transfers) ----
-$tTrans = (string)$cfg['tables']['log_transfers'];
+$tTrans = (string)($cfg['tables']['log_transfers'] ?? '');
 
 $whereT = "from_type='user' AND to_type='bank' AND actor_user_id = from_user_id";
 $paramsT = [];
@@ -204,36 +224,37 @@ if ($toUtcExcl) {
   $paramsT[] = $toUtcExcl;
 }
 
-$sqlT = "SELECT actor_user_id, from_user_id, item_id, qty, note, created_at
-         FROM `$tTrans`
-         WHERE $whereT
-         ORDER BY created_at ASC";
-$stmtT = $pdo->prepare($sqlT);
-$stmtT->execute($paramsT);
+if ($tTrans === '' || !drops_db_table_exists($pdo, $tTrans)) {
+  $warnings[] = 'Лог взносов в банк недоступен (таблица log_transfers не найдена).';
+} else {
+  $sqlT = "SELECT actor_user_id, from_user_id, item_id, qty, note, created_at
+           FROM `$tTrans`
+           WHERE $whereT
+           ORDER BY created_at ASC";
+  $stmtT = $pdo->prepare($sqlT);
+  $stmtT->execute($paramsT);
 
-while ($row = $stmtT->fetch(PDO::FETCH_ASSOC)) {
-  $transRows++;
-  $uid = (int)($row['from_user_id'] ?? 0);
-  if ($uid <= 0) continue;
+  while ($row = $stmtT->fetch(PDO::FETCH_ASSOC)) {
+    $transRows++;
+    $uid = (int)($row['from_user_id'] ?? 0);
+    if ($uid <= 0) continue;
 
-  $itemId = (int)($row['item_id'] ?? 0);
-  $qty = (int)($row['qty'] ?? 0);
-  if ($itemId <= 0 || $qty <= 0) continue;
+    $itemId = (int)($row['item_id'] ?? 0);
+    $qty = (int)($row['qty'] ?? 0);
+    if ($itemId <= 0 || $qty <= 0) continue;
 
-  // в банк нельзя сдавать сундуки по логике API, но на всякий:
-  if ($chestId > 0 && $itemId === $chestId) continue;
+    if ($chestId > 0 && $itemId === $chestId) continue;
 
-  $depositUsers[$uid] = true;
+    $depositUsers[$uid] = true;
 
-  $depositTotalByUser[$uid] = (int)($depositTotalByUser[$uid] ?? 0) + $qty;
-  $depositByUserItem[$uid] = $depositByUserItem[$uid] ?? [];
-  $depositByUserItem[$uid][$itemId] = (int)($depositByUserItem[$uid][$itemId] ?? 0) + $qty;
+    $depositTotalByUser[$uid] = (int)($depositTotalByUser[$uid] ?? 0) + $qty;
+    $depositByUserItem[$uid] = $depositByUserItem[$uid] ?? [];
+    $depositByUserItem[$uid][$itemId] = (int)($depositByUserItem[$uid][$itemId] ?? 0) + $qty;
+  }
 }
 
-// участие можно понимать шире: кто сдавал в банк, тоже участвовал
 foreach (array_keys($depositUsers) as $uid) $participants[(int)$uid] = true;
 
-// ---- Load user names (optional) ----
 $allUids = array_unique(array_merge(
   array_keys($participants),
   array_keys($collectedTotalByUser),
@@ -241,8 +262,7 @@ $allUids = array_unique(array_merge(
 ));
 $userMap = load_user_map($pdo, $cfg, $allUids);
 
-// ---- Leaders per item ----
-$leadersByItem = []; // itemId => ['max'=>int,'uids'=>[]]
+$leadersByItem = [];
 foreach ($items as $itemId => $_meta) {
   $map = $collectedByItemUser[$itemId] ?? [];
   if (!$map) {
@@ -261,11 +281,9 @@ foreach ($items as $itemId => $_meta) {
   $leadersByItem[$itemId] = ['max' => $max, 'uids' => $uids];
 }
 
-// ---- Top totals ----
 $topTotal = sort_desc_assoc($collectedTotalByUser);
 $topDeposit = sort_desc_assoc($depositTotalByUser);
 
-// ---- Current bank snapshot ----
 $bank = null;
 try {
   $bank = drops_bank_inventory_full($pdo, $cfg, true);
@@ -273,20 +291,18 @@ try {
   $bank = null;
 }
 
-// ---- Achievement payloads ----
-$achPerItem = []; // itemId => [uids...]
+$achPerItem = [];
 foreach ($leadersByItem as $itemId => $x) {
   if (!empty($x['uids']) && (int)$x['max'] > 0) $achPerItem[(int)$itemId] = array_values($x['uids']);
 }
 
-$achTop3Total = array_slice(array_keys($topTotal), 0, 3);
+$topTotalRanks = build_ranked_top($collectedTotalByUser, 3);
 $achParticipation = array_values(array_map('intval', array_keys($participants)));
 sort($achParticipation);
 
-$achBankContrib = array_values(array_map('intval', array_keys(array_filter($depositTotalByUser, fn($q) => (int)$q > 0))));
+$achBankContrib = array_values(array_map('intval', array_keys(array_filter($depositTotalByUser, fn($q) => (int)$q > 0))));␊
 sort($achBankContrib);
 
-// ---- HTML ----
 $serverNowIso = gmdate('c');
 $rangeText = ($fromUtc || $toUtcExcl)
   ? ('UTC: ' . h($fromUtc ?? '…') . ' — ' . h($toUtcExcl ? gmdate('Y-m-d H:i:s', strtotime($toUtcExcl) - 1) : '…'))
@@ -331,6 +347,17 @@ $rangeText = ($fromUtc || $toUtcExcl)
   <div>Диапазон: <span class="pill"><?= $rangeText ?></span></div>
   <div>Server UTC: <span class="pill"><?= h($serverNowIso) ?></span></div>
 </div>
+
+<?php if ($warnings): ?>
+  <div class="box">
+    <div class="muted"><b>Предупреждения:</b></div>
+    <ul class="small muted" style="margin:8px 0 0 18px">
+      <?php foreach ($warnings as $w): ?>
+        <li><?= h($w) ?></li>
+      <?php endforeach; ?>
+    </ul>
+  </div>
+<?php endif; ?>
 
 <div class="box">
   <form class="row" method="get" action="">
@@ -560,8 +587,11 @@ $rangeText = ($fromUtc || $toUtcExcl)
   </details>
 
   <details>
-    <summary><b>2) Топ-3 по сумме собранного (user_ids)</b></summary>
-    <pre><?php echo h(json_encode(array_values(array_map('intval', $achTop3Total)), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT)); ?></pre>
+    <summary><b>2) Топ-3 по сумме собранного (по местам)</b></summary>
+    <pre><?php echo h(json_encode($topTotalRanks, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT)); ?></pre>
+    <div class="muted small" style="margin-top:6px">
+      Формат: <code>{ "1": { "score": 123, "uids": [1,2] }, "2": ... }</code>. При равенстве счёта место делится.
+    </div>
   </details>
 
   <details>
