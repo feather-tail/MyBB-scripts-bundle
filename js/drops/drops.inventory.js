@@ -347,11 +347,7 @@
             );
           }
 
-          if (b.built) {
-            meta.appendChild(
-              H.createEl('div', { className: 'ks-drops-buildings__status is-built', text: 'Построено' }),
-            );
-          } else if (locked) {
+          if (!b.built && locked) {
             const mainTitle =
               b.main_building_title || titleMap.get(mainId) || mainId || 'основное здание';
             meta.appendChild(
@@ -365,7 +361,14 @@
           const resList = H.createEl('div', { className: 'ks-drops-buildings__resources' });
           const resources = b.resources || [];
 
-          if (!resources.length) {
+          if (b.built) {
+            resList.appendChild(
+              H.createEl('div', {
+                className: 'ks-drops-buildings__res ks-drops-buildings__res--built',
+                text: 'Построено',
+              }),
+            );
+          } else if (!resources.length) {
             resList.appendChild(
               H.createEl('div', {
                 className: 'ks-drops-buildings__res ks-drops-buildings__res--empty',
@@ -962,5 +965,6 @@
     })
     .catch((e) => console.warn('[drops:inv] init failed:', e));
 })();
+
 
 
