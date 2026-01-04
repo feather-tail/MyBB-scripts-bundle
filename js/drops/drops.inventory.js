@@ -284,7 +284,11 @@
         state.buildingsKey = key;
 
         const builtMap = new Map();
-        for (const b of buildings) builtMap.set(b.id, !!b.built);
+        const titleMap = new Map();
+        for (const b of buildings) {
+          builtMap.set(b.id, !!b.built);
+          if (b.title) titleMap.set(b.id, b.title);
+        }
         const bankMap = buildBankQtyMap(bank);
 
         const wrap = H.createEl('div', { className: 'ks-drops-buildings__wrap' });
@@ -332,7 +336,8 @@
           }
 
           if (mainId) {
-            const mainTitle = b.main_building_title || mainId || 'Основное здание';
+            const mainTitle =
+              b.main_building_title || titleMap.get(mainId) || mainId || 'Основное здание';
             meta.appendChild(
               H.createEl('div', {
                 className: 'ks-drops-buildings__main',
@@ -346,7 +351,8 @@
               H.createEl('div', { className: 'ks-drops-buildings__status is-built', text: 'Построено' }),
             );
           } else if (locked) {
-            const mainTitle = b.main_building_title || mainId || 'основное здание';
+            const mainTitle =
+              b.main_building_title || titleMap.get(mainId) || mainId || 'основное здание';
             meta.appendChild(
               H.createEl('div', {
                 className: 'ks-drops-buildings__status is-locked',
@@ -955,3 +961,4 @@
     })
     .catch((e) => console.warn('[drops:inv] init failed:', e));
 })();
+
