@@ -169,7 +169,7 @@
       };
 
       const postPurchaseAction = async (action, payload) => {
-        const resp = await H.request(api(action, {}), {
+        const resp = await H.request(apiUrl(action, {}), {
           method: 'POST',
           timeout: cfg.polling?.requestTimeoutMs || 12000,
           responseType: 'json',
@@ -177,8 +177,8 @@
           headers: { 'Content-Type': 'application/json' },
           data: JSON.stringify({
             ...payload,
-            user_id: C.getUserId(H),
-            group_id: C.getGroupId(H),
+            user_id: getUserId(),
+            group_id: getGroupId(),
           }),
         });
         if (resp?.ok !== true)
@@ -437,8 +437,7 @@
           const data = await fetchAdminState(targetUserId);
           lastTargetUserId = targetUserId;
 
-          if (data.bank)
-            C.dispatch('ks:drops:bankUpdated', { bank: data.bank });
+          if (data.bank) emitBankUpdated(data.bank);
 
           pool = data.item_pool || [];
 
@@ -465,13 +464,13 @@
                     { id: item.id },
                   );
                   if (!res.success) {
-                    C.toast(H, res.message || 'Ошибка обработки', 'error');
+                    toast(res.message || 'Ошибка обработки', 'error');
                   } else {
-                    C.toast(H, 'Заявка обработана', 'success');
+                    toast('Заявка обработана', 'success');
                     await load(lastTargetUserId);
                   }
                 } catch {
-                  C.toast(H, 'Не удалось обновить заявку', 'error');
+                  toast('Не удалось обновить заявку', 'error');
                 } finally {
                   btn.disabled = item.status === 'processed';
                 }
@@ -485,13 +484,13 @@
                     { id: item.id },
                   );
                   if (!res.success) {
-                    C.toast(H, res.message || 'Ошибка удаления', 'error');
+                    toast(res.message || 'Ошибка удаления', 'error');
                   } else {
-                    C.toast(H, 'Заявка удалена', 'success');
+                    toast('Заявка удалена', 'success');
                     await load(lastTargetUserId);
                   }
                 } catch {
-                  C.toast(H, 'Не удалось удалить заявку', 'error');
+                  toast('Не удалось удалить заявку', 'error');
                 } finally {
                   btn.disabled = item.status !== 'processed';
                 }
@@ -553,3 +552,4 @@
       console.warn('[drops:admin] init failed:', e);
     });
 })();
+
