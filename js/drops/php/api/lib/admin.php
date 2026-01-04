@@ -391,4 +391,3 @@ function drops_purchase_delete(PDO $pdo, array $cfg, int $id): array {
 
   return ['ok' => true];
 }
-

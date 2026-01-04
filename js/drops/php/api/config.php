@@ -24,6 +24,7 @@ $cfg = [
     'meta' => 'ks_drops_meta',
     'cache' => 'ks_drops_cache',
     'forum_users' => 'forum_users',
+    'building_votes' => 'ks_drops_building_votes',
   ],
 
   'logging' => [
@@ -211,6 +212,39 @@ $cfg = [
 
       ['item_id' => 10, 'weight' => 3, 'qty_min' => 1, 'qty_max' => 2],
       ['item_id' => 12, 'weight' => 3, 'qty_min' => 1, 'qty_max' => 2],
+    ],
+  ],
+  'buildings' => [
+    'enabled' => true,
+    'voting' => [
+      'enabled' => true,
+    ],
+    'built_ids' => [
+      'construction_complex',
+    ],
+    'items' => [
+      [
+        'id' => 'construction_complex',
+        'title' => 'Лаборатории',
+        'description' => 'Научный комплекс Академии.',
+        'image_url' => 'https://feathertail.ru/ks/drops/assets/unknownlocation.webp',
+        'resources' => [
+          ['item_id' => 7, 'qty' => 50],
+          ['item_id' => 8, 'qty' => 40],
+          ['item_id' => 9, 'qty' => 25],
+        ],
+      ],
+      [
+        'id' => 'pool',
+        'title' => 'Отдел алхимических исследований',
+        'description' => 'Лаборатории алхимических опытов и исследований.',
+        'image_url' => 'https://feathertail.ru/ks/drops/assets/unknownlocation.webp',
+        'main_building_id' => 'construction_complex',
+        'resources' => [
+          ['item_id' => 11, 'qty' => 30],
+          ['item_id' => 7, 'qty' => 20],
+        ],
+      ],
     ],
   ],
 ];

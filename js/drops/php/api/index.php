@@ -55,6 +55,87 @@ try {
       ], drops_server_time_payload()));
     }
 
+    case 'buildings_state': {
+      drops_require_user($auth);
+
+      $buildingsCfg = $cfg['buildings'] ?? [];
+      $buildings = drops_buildings_state($cfg);
+      $votingEnabled = drops_buildings_voting_enabled($cfg);
+      $voteCounts = $votingEnabled ? drops_buildings_votes_counts($pdo, $cfg) : [];
+      $userVote = $votingEnabled
+        ? drops_buildings_user_vote($pdo, $cfg, (int)($auth['user_id'] ?? 0))
+        : null;
+      $availableIds = drops_buildings_available_ids($buildings);
+
+      drops_ok(array_merge([
+        'buildings_state' => [
+          'enabled' => (bool)($buildingsCfg['enabled'] ?? true),
+          'items' => $buildings,
+          'voting' => [
+            'enabled' => $votingEnabled,
+            'counts' => $voteCounts,
+            'user_vote' => $userVote,
+            'available_ids' => $availableIds,
+          ],
+        ],
+      ], drops_server_time_payload()));
+    }
+
+    case 'building_vote': {
+      if ($method !== 'POST') drops_err('METHOD', 'Use POST', 405);
+      drops_require_user($auth);
+
+      $buildingsCfg = $cfg['buildings'] ?? [];
+      $buildingId = (string)($json['building_id'] ?? '');
+      $buildingId = trim($buildingId);
+      if ($buildingId === '') drops_err('BAD_BUILDING', 'Некорректное здание', 400);
+
+      if (!drops_buildings_voting_enabled($cfg)) {
+        drops_ok(array_merge([
+          'success' => false,
+          'code' => 'VOTING_DISABLED',
+          'message' => 'Голосование отключено',
+        ], drops_server_time_payload()));
+      }
+
+      $buildings = drops_buildings_state($cfg);
+      $availableIds = drops_buildings_available_ids($buildings);
+      if (!in_array($buildingId, $availableIds, true)) {
+        drops_ok(array_merge([
+          'success' => false,
+          'code' => 'NOT_AVAILABLE',
+          'message' => 'Здание недоступно для голосования',
+        ], drops_server_time_payload()));
+      }
+
+      $res = drops_buildings_vote_set($pdo, $cfg, (int)$auth['user_id'], $buildingId);
+      if (!$res['ok']) {
+        drops_ok(array_merge([
+          'success' => false,
+          'code' => $res['code'],
+          'message' => $res['message'],
+        ], drops_server_time_payload()));
+      }
+
+      $voteCounts = drops_buildings_votes_counts($pdo, $cfg);
+      $userVote = drops_buildings_user_vote($pdo, $cfg, (int)$auth['user_id']);
+
+      drops_ok(array_merge([
+        'success' => true,
+        'message' => 'Голос учтен',
+        'buildings_state' => [
+          'enabled' => (bool)($buildingsCfg['enabled'] ?? true),
+          'items' => $buildings,
+          'voting' => [
+            'enabled' => true,
+            'counts' => $voteCounts,
+            'user_vote' => $userVote,
+            'available_ids' => $availableIds,
+          ],
+        ],
+      ], drops_server_time_payload()));
+    }
+
     case 'state': {
       $forumId = drops_req_int('forum_id', 0);
       $pageUrl = (string)(drops_req_str('page_url', '') ?? '');
@@ -315,6 +396,26 @@ try {
 
       drops_ok(array_merge([
         'success' => true,
+      ], drops_server_time_payload()));
+    }
+
+    case 'admin_building_vote_reset': {
+      if ($method !== 'POST') drops_err('METHOD', 'Use POST', 405);
+      drops_require_admin($auth);
+      drops_require_admin_api_key($cfg);
+
+      $res = drops_buildings_votes_reset($pdo, $cfg);
+      if (!$res['ok']) {
+        drops_ok(array_merge([
+          'success' => false,
+          'code' => $res['code'],
+          'message' => $res['message'],
+        ], drops_server_time_payload()));
+      }
+
+      drops_ok(array_merge([
+        'success' => true,
+        'message' => 'Голосование сброшено',
       ], drops_server_time_payload()));
     }
 

@@ -8,6 +8,7 @@ require_once __DIR__ . '/auth.php';
 require_once __DIR__ . '/items.php';
 require_once __DIR__ . '/online.php';
 require_once __DIR__ . '/drops.php';
+require_once __DIR__ . '/buildings.php';
 require_once __DIR__ . '/admin.php';
 
 function drops_config(): array {
