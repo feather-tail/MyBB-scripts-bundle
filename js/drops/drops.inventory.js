@@ -64,35 +64,6 @@
           )
           .join('|');
 
-      const renderOnline = (H, ui, online, state) => {
-        if (cfg.inventory?.showOnlineBox === false) {
-          ui.onlineBox.hidden = true;
-          return;
-        }
-
-        ui.onlineBox.hidden = false;
-        const count = toInt(online?.count);
-        const wl = toInt(online?.whitelist_count);
-        const key = `${count}|${wl}`;
-        if (state.onlineKey === key) return;
-        state.onlineKey = key;
-
-        const frag = document.createDocumentFragment();
-        frag.appendChild(
-          H.createEl('div', {
-            className: 'ks-drops-online__title',
-            text: 'Онлайн',
-          }),
-        );
-        frag.appendChild(
-          H.createEl('div', {
-            className: 'ks-drops-online__meta',
-            text: `Всего: ${count} • В белом списке: ${wl}`,
-          }),
-        );
-        ui.onlineBox.replaceChildren(frag);
-      };
-
       const renderChest = (H, cfg, ui, inv, onOpen, state) => {
         if (!cfg.chest?.enabled) {
           ui.chestBox.hidden = true;
@@ -308,11 +279,9 @@
         ui,
         inv,
         bank,
-        online,
         handlers,
         state,
       ) => {
-        renderOnline(H, ui, online, state);
         renderChest(H, cfg, ui, inv, handlers.onOpenChest, state);
         if (bank) {
           renderBank(H, ui, bank, state);
@@ -427,24 +396,6 @@
         return resp.data?.bank;
       };
 
-      const fetchOnline = async () => {
-        const resp = await H.request(
-          apiUrl('online', {
-            user_id: toInt(H.getUserId()),
-            group_id: toInt(H.getGroupId()),
-          }),
-          {
-            method: 'GET',
-            timeout: cfg.polling?.requestTimeoutMs || 12000,
-            responseType: 'json',
-            retries: cfg.polling?.retries || 0,
-          },
-        );
-        if (resp?.ok !== true)
-          throw new Error(resp?.error?.message || 'online error');
-        return resp.data?.online;
-      };
-
       const postDeposit = async (itemId, qty) => {
         const resp = await H.request(apiUrl('bank_deposit', {}), {
           method: 'POST',
@@ -481,7 +432,6 @@
         root.innerHTML = '';
 
         const ui = {
-          onlineBox: H.createEl('div', { className: 'ks-drops-online' }),
           chestBox: H.createEl('div', { className: 'ks-drops-chest' }),
           bankBox: H.createEl('div', { className: 'ks-drops-bank' }),
           header: H.createEl('div', { className: 'ks-drops-inv__header' }),
@@ -496,7 +446,6 @@
         );
         ui.header.appendChild(ui.totalEl);
         root.append(
-          ui.onlineBox,
           ui.chestBox,
           ui.bankBox,
           ui.header,
@@ -508,7 +457,6 @@
         let bank = null;
         let online = null;
         const renderState = {
-          onlineKey: null,
           chestKey: null,
           bankKey: null,
           invKey: null,
@@ -517,7 +465,7 @@
 
         const rerender = () => {
           renderScheduled = false;
-          renderInventory(H, cfg, ui, inv, bank, online, handlers, renderState);
+          renderInventory(H, cfg, ui, inv, bank, handlers, renderState);
         };
 
         const scheduleRender = () => {
@@ -691,17 +639,15 @@
           };
 
         try {
-          const [invRes, bankRes, onlineRes] = await Promise.allSettled([
+          const [invRes, bankRes] = await Promise.allSettled([
             fetchInventory(uid),
             fetchBankState(),
-            fetchOnline(),
           ]);
 
           if (invRes.status !== 'fulfilled') throw invRes.reason;
           inv = invRes.value;
 
           bank = bankRes.status === 'fulfilled' ? bankRes.value : null;
-          online = onlineRes.status === 'fulfilled' ? onlineRes.value : null;
 
           scheduleRender();
         } catch (e) {
@@ -727,33 +673,13 @@
             scheduleRender();
           }
         });
-
-        window.addEventListener('ks:drops:onlineUpdated', (ev) => {
-          const newOnline = ev.detail?.online;
-          if (newOnline) {
-            online = newOnline;
-            scheduleRender();
-          }
-        });
-
-        if (cfg.inventory?.showOnlineBox !== false) {
-          const ms = Math.max(
-            5000,
-            toInt(cfg.polling?.onlinePollIntervalMs ?? 30000),
-          );
-          setInterval(async () => {
-            try {
-              online = await fetchOnline();
-              scheduleRender();
-            } catch {}
-          }, ms);
-        }
       };
 
       H.runOnceOnReady(init);
     })
     .catch((e) => console.warn('[drops:inv] init failed:', e));
 })();
+
 
 
 
