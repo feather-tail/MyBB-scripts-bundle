@@ -54,45 +54,73 @@
         return it ? toInt(it.qty) : 0;
       };
 
-      const renderOnline = (H, root, online) => {
-        if (cfg.inventory?.showOnlineBox === false) return;
+      const buildItemsKey = (items) =>
+        (items || [])
+          .map(
+            (it) =>
+              `${toInt(it.item_id)}:${toInt(it.qty)}:${it.title || ''}:${
+                it.image_url || ''
+              }`,
+          )
+          .join('|');
 
-        let box = root.querySelector('.ks-drops-online');
-        if (!box) {
-          box = H.createEl('div', { className: 'ks-drops-online' });
-          root.appendChild(box);
+      const renderOnline = (H, ui, online, state) => {
+        if (cfg.inventory?.showOnlineBox === false) {
+          ui.onlineBox.hidden = true;
+          return;
         }
 
+        ui.onlineBox.hidden = false;
         const count = toInt(online?.count);
         const wl = toInt(online?.whitelist_count);
+        const key = `${count}|${wl}`;
+        if (state.onlineKey === key) return;
+        state.onlineKey = key;
 
-        box.innerHTML = '';
-        box.appendChild(
+        const frag = document.createDocumentFragment();
+        frag.appendChild(
           H.createEl('div', {
             className: 'ks-drops-online__title',
             text: 'Онлайн',
           }),
         );
-        box.appendChild(
+        frag.appendChild(
           H.createEl('div', {
             className: 'ks-drops-online__meta',
             text: `Всего: ${count} • В белом списке: ${wl}`,
           }),
         );
+        ui.onlineBox.replaceChildren(frag);
       };
 
-      const renderChest = (H, cfg, root, inv, onOpen) => {
-        if (!cfg.chest?.enabled) return;
-
-        let box = root.querySelector('.ks-drops-chest');
-        if (!box) {
-          box = H.createEl('div', { className: 'ks-drops-chest' });
-          root.prepend(box);
+      const renderChest = (H, cfg, ui, inv, onOpen, state) => {
+        if (!cfg.chest?.enabled) {
+          ui.chestBox.hidden = true;
+          return;
         }
+        ui.chestBox.hidden = false;
 
         const chestQty = findChestQty(inv);
-        box.innerHTML = '';
+        const purchaseCfg = cfg.chest?.purchase || {};
+        const purchaseEnabled =
+          purchaseCfg.enabled !== false && toInt(purchaseCfg.price) > 0;
+        const currencyField = purchaseCfg.currencyField || 'UserFld4';
+        const rawCurrency = purchaseEnabled ? window[currencyField] : null;
+        const currencyValue = purchaseEnabled ? toInt(rawCurrency) : 0;
+        const maxAffordable = purchaseEnabled
+          ? Math.floor(currencyValue / Math.max(1, toInt(purchaseCfg.price)))
+          : 0;
 
+        const key = [
+          chestQty,
+          purchaseEnabled ? 1 : 0,
+          currencyValue,
+          toInt(purchaseCfg.price),
+        ].join('|');
+        if (state.chestKey === key) return;
+        state.chestKey = key;
+
+        const frag = document.createDocumentFragment();
         const left = H.createEl('div', { className: 'ks-drops-chest__left' });
         const img = H.createEl('img', {
           className: 'ks-drops-chest__img',
@@ -114,20 +142,10 @@
           }),
         );
 
-        const purchaseCfg = cfg.chest?.purchase || {};
-        const purchaseEnabled =
-          purchaseCfg.enabled !== false && toInt(purchaseCfg.price) > 0;
-
-        let purchaseBox = null;
         if (purchaseEnabled) {
-          const currencyField = purchaseCfg.currencyField || 'UserFld4';
-          const rawCurrency = window[currencyField];
-          const currencyValue = toInt(rawCurrency);
-          const maxAffordable = Math.floor(
-            currencyValue / Math.max(1, toInt(purchaseCfg.price)),
-          );
-
-          purchaseBox = H.createEl('div', { className: 'ks-drops-chest__buy' });
+          const purchaseBox = H.createEl('div', {
+            className: 'ks-drops-chest__buy',
+          });
           purchaseBox.appendChild(
             H.createEl('div', {
               className: 'ks-drops-chest__currency',
@@ -190,6 +208,7 @@
 
           buyRow.append(qtyInput, buyBtn);
           purchaseBox.append(buyRow, totalText);
+          meta.appendChild(purchaseBox);
         }
 
         left.append(img, meta);
@@ -202,20 +221,23 @@
         btn.disabled = chestQty <= 0;
         btn.addEventListener('click', () => onOpen(btn));
 
-        if (purchaseBox) meta.appendChild(purchaseBox);
-        box.append(left, btn);
+        frag.append(left, btn);
+        ui.chestBox.replaceChildren(frag);
       };
 
-      const renderBank = (H, root, bank) => {
-        if (cfg.inventory?.showBankBox === false) return;
-
-        let box = root.querySelector('.ks-drops-bank');
-        if (!box) {
-          box = H.createEl('div', { className: 'ks-drops-bank' });
-          root.appendChild(box);
+      const renderBank = (H, ui, bank, state) => {
+        if (cfg.inventory?.showBankBox === false) {
+          ui.bankBox.hidden = true;
+          return;
         }
+        ui.bankBox.hidden = false;
 
-        box.innerHTML = '';
+        const items = bank?.items || [];
+        const key = `${bank?.total_qty ?? 0}|${buildItemsKey(items)}`;
+        if (state.bankKey === key) return;
+        state.bankKey = key;
+
+        const frag = document.createDocumentFragment();
 
         const head = H.createEl('div', { className: 'ks-drops-bank__head' });
         head.appendChild(
@@ -230,11 +252,10 @@
             text: `Всего: ${bank?.total_qty ?? 0}`,
           }),
         );
-        box.appendChild(head);
+        frag.appendChild(head);
 
         const grid = H.createEl('div', { className: 'ks-drops-bank__grid' });
 
-        const items = bank?.items || [];
         if (!items.length) {
           grid.appendChild(
             H.createEl('div', {
@@ -242,7 +263,8 @@
               text: 'Пока пусто.',
             }),
           );
-          box.appendChild(grid);
+          frag.appendChild(grid);
+          ui.bankBox.replaceChildren(frag);
           return;
         }
 
@@ -276,51 +298,53 @@
           grid.appendChild(card);
         }
 
-        box.appendChild(grid);
+        frag.appendChild(grid);
+        ui.bankBox.replaceChildren(frag);
       };
 
-      const renderInventory = (H, cfg, root, inv, bank, online, handlers) => {
-        root.innerHTML = '';
-        root.classList.add('ks-drops-inv');
-
-        renderOnline(H, root, online);
-        renderChest(H, cfg, root, inv, handlers.onOpenChest);
-        if (bank) renderBank(H, root, bank);
-
-        const header = H.createEl('div', { className: 'ks-drops-inv__header' });
-        header.appendChild(
-          H.createEl('div', {
-            className: 'ks-drops-inv__title',
-            text: 'Ресурсы',
-          }),
-        );
-
-        const total = H.createEl('div', {
-          className: 'ks-drops-inv__total',
-          text: `Всего: ${inv?.total_qty ?? 0}`,
-        });
-
-        header.appendChild(total);
-        root.appendChild(header);
-
-        const grid = H.createEl('div', { className: 'ks-drops-inv__grid' });
+      const renderInventory = (
+        H,
+        cfg,
+        ui,
+        inv,
+        bank,
+        online,
+        handlers,
+        state,
+      ) => {
+        renderOnline(H, ui, online, state);
+        renderChest(H, cfg, ui, inv, handlers.onOpenChest, state);
+        if (bank) {
+          renderBank(H, ui, bank, state);
+        } else {
+          if (cfg.inventory?.showBankBox !== false) ui.bankBox.hidden = true;
+          state.bankKey = null;
+        }
 
         const chestId = toInt(cfg.chest?.chestItemId || 0);
         const hideChestInGrid = cfg.chest?.hideInGrid !== false;
-
         const items = (inv?.items || []).filter((it) => {
           if (!hideChestInGrid) return true;
           return toInt(it.item_id) !== chestId;
         });
+        const invKey = `${inv?.total_qty ?? 0}|${buildItemsKey(items)}|${
+          canDeposit() ? 1 : 0
+        }`;
+        if (state.invKey === invKey) return;
+        state.invKey = invKey;
+
+        ui.totalEl.textContent = `Всего: ${inv?.total_qty ?? 0}`;
+
+        const frag = document.createDocumentFragment();
 
         if (!items.length) {
-          grid.appendChild(
+          frag.appendChild(
             H.createEl('div', {
               className: 'ks-drops-inv__empty',
               text: 'Пока пусто.',
             }),
           );
-          root.appendChild(grid);
+          ui.grid.replaceChildren(frag);
           return;
         }
 
@@ -367,10 +391,10 @@
             card.appendChild(btn);
           }
 
-          grid.appendChild(card);
+          frag.appendChild(card);
         }
 
-        root.appendChild(grid);
+        ui.grid.replaceChildren(frag);
       };
 
       const fetchInventory = async (targetUserId) => {
@@ -453,18 +477,57 @@
           return;
         }
 
+        root.classList.add('ks-drops-inv');
+        root.innerHTML = '';
+
+        const ui = {
+          onlineBox: H.createEl('div', { className: 'ks-drops-online' }),
+          chestBox: H.createEl('div', { className: 'ks-drops-chest' }),
+          bankBox: H.createEl('div', { className: 'ks-drops-bank' }),
+          header: H.createEl('div', { className: 'ks-drops-inv__header' }),
+          totalEl: H.createEl('div', { className: 'ks-drops-inv__total' }),
+          grid: H.createEl('div', { className: 'ks-drops-inv__grid' }),
+        };
+        ui.header.appendChild(
+          H.createEl('div', {
+            className: 'ks-drops-inv__title',
+            text: 'Ресурсы',
+          }),
+        );
+        ui.header.appendChild(ui.totalEl);
+        root.append(
+          ui.onlineBox,
+          ui.chestBox,
+          ui.bankBox,
+          ui.header,
+          ui.grid,
+        );
+
         const uid = toInt(H.getUserId());
         let inv = null;
         let bank = null;
         let online = null;
+        const renderState = {
+          onlineKey: null,
+          chestKey: null,
+          bankKey: null,
+          invKey: null,
+        };
+        let renderScheduled = false;
 
         const rerender = () => {
-          renderInventory(H, cfg, root, inv, bank, online, {
-            onOpenChest: async (
-              btn,
-              purchaseQty = null,
-              currencyValue = null,
-            ) => {
+          renderScheduled = false;
+          renderInventory(H, cfg, ui, inv, bank, online, handlers, renderState);
+        };
+
+        const scheduleRender = () => {
+          if (renderScheduled) return;
+          renderScheduled = true;
+          requestAnimationFrame(rerender);
+        };
+
+        const handlers = {
+          onOpenChest: async (btn, purchaseQty = null, currencyValue = null) => {
               if (purchaseQty) {
                 btn.disabled = true;
                 btn.classList.add('is-busy');
@@ -559,10 +622,10 @@
                   );
                 }
 
-                try {
+                 try {
                   bank = await fetchBankState();
                 } catch {}
-                rerender();
+                scheduleRender();
               } catch (e) {
                 log('chest open error', e);
                 toast(
@@ -614,7 +677,7 @@
                   );
                 }
 
-                rerender();
+                scheduleRender();
               } catch (e) {
                 log('deposit error', e);
                 toast('Не удалось внести в банк', 'error');
@@ -625,7 +688,7 @@
                 }
               }
             },
-          });
+          };
         };
 
         try {
@@ -641,7 +704,7 @@
           bank = bankRes.status === 'fulfilled' ? bankRes.value : null;
           online = onlineRes.status === 'fulfilled' ? onlineRes.value : null;
 
-          rerender();
+          scheduleRender();
         } catch (e) {
           log('init load error', e);
           toast('Не удалось загрузить инвентарь/банк', 'error');
@@ -654,7 +717,7 @@
           const newInv = ev.detail?.inventory;
           if (newInv && newInv.user_id === uid) {
             inv = newInv;
-            rerender();
+            scheduleRender();
           }
         });
 
@@ -662,7 +725,7 @@
           const newBank = ev.detail?.bank;
           if (newBank) {
             bank = newBank;
-            rerender();
+            scheduleRender();
           }
         });
 
@@ -670,7 +733,7 @@
           const newOnline = ev.detail?.online;
           if (newOnline) {
             online = newOnline;
-            rerender();
+            scheduleRender();
           }
         });
 
@@ -682,7 +745,7 @@
           setInterval(async () => {
             try {
               online = await fetchOnline();
-              rerender();
+              scheduleRender();
             } catch {}
           }, ms);
         }
@@ -692,5 +755,6 @@
     })
     .catch((e) => console.warn('[drops:inv] init failed:', e));
 })();
+
 
 
