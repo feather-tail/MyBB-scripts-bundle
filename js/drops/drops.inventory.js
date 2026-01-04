@@ -260,7 +260,7 @@
       };
 
       const renderBuildings = (H, cfg, ui, buildingsState, bank, state) => {
-        const buildings = buildingsState?.items || [];
+        const buildings = buildingsState?.items || buildingsState?.buildings || [];
         if (!buildings.length || buildingsState?.enabled === false) {
           ui.buildingsBox.hidden = true;
           state.buildingsKey = null;
@@ -307,6 +307,7 @@
             className: [
               'ks-drops-buildings__card',
               b.built ? 'is-built' : '',
+              b.prebuilt ? 'is-prebuilt' : '',
               locked ? 'is-locked' : '',
             ].filter(Boolean).join(' '),
           });
@@ -417,9 +418,9 @@
       };
 
       const renderVoting = (H, cfg, ui, buildingsState, state, handlers) => {
-        const buildings = buildingsState?.items || [];
-        const voting = buildingsState?.voting || {};
-        if (!voting.enabled || !buildings.length) {
+        const buildings = buildingsState?.items || buildingsState?.buildings || [];
+        const voting = buildingsState?.voting || buildingsState?.vote || {};
+        if (voting.enabled === false || !buildings.length) {
           ui.voteBox.hidden = true;
           state.voteKey = null;
           return;
@@ -961,4 +962,5 @@
     })
     .catch((e) => console.warn('[drops:inv] init failed:', e));
 })();
+
 
