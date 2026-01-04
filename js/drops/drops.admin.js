@@ -18,6 +18,28 @@
     return Number.isFinite(n) ? n : 0;
   };
 
+  const buildItemsKey = (items) =>
+    (items || [])
+      .map(
+        (it) =>
+          `${toInt(it.item_id)}:${toInt(it.qty)}:${it.title || ''}:${
+            it.image_url || ''
+          }`,
+      )
+      .join('|');
+
+  const buildRequestsKey = (items) =>
+    (items || [])
+      .map(
+        (it) =>
+          `${toInt(it.id)}:${it.status || ''}:${toInt(it.qty)}:${toInt(
+            it.price_per_chest,
+          )}:${toInt(it.total_price)}:${toInt(it.user_id)}:${
+            it.user_login || ''
+          }:${toInt(it.user_currency)}`,
+      )
+      .join('|');
+
   const deepMerge = (base, patch) => {
     const isObj = (x) => x && typeof x === 'object' && !Array.isArray(x);
     const out = Array.isArray(base) ? base.slice() : { ...(base || {}) };
@@ -97,6 +119,7 @@
           return wrap;
         }
 
+        const frag = document.createDocumentFragment();
         for (const it of items) {
           const row = el('div', { className: 'ks-drops-admin__row' });
           const left = el('div', { className: 'ks-drops-admin__rowleft' });
@@ -123,9 +146,10 @@
               text: 'x' + (it.qty ?? 0),
             }),
           );
-          wrap.appendChild(row);
+          frag.appendChild(row);
         }
 
+        wrap.appendChild(frag);
         return wrap;
       };
 
@@ -199,6 +223,7 @@
           return wrap;
         }
 
+        const frag = document.createDocumentFragment();
         for (const it of items) {
           const row = el('div', { className: 'ks-drops-admin__row' });
           const left = el('div', { className: 'ks-drops-admin__rowleft' });
@@ -238,9 +263,10 @@
 
           actions.append(processBtn, deleteBtn);
           row.append(left, actions);
-          wrap.appendChild(row);
+          frag.appendChild(row);
         }
 
+        wrap.appendChild(frag);
         return wrap;
       };
 
@@ -445,10 +471,17 @@
 
         let pool = [];
         let lastTargetUserId = 0;
+        const renderState = {
+          userKey: null,
+          requestsKey: null,
+        };
 
         const renderRequests = (items) => {
-          requestsBody.innerHTML = '';
-          requestsBody.appendChild(
+          const key = buildRequestsKey(items);
+          if (renderState.requestsKey === key) return;
+          renderState.requestsKey = key;
+
+          requestsBody.replaceChildren(
             renderPurchaseRequests(
               items || [],
               async (item, btn) => {
@@ -494,9 +527,17 @@
           );
         };
 
+        const renderUserList = (items) => {
+          const key = buildItemsKey(items);
+          if (renderState.userKey === key) return;
+          renderState.userKey = key;
+          userBody.replaceChildren(renderList(items));
+        };
+
         const refreshRequests = async () => {
           requestsRefreshBtn.disabled = true;
           requestsBody.innerHTML = 'Загрузка...';
+          renderState.requestsKey = null;
           try {
             const data = await fetchAdminState(lastTargetUserId);
             if (data.bank) emitBankUpdated(data.bank);
@@ -513,6 +554,8 @@
         const load = async (targetUserId) => {
           userBody.innerHTML = 'Загрузка...';
           requestsBody.innerHTML = 'Загрузка...';
+          renderState.userKey = null;
+          renderState.requestsKey = null;
 
           const data = await fetchAdminState(targetUserId);
           lastTargetUserId = targetUserId;
@@ -521,16 +564,17 @@
 
           pool = data.item_pool || [];
 
-          userBody.innerHTML = '';
-          if (data.target_inventory?.items)
-            userBody.appendChild(renderList(data.target_inventory.items));
-          else
-            userBody.appendChild(
+          if (data.target_inventory?.items) {
+            renderUserList(data.target_inventory.items);
+          } else {
+            renderState.userKey = null;
+            userBody.replaceChildren(
               el('div', {
                 className: 'ks-drops-admin__muted',
                 text: 'Пользователь не выбран.',
               }),
             );
+          }
 
           renderRequests(data.purchase_requests || []);
 
@@ -550,10 +594,7 @@
                   );
 
                   if (res.touched_inventory?.items) {
-                    userBody.innerHTML = '';
-                    userBody.appendChild(
-                      renderList(res.touched_inventory.items),
-                    );
+                    renderUserList(res.touched_inventory.items);
                   }
                 } else {
                   toast(res.message || 'Ошибка', 'error');
@@ -592,5 +633,3 @@
       console.warn('[drops:admin] init failed:', e);
     });
 })();
-
-
