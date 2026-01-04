@@ -270,3 +270,89 @@ function drops_admin_transfer(PDO $pdo, array $cfg, array $actor, array $payload
     throw $e;
   }
 }
+
+function drops_purchase_create(PDO $pdo, array $cfg, array $actor, array $payload): array {
+  $tReq = (string)($cfg['tables']['purchase_requests'] ?? '');
+  if ($tReq === '' || !drops_db_table_exists($pdo, $tReq)) {
+    return ['ok' => false, 'code' => 'NO_TABLE', 'message' => 'Таблица заявок не настроена'];
+  }
+
+  $userId = (int)($actor['user_id'] ?? 0);
+  if ($userId <= 0) return ['ok' => false, 'code' => 'BAD_USER', 'message' => 'Некорректный user_id'];
+
+  $qty = (int)($payload['qty'] ?? 0);
+  $price = (int)($payload['price'] ?? 0);
+  $currency = isset($payload['user_currency']) ? (int)$payload['user_currency'] : null;
+
+  if ($qty <= 0 || $qty > 100000) return ['ok' => false, 'code' => 'BAD_QTY', 'message' => 'Некорректное количество'];
+  if ($price <= 0 || $price > 100000000) return ['ok' => false, 'code' => 'BAD_PRICE', 'message' => 'Некорректная цена'];
+
+  $total = $qty * $price;
+
+  $stmt = $pdo->prepare("
+    INSERT INTO `$tReq`
+      (user_id, qty, price_per_chest, total_price, user_currency, status, created_at)
+    VALUES
+      (?, ?, ?, ?, ?, 'pending', UTC_TIMESTAMP())
+  ");
+  $stmt->execute([$userId, $qty, $price, $total, $currency]);
+
+  return ['ok' => true, 'id' => (int)$pdo->lastInsertId()];
+}
+
+function drops_purchase_list(PDO $pdo, array $cfg): array {
+  $tReq = (string)($cfg['tables']['purchase_requests'] ?? '');
+  if ($tReq === '' || !drops_db_table_exists($pdo, $tReq)) return [];
+
+  $tUsers = (string)($cfg['tables']['forum_users'] ?? '');
+  $joinUsers = $tUsers !== '' && drops_db_table_exists($pdo, $tUsers);
+
+  if ($joinUsers) {
+    $stmt = $pdo->query("
+      SELECT r.id, r.user_id, r.qty, r.price_per_chest, r.total_price, r.user_currency,
+             r.status, r.created_at, r.processed_at, u.user_login
+      FROM `$tReq` r
+      LEFT JOIN `$tUsers` u ON u.user_id = r.user_id
+      ORDER BY (r.status = 'pending') DESC, r.created_at DESC
+    ");
+  } else {
+    $stmt = $pdo->query("
+      SELECT id, user_id, qty, price_per_chest, total_price, user_currency,
+             status, created_at, processed_at
+      FROM `$tReq`
+      ORDER BY (status = 'pending') DESC, created_at DESC
+    ");
+  }
+
+  return $stmt->fetchAll() ?: [];
+}
+
+function drops_purchase_mark_processed(PDO $pdo, array $cfg, int $id): array {
+  $tReq = (string)($cfg['tables']['purchase_requests'] ?? '');
+  if ($tReq === '' || !drops_db_table_exists($pdo, $tReq)) {
+    return ['ok' => false, 'code' => 'NO_TABLE', 'message' => 'Таблица заявок не настроена'];
+  }
+  if ($id <= 0) return ['ok' => false, 'code' => 'BAD_ID', 'message' => 'Некорректный id'];
+
+  $stmt = $pdo->prepare("
+    UPDATE `$tReq`
+    SET status='processed', processed_at=UTC_TIMESTAMP()
+    WHERE id=? AND status<>'processed'
+  ");
+  $stmt->execute([$id]);
+
+  return ['ok' => true];
+}
+
+function drops_purchase_delete(PDO $pdo, array $cfg, int $id): array {
+  $tReq = (string)($cfg['tables']['purchase_requests'] ?? '');
+  if ($tReq === '' || !drops_db_table_exists($pdo, $tReq)) {
+    return ['ok' => false, 'code' => 'NO_TABLE', 'message' => 'Таблица заявок не настроена'];
+  }
+  if ($id <= 0) return ['ok' => false, 'code' => 'BAD_ID', 'message' => 'Некорректный id'];
+
+  $stmt = $pdo->prepare("DELETE FROM `$tReq` WHERE id=?");
+  $stmt->execute([$id]);
+
+  return ['ok' => true];
+}
