@@ -174,7 +174,7 @@
           qtyInput.addEventListener('input', syncTotal);
           syncTotal();
 
-          const buyBtn = C.el(H, 'button', {
+          const buyBtn = H.createEl('button', {
             type: 'button',
             className: 'ks-drops-chest__btn ks-drops-chest__buybtn',
             text: purchaseCfg.texts?.buy || 'Купить',
@@ -183,7 +183,7 @@
           buyBtn.addEventListener('click', () => {
             if (maxAffordable <= 0) return;
             syncTotal();
-            const qty = Math.max(1, C.toInt(qtyInput.value || 1));
+            const qty = Math.max(1, toInt(qtyInput.value || 1));
             if (qty > maxAffordable) return;
             onOpen(buyBtn, qty, currencyValue);
           });
@@ -194,7 +194,7 @@
 
         left.append(img, meta);
 
-        const btn = C.el(H, 'button', {
+        const btn = H.createEl('button', {
           type: 'button',
           className: 'ks-drops-chest__btn',
           text: cfg.chest?.texts?.open || 'Открыть',
@@ -206,7 +206,7 @@
         box.append(left, btn);
       };
 
-      const renderBank = (root, bank) => {
+      const renderBank = (H, root, bank) => {
         if (cfg.inventory?.showBankBox === false) return;
 
         let box = root.querySelector('.ks-drops-bank');
@@ -283,9 +283,9 @@
         root.innerHTML = '';
         root.classList.add('ks-drops-inv');
 
-        renderOnline(H, cfg, root, online);
+        renderOnline(H, root, online);
         renderChest(H, cfg, root, inv, handlers.onOpenChest);
-        if (bank) renderBank(H, cfg, root, bank);
+        if (bank) renderBank(H, root, bank);
 
         const header = H.createEl('div', { className: 'ks-drops-inv__header' });
         header.appendChild(
@@ -469,31 +469,34 @@
                 btn.disabled = true;
                 btn.classList.add('is-busy');
                 try {
-                  const resp = await H.request(api('purchase_request', {}), {
-                    method: 'POST',
-                    timeout: cfg.polling?.requestTimeoutMs || 12000,
-                    responseType: 'json',
-                    headers: { 'Content-Type': 'application/json' },
-                    data: JSON.stringify({
-                      user_id: C.getUserId(H),
-                      group_id: C.getGroupId(H),
-                      qty: C.toInt(purchaseQty),
-                      price: C.toInt(cfg.chest?.purchase?.price || 0),
-                      user_currency: C.toInt(currencyValue),
-                    }),
-                    retries: cfg.polling?.retries || 0,
-                  });
+                  const resp = await H.request(
+                    apiUrl('purchase_request', {}),
+                    {
+                      method: 'POST',
+                      timeout: cfg.polling?.requestTimeoutMs || 12000,
+                      responseType: 'json',
+                      headers: { 'Content-Type': 'application/json' },
+                      data: JSON.stringify({
+                        user_id: uid,
+                        group_id: toInt(H.getGroupId()),
+                        qty: toInt(purchaseQty),
+                        price: toInt(cfg.chest?.purchase?.price || 0),
+                        user_currency: toInt(currencyValue),
+                      }),
+                      retries: cfg.polling?.retries || 0,
+                    },
+                  );
 
                   if (resp?.ok !== true) throw new Error('bad response');
 
                   const d = resp.data || {};
                   if (!d.success) {
-                    C.toast(H, d.message || 'Ошибка заявки', 'error');
+                    toast(d.message || 'Ошибка заявки', 'error');
                   } else {
-                    C.toast(H, d.message || 'Заявка отправлена', 'success');
+                    toast(d.message || 'Заявка отправлена', 'success');
                   }
                 } catch {
-                  C.toast(H, 'Не удалось отправить заявку', 'error');
+                  toast('Не удалось отправить заявку', 'error');
                 } finally {
                   btn.classList.remove('is-busy');
                   btn.disabled = false;
@@ -689,4 +692,5 @@
     })
     .catch((e) => console.warn('[drops:inv] init failed:', e));
 })();
+
 
