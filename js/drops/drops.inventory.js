@@ -54,7 +54,7 @@
         return it ? toInt(it.qty) : 0;
       };
 
-      const renderOnline = (root, online) => {
+      const renderOnline = (H, root, online) => {
         if (cfg.inventory?.showOnlineBox === false) return;
 
         let box = root.querySelector('.ks-drops-online');
@@ -86,29 +86,29 @@
 
         let box = root.querySelector('.ks-drops-chest');
         if (!box) {
-          box = C.el(H, 'div', { className: 'ks-drops-chest' });
+          box = H.createEl('div', { className: 'ks-drops-chest' });
           root.prepend(box);
         }
 
-        const chestQty = findChestQty(cfg, inv);
+        const chestQty = findChestQty(inv);
         box.innerHTML = '';
 
-        const left = C.el(H, 'div', { className: 'ks-drops-chest__left' });
-        const img = C.el(H, 'img', {
+        const left = H.createEl('div', { className: 'ks-drops-chest__left' });
+        const img = H.createEl('img', {
           className: 'ks-drops-chest__img',
           src: cfg.chest?.imageUrl || '',
           alt: cfg.chest?.title || 'Сундук',
         });
 
-        const meta = C.el(H, 'div', { className: 'ks-drops-chest__meta' });
+        const meta = H.createEl('div', { className: 'ks-drops-chest__meta' });
         meta.appendChild(
-          C.el(H, 'div', {
+          H.createEl('div', {
             className: 'ks-drops-chest__title',
             text: cfg.chest?.title || 'Сундук',
           }),
         );
         meta.appendChild(
-          C.el(H, 'div', {
+          H.createEl('div', {
             className: 'ks-drops-chest__qty',
             text: `В наличии: ${chestQty}`,
           }),
@@ -116,20 +116,20 @@
 
         const purchaseCfg = cfg.chest?.purchase || {};
         const purchaseEnabled =
-          purchaseCfg.enabled !== false && C.toInt(purchaseCfg.price) > 0;
+          purchaseCfg.enabled !== false && toInt(purchaseCfg.price) > 0;
 
         let purchaseBox = null;
         if (purchaseEnabled) {
           const currencyField = purchaseCfg.currencyField || 'UserFld4';
           const rawCurrency = window[currencyField];
-          const currencyValue = C.toInt(rawCurrency);
+          const currencyValue = toInt(rawCurrency);
           const maxAffordable = Math.floor(
-            currencyValue / Math.max(1, C.toInt(purchaseCfg.price)),
+            currencyValue / Math.max(1, toInt(purchaseCfg.price)),
           );
 
-          purchaseBox = C.el(H, 'div', { className: 'ks-drops-chest__buy' });
+          purchaseBox = H.createEl('div', { className: 'ks-drops-chest__buy' });
           purchaseBox.appendChild(
-            C.el(H, 'div', {
+            H.createEl('div', {
               className: 'ks-drops-chest__currency',
               text: `${purchaseCfg.currencyLabel || 'Валюта'}: ${
                 rawCurrency ?? '0'
@@ -137,16 +137,16 @@
             }),
           );
           purchaseBox.appendChild(
-            C.el(H, 'div', {
+            H.createEl('div', {
               className: 'ks-drops-chest__price',
-              text: `Цена: ${C.toInt(purchaseCfg.price)} за сундук`,
+              text: `Цена: ${toInt(purchaseCfg.price)} за сундук`,
             }),
           );
 
-          const buyRow = C.el(H, 'div', {
+          const buyRow = H.createEl('div', {
             className: 'ks-drops-chest__buyrow',
           });
-          const qtyInput = C.el(H, 'input', {
+          const qtyInput = H.createEl('input', {
             type: 'number',
             min: 1,
             max: Math.max(1, maxAffordable),
@@ -155,26 +155,26 @@
           });
           qtyInput.disabled = maxAffordable <= 0;
 
-          const totalText = C.el(H, 'div', {
+          const totalText = H.createEl('div', {
             className: 'ks-drops-chest__total',
-            text: `К оплате: ${C.toInt(purchaseCfg.price)}`,
+            text: `К оплате: ${toInt(purchaseCfg.price)}`,
           });
 
           const syncTotal = () => {
             const max = Math.max(0, maxAffordable);
-            let val = C.toInt(qtyInput.value || 0);
+            let val = toInt(qtyInput.value || 0);
             if (val < 1) val = 1;
             if (max > 0 && val > max) val = max;
             qtyInput.value = String(val);
             totalText.textContent = `К оплате: ${
-              val * Math.max(1, C.toInt(purchaseCfg.price))
+              val * Math.max(1, toInt(purchaseCfg.price))
             }`;
           };
 
           qtyInput.addEventListener('input', syncTotal);
           syncTotal();
 
-          const buyBtn = C.el(H, 'button', {
+          const buyBtn = H.createEl('button', {
             type: 'button',
             className: 'ks-drops-chest__btn ks-drops-chest__buybtn',
             text: purchaseCfg.texts?.buy || 'Купить',
@@ -183,7 +183,7 @@
           buyBtn.addEventListener('click', () => {
             if (maxAffordable <= 0) return;
             syncTotal();
-            const qty = Math.max(1, C.toInt(qtyInput.value || 1));
+            const qty = Math.max(1, toInt(qtyInput.value || 1));
             if (qty > maxAffordable) return;
             onOpen(buyBtn, qty, currencyValue);
           });
@@ -194,7 +194,7 @@
 
         left.append(img, meta);
 
-        const btn = C.el(H, 'button', {
+        const btn = H.createEl('button', {
           type: 'button',
           className: 'ks-drops-chest__btn',
           text: cfg.chest?.texts?.open || 'Открыть',
@@ -206,7 +206,7 @@
         box.append(left, btn);
       };
 
-      const renderBank = (root, bank) => {
+      const renderBank = (H, root, bank) => {
         if (cfg.inventory?.showBankBox === false) return;
 
         let box = root.querySelector('.ks-drops-bank');
@@ -283,9 +283,9 @@
         root.innerHTML = '';
         root.classList.add('ks-drops-inv');
 
-        renderOnline(H, cfg, root, online);
+        renderOnline(H, root, online);
         renderChest(H, cfg, root, inv, handlers.onOpenChest);
-        if (bank) renderBank(H, cfg, root, bank);
+        if (bank) renderBank(H, root, bank);
 
         const header = H.createEl('div', { className: 'ks-drops-inv__header' });
         header.appendChild(
@@ -469,31 +469,34 @@
                 btn.disabled = true;
                 btn.classList.add('is-busy');
                 try {
-                  const resp = await H.request(api('purchase_request', {}), {
-                    method: 'POST',
-                    timeout: cfg.polling?.requestTimeoutMs || 12000,
-                    responseType: 'json',
-                    headers: { 'Content-Type': 'application/json' },
-                    data: JSON.stringify({
-                      user_id: C.getUserId(H),
-                      group_id: C.getGroupId(H),
-                      qty: C.toInt(purchaseQty),
-                      price: C.toInt(cfg.chest?.purchase?.price || 0),
-                      user_currency: C.toInt(currencyValue),
-                    }),
-                    retries: cfg.polling?.retries || 0,
-                  });
+                  const resp = await H.request(
+                    apiUrl('purchase_request', {}),
+                    {
+                      method: 'POST',
+                      timeout: cfg.polling?.requestTimeoutMs || 12000,
+                      responseType: 'json',
+                      headers: { 'Content-Type': 'application/json' },
+                      data: JSON.stringify({
+                        user_id: uid,
+                        group_id: toInt(H.getGroupId()),
+                        qty: toInt(purchaseQty),
+                        price: toInt(cfg.chest?.purchase?.price || 0),
+                        user_currency: toInt(currencyValue),
+                      }),
+                      retries: cfg.polling?.retries || 0,
+                    },
+                  );
 
                   if (resp?.ok !== true) throw new Error('bad response');
 
                   const d = resp.data || {};
                   if (!d.success) {
-                    C.toast(H, d.message || 'Ошибка заявки', 'error');
+                    toast(d.message || 'Ошибка заявки', 'error');
                   } else {
-                    C.toast(H, d.message || 'Заявка отправлена', 'success');
+                    toast(d.message || 'Заявка отправлена', 'success');
                   }
                 } catch {
-                  C.toast(H, 'Не удалось отправить заявку', 'error');
+                  toast('Не удалось отправить заявку', 'error');
                 } finally {
                   btn.classList.remove('is-busy');
                   btn.disabled = false;
@@ -689,3 +692,5 @@
     })
     .catch((e) => console.warn('[drops:inv] init failed:', e));
 })();
+
+
