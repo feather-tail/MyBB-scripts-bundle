@@ -402,7 +402,7 @@
 
         const head = el('div', { className: 'ks-drops-admin__head' });
         head.appendChild(
-          el('div', { className: 'ks-drops-admin__h', text: 'Админка Drops' }),
+          el('div', { className: 'ks-drops-admin__h', text: 'Админка' }),
         );
 
         const targetWrap = el('div', { className: 'ks-drops-admin__target' });
@@ -461,7 +461,7 @@
         formBox.appendChild(
           el('div', {
             className: 'ks-drops-admin__boxh',
-            text: 'Переводы / mint',
+            text: 'Переводы',
           }),
         );
         const formBody = el('div', { className: 'ks-drops-admin__boxb' });
@@ -633,3 +633,4 @@
       console.warn('[drops:admin] init failed:', e);
     });
 })();
+
