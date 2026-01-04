@@ -287,17 +287,52 @@ function drops_purchase_create(PDO $pdo, array $cfg, array $actor, array $payloa
   if ($qty <= 0 || $qty > 100000) return ['ok' => false, 'code' => 'BAD_QTY', 'message' => 'Некорректное количество'];
   if ($price <= 0 || $price > 100000000) return ['ok' => false, 'code' => 'BAD_PRICE', 'message' => 'Некорректная цена'];
 
-  $total = $qty * $price;
+  $pdo->beginTransaction();
+  try {
+    $stmt = $pdo->prepare("
+      SELECT id, qty, price_per_chest, user_currency
+      FROM `$tReq`
+      WHERE user_id=? AND status='pending'
+      ORDER BY created_at DESC
+      LIMIT 1
+      FOR UPDATE
+    ");
+    $stmt->execute([$userId]);
+    $existing = $stmt->fetch(PDO::FETCH_ASSOC);
 
-  $stmt = $pdo->prepare("
-    INSERT INTO `$tReq`
-      (user_id, qty, price_per_chest, total_price, user_currency, status, created_at)
-    VALUES
-      (?, ?, ?, ?, ?, 'pending', UTC_TIMESTAMP())
-  ");
-  $stmt->execute([$userId, $qty, $price, $total, $currency]);
+    if ($existing) {
+      $newQty = (int)$existing['qty'] + $qty;
+      if ($newQty > 100000) {
+        $pdo->rollBack();
+        return ['ok' => false, 'code' => 'BAD_QTY', 'message' => 'Некорректное количество'];
+      }
+      $pricePerChest = (int)$existing['price_per_chest'];
+      $total = $newQty * $pricePerChest;
 
-  return ['ok' => true, 'id' => (int)$pdo->lastInsertId()];
+      $stmt = $pdo->prepare("
+        UPDATE `$tReq`
+        SET qty=?, total_price=?
+        WHERE id=?
+      ");
+      $stmt->execute([$newQty, $total, (int)$existing['id']]);
+      $pdo->commit();
+      return ['ok' => true, 'id' => (int)$existing['id']];
+    }
+
+    $total = $qty * $price;
+    $stmt = $pdo->prepare("
+      INSERT INTO `$tReq`
+        (user_id, qty, price_per_chest, total_price, user_currency, status, created_at)
+      VALUES
+        (?, ?, ?, ?, ?, 'pending', UTC_TIMESTAMP())
+    ");
+    $stmt->execute([$userId, $qty, $price, $total, $currency]);
+    $pdo->commit();
+    return ['ok' => true, 'id' => (int)$pdo->lastInsertId()];
+  } catch (Throwable $e) {
+    if ($pdo->inTransaction()) $pdo->rollBack();
+    throw $e;
+  }
 }
 
 function drops_purchase_list(PDO $pdo, array $cfg): array {
@@ -356,3 +391,4 @@ function drops_purchase_delete(PDO $pdo, array $cfg, int $id): array {
 
   return ['ok' => true];
 }
+
