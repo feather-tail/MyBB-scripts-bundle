@@ -23,6 +23,24 @@ $cfg = [
     'cache' => 'ks_drops_cache',
     'forum_users' => 'forum_users',
   ],
+
+  'logging' => [
+    'claim_log' => [
+      'enabled' => true,
+      'mode' => 'errors',
+      'success_codes' => ['OK', 'CHEST_OK', 'CHEST_NOTHING'],
+      'message_max_len' => 1200,
+      'retention_days' => 2,
+    ],
+    'transfer_log' => [
+      'enabled' => true,
+      'mode' => 'errors',
+      'success_codes' => ['OK'],
+      'message_max_len' => 1200,
+      'retention_days' => 2,
+    ],
+  ],
+
   'security' => [
     'auth_mode' => 'client',
     'whitelist_groups' => [1],
