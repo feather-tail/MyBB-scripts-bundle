@@ -293,6 +293,20 @@ function drops_spawn_if_needed(PDO $pdo, array $cfg, string $scopeKey, ?int $kno
   }
 }
 
+function drops_add_loot_stat(PDO $pdo, array $cfg, int $userId, int $itemId, int $qty): void {
+  if ($userId <= 0 || $itemId <= 0 || $qty <= 0) return;
+
+  $tLoot = (string)($cfg['tables']['user_loot'] ?? '');
+  if ($tLoot === '' || !drops_db_table_exists($pdo, $tLoot)) return;
+
+  $stmt = $pdo->prepare("
+    INSERT INTO `$tLoot` (user_id, item_id, qty)
+    VALUES (?, ?, ?)
+    ON DUPLICATE KEY UPDATE qty = qty + VALUES(qty)
+  ");
+  $stmt->execute([$userId, $itemId, $qty]);
+}
+
 function drops_claim(PDO $pdo, array $cfg, int $dropId, int $userId): array {
   $tDrops = (string)($cfg['tables']['drops'] ?? '');
   $tItems = (string)($cfg['tables']['user_items'] ?? '');
@@ -363,6 +377,8 @@ function drops_claim(PDO $pdo, array $cfg, int $dropId, int $userId): array {
        ON DUPLICATE KEY UPDATE qty = qty + VALUES(qty), last_obtained_at = UTC_TIMESTAMP()"
     );
     $stmt->execute([$userId, $itemId, $qty]);
+
+    drops_add_loot_stat($pdo, $cfg, $userId, $itemId, $qty);
 
     drops_log_claim($pdo, $cfg, $dropId, $userId, 'OK', json_encode(['item_id' => $itemId, 'qty' => $qty], JSON_UNESCAPED_UNICODE));
 
@@ -459,6 +475,8 @@ function drops_open_chest(PDO $pdo, array $cfg, int $userId): array {
        ON DUPLICATE KEY UPDATE qty = qty + VALUES(qty), last_obtained_at = UTC_TIMESTAMP()"
     );
     $stmt->execute([$userId, $rewardItemId, $rewardQty]);
+
+    drops_add_loot_stat($pdo, $cfg, $userId, $rewardItemId, $rewardQty);
 
     drops_log_claim($pdo, $cfg, 0, $userId, 'CHEST_OK', json_encode(['item_id' => $rewardItemId, 'qty' => $rewardQty], JSON_UNESCAPED_UNICODE));
 

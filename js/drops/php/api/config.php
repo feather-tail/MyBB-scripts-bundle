@@ -16,6 +16,7 @@ $cfg = [
   'tables' => [
     'drops' => 'ks_drops',
     'user_items' => 'ks_drops_user_items',
+    'user_loot' => 'ks_drops_user_loot',
     'bank_items' => 'ks_drops_bank_items',
     'log_claims' => 'ks_drops_log_claims',
     'log_transfers' => 'ks_drops_log_transfers',

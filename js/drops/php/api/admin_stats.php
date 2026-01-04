@@ -152,52 +152,33 @@ $collectedByUserItem = [];
 $collectedTotalByUser = [];
 $collectedTotalByItem = [];
 $participants = [];
-$claimsRows = 0;
+$lootRows = 0;
 
 $depositTotalByUser = [];
 $depositByUserItem = [];
 $depositUsers = [];
 $transRows = 0;
 
-$tClaims = (string)($cfg['tables']['log_claims'] ?? '');
-$where = "user_id > 0";
-$params = [];
-
-if ($fromUtc) {
-  $where .= " AND created_at >= ?";
-  $params[] = $fromUtc;
-}
-if ($toUtcExcl) {
-  $where .= " AND created_at < ?";
-  $params[] = $toUtcExcl;
-}
-
-if ($tClaims === '' || !drops_db_table_exists($pdo, $tClaims)) {
-  $warnings[] = 'Лог дропов/сундуков недоступен (таблица log_claims не найдена).';
+$tLoot = (string)($cfg['tables']['user_loot'] ?? '');
+if ($tLoot === '' || !drops_db_table_exists($pdo, $tLoot)) {
+  $warnings[] = 'Таблица накопленного лута недоступна (таблица user_loot не найдена).';
 } else {
-  $sqlClaims = "SELECT user_id, result_code, message, created_at FROM `$tClaims` WHERE $where ORDER BY created_at ASC";
-  $stmt = $pdo->prepare($sqlClaims);
-  $stmt->execute($params);
+  $sqlLoot = "SELECT user_id, item_id, qty FROM `$tLoot` WHERE user_id > 0 AND qty > 0";
+  $stmtLoot = $pdo->prepare($sqlLoot);
+  $stmtLoot->execute();
 
-  while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-    $claimsRows++;
+  while ($row = $stmtLoot->fetch(PDO::FETCH_ASSOC)) {
+    $lootRows++;
     $uid = (int)($row['user_id'] ?? 0);
     if ($uid <= 0) continue;
 
-    $code = (string)($row['result_code'] ?? '');
-    if ($code !== '') $participants[$uid] = true;
-
-    if ($code !== 'OK' && $code !== 'CHEST_OK') continue;
-
-    $msg = (string)($row['message'] ?? '');
-    $j = $msg !== '' ? json_decode($msg, true) : null;
-    if (!is_array($j)) continue;
-
-    $itemId = (int)($j['item_id'] ?? 0);
-    $qty = (int)($j['qty'] ?? 0);
+    $itemId = (int)($row['item_id'] ?? 0);
+    $qty = (int)($row['qty'] ?? 0);
     if ($itemId <= 0 || $qty <= 0) continue;
 
     if (!isset($items[$itemId])) continue;
+
+    $participants[$uid] = true;
 
     $collectedByItemUser[$itemId] = $collectedByItemUser[$itemId] ?? [];
     $collectedByItemUser[$itemId][$uid] = (int)($collectedByItemUser[$itemId][$uid] ?? 0) + $qty;
@@ -300,7 +281,7 @@ $topTotalRanks = build_ranked_top($collectedTotalByUser, 3);
 $achParticipation = array_values(array_map('intval', array_keys($participants)));
 sort($achParticipation);
 
-$achBankContrib = array_values(array_map('intval', array_keys(array_filter($depositTotalByUser, fn($q) => (int)$q > 0))));␊
+$achBankContrib = array_values(array_map('intval', array_keys(array_filter($depositTotalByUser, fn($q) => (int)$q > 0))));
 sort($achBankContrib);
 
 $serverNowIso = gmdate('c');
@@ -377,7 +358,7 @@ $rangeText = ($fromUtc || $toUtcExcl)
 </div>
 
 <div class="kpi">
-  <div><b>Строк в логе дропов/сундуков</b><div><?= fmt_int($claimsRows) ?></div></div>
+  <div><b>Строк в таблице накопленного лута</b><div><?= fmt_int($lootRows) ?></div></div>
   <div><b>Строк в логе взносов в банк</b><div><?= fmt_int($transRows) ?></div></div>
   <div><b>Участников</b><div><?= fmt_int(count($participants)) ?></div></div>
   <div><b>Внесли в банк</b><div><?= fmt_int(count($depositUsers)) ?></div></div>
@@ -430,7 +411,7 @@ $rangeText = ($fromUtc || $toUtcExcl)
     </tbody>
   </table>
   <div class="small muted" style="margin-top:8px">
-    Считается по логу <code>log_claims</code>: успешные получения <code>OK</code> и <code>CHEST_OK</code>, qty из JSON message.
+    Считается по таблице накопленного лута <code>user_loot</code> (всегда за всё время, фильтр дат не применяется).
   </div>
 </div>
 
@@ -480,7 +461,7 @@ $rangeText = ($fromUtc || $toUtcExcl)
 <h2>3) Участие</h2>
 <div class="box">
   <div class="muted small">
-    Здесь “участие” = есть хотя бы одна запись в логе дропов/сундуков (<code>log_claims</code>) ИЛИ есть взнос в банк.
+    Здесь “участие” = есть накопленный лут в <code>user_loot</code> ИЛИ есть взнос в банк (для взносов применяется фильтр дат).
   </div>
 
   <details style="margin-top:10px">
