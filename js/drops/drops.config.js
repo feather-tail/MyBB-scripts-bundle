@@ -8,7 +8,7 @@
     apiBase: 'https://feathertail.ru/ks/drops/api/index.php',
     access: {
       // Группы, которым разрешён доступ к дропам.
-      whitelistGroups: [1, 2],
+      whitelistGroups: [1, 2, 6],
       // Группа администраторов дропов.
       adminGroup: 1,
       // Скрывать виджет для гостей форума.
@@ -67,13 +67,13 @@
 
     polling: {
       // Интервал опроса сервера о дропах.
-      pollIntervalMs: 3500,
+      pollIntervalMs: 10000,
       // Интервал проверки онлайна.
       onlinePollIntervalMs: 30000,
       // Частота перерисовки интерфейса.
       renderTickMs: 250,
       // Таймаут сетевых запросов.
-      requestTimeoutMs: 12000,
+      requestTimeoutMs: 20000,
       // Количество повторов при ошибке.
       retries: 1,
     },
@@ -145,5 +145,6 @@
   window.ScriptConfig = window.ScriptConfig || {};
   window.ScriptConfig.drops = cfg;
 })();
+
 
 
