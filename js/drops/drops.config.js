@@ -31,7 +31,7 @@
         // Разрешить покупку сундуков.
         enabled: true,
         // Стоимость покупки.
-        price: 100,
+        price: 50,
         // Поле пользователя, где хранится валюта.
         currencyField: 'UserFld4',
         // Подпись валюты в интерфейсе.
@@ -145,4 +145,5 @@
   window.ScriptConfig = window.ScriptConfig || {};
   window.ScriptConfig.drops = cfg;
 })();
+
 
