@@ -25,7 +25,7 @@
     } catch {}
   };
 
-  const loadEnabled = (fallback = false) => {
+  const loadEnabled = (fallback = true) => {
     const raw = safeLsGet(TOGGLE_KEY);
     if (raw === null) return !!fallback;
     return raw === '1';
@@ -109,7 +109,7 @@
     H: null,
     cfg: null,
 
-    desiredEnabled: loadEnabled(false),
+    desiredEnabled: loadEnabled(true),
 
     running: false,
     pausedByVisibility: false,
@@ -734,7 +734,7 @@
     applyEnabled(nv);
   };
 
-  const toggle = () => setEnabled(!loadEnabled(false));
+  const toggle = () => setEnabled(!state.desiredEnabled);
 
   const pauseForVisibility = () => {
     if (!state.running) return;
@@ -836,5 +836,6 @@
     ensureInit();
   });
 })();
+
 
 
