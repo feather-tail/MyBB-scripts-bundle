@@ -584,7 +584,7 @@
             const btn = H.createEl('button', {
               type: 'button',
               className: 'ks-drops-inv__deposit',
-              text: 'В банк',
+              text: 'На склад',
             });
 
             btn.addEventListener('click', (e) => {
@@ -965,6 +965,7 @@
     })
     .catch((e) => console.warn('[drops:inv] init failed:', e));
 })();
+
 
 
 
