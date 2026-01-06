@@ -1000,6 +1000,12 @@
               target: '_blank',
               rel: 'noopener noreferrer',
             },
+            {
+              text: 'Склад',
+              href: 'https://kindredspirits.ru/pages/newbeginning',
+              target: '_blank',
+              rel: 'noopener noreferrer',
+            },
           ],
         },
         games: {
@@ -1184,6 +1190,7 @@
     },
   };
 })();
+
 
 
 
