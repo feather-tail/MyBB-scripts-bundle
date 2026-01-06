@@ -24,10 +24,9 @@
   const btnStop = $('#ks-usersync-stop', panel);
 
   const cfg = h.getConfig('adminUsersSync', {
-    apiBase: 'https://fathertail.ru/gamestats/users-sync.php',
+    apiBase: '',
     timeoutMs: 30000,
     maxSkip: 500,
-    defaultGroups: [1, 2, 6],
   });
 
   const show = (node, on = true) => {
@@ -63,9 +62,10 @@
   let abortCtrl = null;
 
   const apiCall = async (payload) => {
+    if (!cfg.apiBase) throw new Error('РќРµ Р·Р°РґР°РЅ adminUsersSync.apiBase РІ config.js');
+
     const headers = { 'Content-Type': 'application/json' };
-    if (window.KS_ADMIN_TOKEN)
-      headers['X-KS-Admin-Token'] = String(window.KS_ADMIN_TOKEN);
+    if (window.KS_ADMIN_TOKEN) headers['X-KS-Admin-Token'] = String(window.KS_ADMIN_TOKEN);
 
     return request(cfg.apiBase, {
       method: 'POST',
@@ -82,24 +82,20 @@
 
   const renderSummary = (totals) => {
     const lines = [
-      `<div><strong>Итог</strong></div>`,
-      `<div>Обработано пользователей: <strong>${fmt(
-        totals.fetched,
-      )}</strong></div>`,
-      `<div>Добавлено: <strong>${fmt(totals.inserted)}</strong></div>`,
-      `<div>Обновлено: <strong>${fmt(totals.updated)}</strong></div>`,
-      `<div>Без изменений: <strong>${fmt(totals.unchanged)}</strong></div>`,
-      totals.dryRun
-        ? `<div><em>Режим: тестовый (без записи в БД)</em></div>`
-        : '',
-      totals.onlyNew ? `<div><em>Режим: только новые</em></div>` : '',
+      `<div><strong>РС‚РѕРі</strong></div>`,
+      `<div>РћР±СЂР°Р±РѕС‚Р°РЅРѕ (РїРѕР»СѓС‡РµРЅРѕ РёР· API): <strong>${fmt(totals.fetched)}</strong></div>`,
+      `<div>Р”РѕР±Р°РІР»РµРЅРѕ: <strong>${fmt(totals.inserted)}</strong></div>`,
+      `<div>РћР±РЅРѕРІР»РµРЅРѕ: <strong>${fmt(totals.updated)}</strong></div>`,
+      `<div>РџСЂРѕРїСѓС‰РµРЅРѕ/Р±РµР· РёР·РјРµРЅРµРЅРёР№: <strong>${fmt(totals.unchanged)}</strong></div>`,
+      totals.dryRun ? `<div><em>Р РµР¶РёРј: С‚РµСЃС‚РѕРІС‹Р№ (Р±РµР· Р·Р°РїРёСЃРё РІ Р‘Р”)</em></div>` : '',
+      totals.onlyNew ? `<div><em>Р РµР¶РёРј: С‚РѕР»СЊРєРѕ РЅРѕРІС‹Рµ</em></div>` : '',
     ].filter(Boolean);
     setHTML(elRes, lines.join(''));
   };
 
   const setRunningUI = (on) => {
     running = on;
-    btnRun.disabled = on;
+    if (btnRun) btnRun.disabled = on;
     show(btnStop, on);
     show(elLoad, on);
   };
@@ -110,8 +106,8 @@
       abortCtrl?.abort();
     } catch {}
     setRunningUI(false);
-    setText(elProg, 'Остановлено.');
-    showToast?.('Остановлено', 'warn');
+    setText(elProg, 'РћСЃС‚Р°РЅРѕРІР»РµРЅРѕ.');
+    showToast?.('РћСЃС‚Р°РЅРѕРІР»РµРЅРѕ', 'warn');
   };
 
   btnStop?.addEventListener('click', stop);
@@ -124,19 +120,14 @@
     setText(elWarn, '');
     setText(elErr, '');
     setText(elProg, '');
-    elRes.innerHTML = '';
+    if (elRes) elRes.innerHTML = '';
 
     abortCtrl = new AbortController();
     setRunningUI(true);
 
-    const limit = Math.max(
-      1,
-      Math.min(50, parseInt(inpLimit?.value || '50', 10) || 50),
-    );
-    let groups = parseGroupIds(inpGroups?.value);
-
+    const limit = Math.max(1, Math.min(50, parseInt(inpLimit?.value || '50', 10) || 50));
+    const groups = parseGroupIds(inpGroups?.value);
     const unfiltered = groups.length === 0;
-    if (!unfiltered && groups.length === 0) groups = cfg.defaultGroups.slice();
 
     const dryRun = !!chkDry?.checked;
     const onlyNew = !!chkOnlyNew?.checked;
@@ -162,29 +153,20 @@
             show(elWarn, true);
             setText(
               elWarn,
-              'Достигнут предел skip>500. Если пользователей больше — используй режим "по группам" (введи группы через запятую).',
+              'Р”РѕСЃС‚РёРіРЅСѓС‚ РїСЂРµРґРµР» skip>500. РСЃРїРѕР»СЊР·СѓР№ СЂРµР¶РёРј РїРѕ РіСЂСѓРїРїР°Рј (РІРІРµРґРё РіСЂСѓРїРїС‹ С‡РµСЂРµР· Р·Р°РїСЏС‚СѓСЋ).',
             );
             break;
           }
 
           setText(
             elProg,
-            `Группа: ${
-              groupId == null ? 'без фильтра' : groupId
-            } • skip=${skip} • limit=${limit}...`,
+            `Р“СЂСѓРїРїР°: ${groupId == null ? 'Р±РµР· С„РёР»СЊС‚СЂР°' : groupId} вЂў skip=${skip} вЂў limit=${limit}...`,
           );
 
-          const resp = await apiCall({
-            groupId,
-            skip,
-            limit,
-            dryRun,
-            onlyNew,
-          });
+          const resp = await apiCall({ groupId, skip, limit, dryRun, onlyNew });
 
           if (!resp || resp.ok !== true) {
-            const msg =
-              (resp && (resp.error || resp.message)) || 'Неизвестная ошибка';
+            const msg = (resp && (resp.error || resp.message)) || 'РќРµРёР·РІРµСЃС‚РЅР°СЏ РѕС€РёР±РєР°';
             throw new Error(msg);
           }
 
@@ -195,11 +177,9 @@
 
           setText(
             elProg,
-            `Группа: ${groupId == null ? 'без фильтра' : groupId} • ` +
-              `Получено: ${resp.fetched || 0} • ` +
-              `+${resp.db?.inserted || 0} / ~${resp.db?.updated || 0} / =${
-                resp.db?.unchanged || 0
-              }`,
+            `Р“СЂСѓРїРїР°: ${groupId == null ? 'Р±РµР· С„РёР»СЊС‚СЂР°' : groupId} вЂў ` +
+              `РїРѕР»СѓС‡РµРЅРѕ: ${resp.fetched || 0} вЂў ` +
+              `+${resp.db?.inserted || 0} / ~${resp.db?.updated || 0} / =${resp.db?.unchanged || 0}`,
           );
 
           if (!resp.hasMore || resp.nextSkip == null) break;
@@ -208,11 +188,11 @@
       }
 
       renderSummary(totals);
-      showToast?.('Синхронизация завершена', 'success');
+      showToast?.('РЎРёРЅС…СЂРѕРЅРёР·Р°С†РёСЏ Р·Р°РІРµСЂС€РµРЅР°', 'success');
     } catch (e) {
       show(elErr, true);
       setText(elErr, e?.message || String(e));
-      showToast?.('Ошибка синхронизации', 'error');
+      showToast?.('РћС€РёР±РєР° СЃРёРЅС…СЂРѕРЅРёР·Р°С†РёРё', 'error');
     } finally {
       setRunningUI(false);
       abortCtrl = null;
