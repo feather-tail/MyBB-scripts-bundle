@@ -78,7 +78,7 @@
       },
     },
     adminUsersSync: {
-      apiBase: 'https://fathertail.ru/gamestats/users-sync.php',
+      apiBase: 'https://feathertail.ru/gamestats/users-sync.php',
       timeoutMs: 30000,
       maxSkip: 500,
     },
@@ -1184,6 +1184,7 @@
     },
   };
 })();
+
 
 
 
