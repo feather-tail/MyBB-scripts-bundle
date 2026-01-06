@@ -60,6 +60,7 @@
     admin: {
       mountId: 'ks-drops-admin-root',
       renderBankBox: false,
+      apiKey: '',
     },
   };
 
@@ -84,6 +85,11 @@
         const base = String(cfg.apiBase || '').trim();
         const sp = new URLSearchParams({ action, ...(params || {}) });
         return base + (base.includes('?') ? '&' : '?') + sp.toString();
+      };
+
+      const adminHeaders = () => {
+        const key = String(cfg.admin?.apiKey || '').trim();
+        return key ? { 'X-KS-Drops-Admin-Key': key } : {};
       };
 
       const toast = (msg, type = 'info') =>
@@ -165,6 +171,7 @@
             timeout: cfg.polling?.requestTimeoutMs || 12000,
             responseType: 'json',
             retries: cfg.polling?.retries || 0,
+            headers: adminHeaders(),
           },
         );
 
@@ -179,7 +186,7 @@
           timeout: cfg.polling?.requestTimeoutMs || 12000,
           responseType: 'json',
           retries: cfg.polling?.retries || 0,
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...adminHeaders() },
           data: JSON.stringify({
             ...payload,
             user_id: getUserId(),
@@ -198,7 +205,7 @@
           timeout: cfg.polling?.requestTimeoutMs || 12000,
           responseType: 'json',
           retries: cfg.polling?.retries || 0,
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...adminHeaders() },
           data: JSON.stringify({
             ...payload,
             user_id: getUserId(),
@@ -215,7 +222,7 @@
           method: 'POST',
           timeout: cfg.polling?.requestTimeoutMs || 12000,
           responseType: 'json',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...adminHeaders() },
           data: JSON.stringify({
             user_id: getUserId(),
             group_id: getGroupId(),
@@ -675,6 +682,7 @@
       console.warn('[drops:admin] init failed:', e);
     });
 })();
+
 
 
 
