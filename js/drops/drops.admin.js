@@ -60,7 +60,7 @@
     admin: {
       mountId: 'ks-drops-admin-root',
       renderBankBox: false,
-      apiKey: '',
+      apiKey: '8f4d1c3a-2e71-4b0a-9d6a-6a0c6f0f2b0a',
     },
   };
 
@@ -682,6 +682,7 @@
       console.warn('[drops:admin] init failed:', e);
     });
 })();
+
 
 
 
