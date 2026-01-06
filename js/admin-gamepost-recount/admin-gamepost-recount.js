@@ -131,25 +131,40 @@
   }
 
   async function getTopicsForForums(forumIds, log) {
-    const { apiBase, topicsPerRequest } = SETTINGS;
-    const url =
-      `${apiBase}?method=topic.get&forum_id=${forumIds.join(',')}` +
-      `&fields=id,subject,forum_id,first_post,init_post,link&limit=${topicsPerRequest}`;
+    const { apiBase, topicsPerRequest, delayBetweenRequestsMs } = SETTINGS;
+    const topics = [];
+    let skip = 0;
 
     log(`topic.get: загрузка тем по форумам [${forumIds.join(', ')}]`);
-    const data = await fetchJsonWithRetry(url, 'topic.get');
-    const rows = Array.isArray(data?.response) ? data.response : [];
 
-    const topics = rows
-      .map((raw) => ({
-        id: Number(raw.id),
-        subject: safeText(raw.subject),
-        forum_id: Number(raw.forum_id ?? raw.forum ?? 0),
-        first_post: Number(raw.init_post ?? raw.first_post ?? 0) || 0,
-        link: safeText(raw.link),
-      }))
-      .filter((t) => t.id && SETTINGS.forumIds.includes(t.forum_id))
-      .filter((t) => isTopicCountableByGpc(t.forum_id, t.id));
+    for (;;) {
+      const url =
+        `${apiBase}?method=topic.get&forum_id=${forumIds.join(',')}` +
+        `&fields=id,subject,forum_id,first_post,init_post,link&limit=${topicsPerRequest}` +
+        `&skip=${skip}`;
+
+      log(`topic.get: skip=${skip}`);
+      const data = await fetchJsonWithRetry(url, 'topic.get');
+      const rows = Array.isArray(data?.response) ? data.response : [];
+      if (!rows.length) break;
+
+      const batch = rows
+        .map((raw) => ({
+          id: Number(raw.id),
+          subject: safeText(raw.subject),
+          forum_id: Number(raw.forum_id ?? raw.forum ?? 0),
+          first_post: Number(raw.init_post ?? raw.first_post ?? 0) || 0,
+          link: safeText(raw.link),
+        }))
+        .filter((t) => t.id && SETTINGS.forumIds.includes(t.forum_id))
+        .filter((t) => isTopicCountableByGpc(t.forum_id, t.id));
+
+      topics.push(...batch);
+
+      if (rows.length < topicsPerRequest) break;
+      skip += topicsPerRequest;
+      await sleep(delayBetweenRequestsMs);
+    }
 
     const byForum = topics.reduce((acc, t) => {
       acc[t.forum_id] = (acc[t.forum_id] || 0) + 1;
@@ -557,5 +572,6 @@
     start();
   }
 })();
+
 
 
