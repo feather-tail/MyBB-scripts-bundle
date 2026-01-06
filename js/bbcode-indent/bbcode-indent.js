@@ -7,6 +7,40 @@
   const state = helpers.register('bbcodeIndent', {});
   const IND_CLASS = 'bbindent-line';
 
+  const NBSP_RE = /\u00a0/g;
+
+  function isBlankTextNode(n) {
+    return (
+      n &&
+      n.nodeType === Node.TEXT_NODE &&
+      !/\S/.test((n.nodeValue || '').replace(NBSP_RE, ''))
+    );
+  }
+
+  function nextInDom(node, root) {
+    if (!node) return null;
+    if (node.firstChild) return node.firstChild;
+    let n = node;
+    while (n && n !== root) {
+      if (n.nextSibling) return n.nextSibling;
+      n = n.parentNode;
+    }
+    return null;
+  }
+
+  function findNextMeaningful(start, root) {
+    let n = start;
+    while (n) {
+      if (n.nodeType === Node.ELEMENT_NODE) {
+        if (n.tagName !== 'BR') return n;
+      } else if (n.nodeType === Node.TEXT_NODE) {
+        if (!isBlankTextNode(n)) return n;
+      }
+      n = nextInDom(n, root);
+    }
+    return null;
+  }
+
   function injectButton() {
     const ref = $(config.buttonAfterSelector);
     if (!ref || document.getElementById(config.buttonId)) return;
@@ -35,9 +69,7 @@
 
   function processIndent(container) {
     if (!container) return;
-    if (
-      !container.textContent.toLowerCase().includes(config.bbcode.toLowerCase())
-    )
+    if (!container.textContent.toLowerCase().includes(config.bbcode.toLowerCase()))
       return;
 
     const tag = config.bbcode.toLowerCase();
@@ -57,47 +89,40 @@
       while (cur && cur.nodeType === Node.TEXT_NODE) {
         const idx = cur.nodeValue.toLowerCase().indexOf(tag);
         if (idx === -1) break;
-
         const range = document.createRange();
         range.setStart(container, 0);
         range.setEnd(cur, idx);
-        const needBr = /\S/.test(range.toString().replace(/\u00a0/g, ''));
-
+        const needBr = /\S/.test(range.toString().replace(NBSP_RE, ''));
         const after = cur.splitText(idx);
         after.nodeValue = after.nodeValue.slice(config.bbcode.length);
 
-        let target = after.nodeValue ? after : after.nextSibling;
-        if (!after.nodeValue) after.remove();
-
+        let inlineTarget = after;
         while (
-          target &&
-          target.nodeType === Node.ELEMENT_NODE &&
-          target.tagName === 'BR'
+          inlineTarget &&
+          (isBlankTextNode(inlineTarget) ||
+            (inlineTarget.nodeType === Node.ELEMENT_NODE &&
+              inlineTarget.tagName === 'BR'))
         ) {
-          target = target.nextSibling;
+          inlineTarget = inlineTarget.nextSibling;
         }
 
+        const indentTarget = findNextMeaningful(after, container);
+
         if (needBr) {
-          const ref = target || cur.nextSibling;
+          const ref =
+            inlineTarget && inlineTarget.parentNode === cur.parentNode
+              ? inlineTarget
+              : cur.nextSibling;
+
           let prev = ref ? ref.previousSibling : cur;
 
-          while (
-            prev &&
-            prev.nodeType === Node.TEXT_NODE &&
-            !/\S/.test(prev.nodeValue)
-          ) {
+          while (prev && prev.nodeType === Node.TEXT_NODE && !/\S/.test(prev.nodeValue)) {
             const tmp = prev;
             prev = prev.previousSibling;
             tmp.remove();
           }
 
-          if (
-            !(
-              prev &&
-              prev.nodeType === Node.ELEMENT_NODE &&
-              prev.tagName === 'BR'
-            )
-          ) {
+          if (!(prev && prev.nodeType === Node.ELEMENT_NODE && prev.tagName === 'BR')) {
             prev = cur.parentNode.insertBefore(createEl('br'), ref || null);
           }
 
@@ -110,13 +135,15 @@
           }
         }
 
-        applyIndent(target || cur.nextSibling);
+        applyIndent(indentTarget || inlineTarget || cur.nextSibling);
+
+        if (after && after.nodeType === Node.TEXT_NODE && isBlankTextNode(after)) {
+          after.remove();
+        }
 
         cur =
-          target && target.nodeType === Node.TEXT_NODE
-            ? target
-            : target
-            ? target.nextSibling
+          after && after.parentNode && after.nodeType === Node.TEXT_NODE
+            ? after
             : null;
       }
     });
