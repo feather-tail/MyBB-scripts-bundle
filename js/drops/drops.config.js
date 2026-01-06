@@ -126,8 +126,8 @@
     },
 
     admin: {
-      // ID контейнера админского интерфейса.
       mountId: 'ks-drops-admin-root',
+      apiKey: '8f4d1c3a-2e71-4b0a-9d6a-6a0c6f0f2b0a',
     },
   };
 
@@ -145,6 +145,7 @@
   window.ScriptConfig = window.ScriptConfig || {};
   window.ScriptConfig.drops = cfg;
 })();
+
 
 
 
