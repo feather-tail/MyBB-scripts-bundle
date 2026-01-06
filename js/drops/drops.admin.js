@@ -326,6 +326,7 @@
         const to = mkSel('Куда', 'to_type', [
           { value: 'bank', text: 'bank' },
           { value: 'user', text: 'user' },
+          { value: 'burn', text: 'burn (удалить)' },
         ]);
 
         const fromUid = mkInp(
@@ -674,5 +675,6 @@
       console.warn('[drops:admin] init failed:', e);
     });
 })();
+
 
 
