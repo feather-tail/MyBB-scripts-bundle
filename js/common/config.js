@@ -85,7 +85,7 @@
         labels: { type: 'Тип операции', amount: 'Количество' },
         inputStyle: 'color:#111 !important',
       },
-      access: { allowedTopicIds: ['155', '233', '318'], allowedGroupIds: [1] },
+      access: { allowedTopicIds: ['155', '233', '318', '393'], allowedGroupIds: [1, 2] },
       profileFieldKey: 'fld4',
       operations: [
         { title: 'Начисление', factor: 1, topics: 'all' },
@@ -1179,5 +1179,6 @@
     },
   };
 })();
+
 
 
