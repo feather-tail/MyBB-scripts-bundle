@@ -59,6 +59,26 @@
     }
   })();
 
+  function chunkArray(arr, chunkSize) {
+    const size = Math.max(1, Number(chunkSize) || 1);
+    const out = [];
+    for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+    return out;
+  }
+  
+  function extractPostUserId(raw) {
+    const v =
+      raw?.user_id ??
+      raw?.userId ??
+      raw?.poster_id ??
+      raw?.posterId ??
+      raw?.uid ??
+      0;
+  
+    const n = Number(v);
+    return Number.isFinite(n) && n > 0 ? n : 0;
+  }
+
   const sleep = (ms) =>
     ms > 0
       ? new Promise((resolve) => setTimeout(resolve, ms))
@@ -131,16 +151,32 @@
   }
 
   async function getTopicsForForums(forumIds, log) {
-    const { apiBase, topicsPerRequest } = SETTINGS;
-    const url =
-      `${apiBase}?method=topic.get&forum_id=${forumIds.join(',')}` +
-      `&fields=id,subject,forum_id,first_post,init_post,link&limit=${topicsPerRequest}`;
-
-    log(`topic.get: загрузка тем по форумам [${forumIds.join(', ')}]`);
-    const data = await fetchJsonWithRetry(url, 'topic.get');
-    const rows = Array.isArray(data?.response) ? data.response : [];
-
-    const topics = rows
+    const { apiBase, topicsPerRequest, delayBetweenRequestsMs } = SETTINGS;
+  
+    const allRows = [];
+    let skip = 0;
+  
+    for (;;) {
+      const url =
+        `${apiBase}?method=topic.get&forum_id=${forumIds.join(",")}` +
+        `&fields=id,subject,forum_id,first_post,init_post,link` +
+        `&limit=${topicsPerRequest}&skip=${skip}`;
+  
+      log(`topic.get: загрузка тем по форумам [${forumIds.join(", ")}], skip=${skip}`);
+      const data = await fetchJsonWithRetry(url, "topic.get");
+      const rows = Array.isArray(data?.response) ? data.response : [];
+  
+      if (!rows.length) break;
+  
+      allRows.push(...rows);
+  
+      if (rows.length < topicsPerRequest) break;
+  
+      skip += topicsPerRequest;
+      await sleep(delayBetweenRequestsMs);
+    }
+  
+    const topics = allRows
       .map((raw) => ({
         id: Number(raw.id),
         subject: safeText(raw.subject),
@@ -150,59 +186,79 @@
       }))
       .filter((t) => t.id && SETTINGS.forumIds.includes(t.forum_id))
       .filter((t) => isTopicCountableByGpc(t.forum_id, t.id));
-
+  
     const byForum = topics.reduce((acc, t) => {
       acc[t.forum_id] = (acc[t.forum_id] || 0) + 1;
       return acc;
     }, {});
-
+  
     log(
-      `topic.get: найдено ${topics.length} тем. По форумам: ` +
+      `topic.get: найдено ${topics.length} тем (после фильтрации). По форумам: ` +
         Object.entries(byForum)
           .map(([fid, n]) => `#${fid}: ${n}`)
-          .join(', '),
+          .join(", ")
     );
-
+  
     return topics;
   }
 
   async function getAllPostsForTopics(topicIds, topicForumMap, log) {
     const { apiBase, postsPerRequest, delayBetweenRequestsMs } = SETTINGS;
     if (!topicIds.length) return [];
-
-    const out = [];
-    let skip = 0;
-
-    for (;;) {
-      const url =
-        `${apiBase}?method=post.get&topic_id=${topicIds.join(',')}` +
-        `&fields=id,topic_id,username,link&limit=${postsPerRequest}&skip=${skip}`;
-
-      log(`post.get: skip=${skip}`);
-      const data = await fetchJsonWithRetry(url, 'post.get');
-      const rows = Array.isArray(data?.response) ? data.response : [];
-      if (!rows.length) break;
-
-      for (const r of rows) {
-        const topicId = Number(r.topic_id);
-        if (!topicForumMap.has(topicId)) continue;
-
-        out.push({
-          id: Number(r.id),
-          topic_id: topicId,
-          username: safeText(r.username).trim(),
-          link: safeText(r.link).trim(),
-        });
-      }
-
-      if (rows.length < postsPerRequest) break;
-      skip += postsPerRequest;
-      await sleep(delayBetweenRequestsMs);
-    }
-
-    log(
-      `post.get: загружено постов (после фильтрации по темам): ${out.length}`,
+  
+    const MAX_TOPIC_IDS_PER_POST_GET = Math.max(
+      10,
+      Math.min(120, Number(SETTINGS.maxTopicIdsPerPostGet || 60))
     );
+  
+    const ids = topicIds
+      .map((x) => Number(x))
+      .filter((x) => Number.isFinite(x) && x > 0);
+  
+    const batches = chunkArray(ids, MAX_TOPIC_IDS_PER_POST_GET);
+  
+    const out = [];
+  
+    for (let bi = 0; bi < batches.length; bi += 1) {
+      const batchIds = batches[bi];
+      let skip = 0;
+  
+      log(
+        `post.get: пачка ${bi + 1}/${batches.length}, topics=${batchIds.length}`
+      );
+  
+      for (;;) {
+        const url =
+          `${apiBase}?method=post.get&topic_id=${batchIds.join(",")}` +
+          `&fields=id,topic_id,username,user_id,poster_id,link` +
+          `&limit=${postsPerRequest}&skip=${skip}`;
+  
+        log(`post.get: пачка ${bi + 1}/${batches.length}, skip=${skip}`);
+        const data = await fetchJsonWithRetry(url, "post.get");
+        const rows = Array.isArray(data?.response) ? data.response : [];
+        if (!rows.length) break;
+  
+        for (const r of rows) {
+          const topicId = Number(r.topic_id);
+          if (!topicForumMap.has(topicId)) continue;
+  
+          out.push({
+            id: Number(r.id),
+            topic_id: topicId,
+            user_id: extractPostUserId(r),
+            username: safeText(r.username).trim(),
+            link: safeText(r.link).trim(),
+          });
+        }
+  
+        if (rows.length < postsPerRequest) break;
+  
+        skip += postsPerRequest;
+        await sleep(delayBetweenRequestsMs);
+      }
+    }
+  
+    log(`post.get: загружено постов (после фильтрации по темам): ${out.length}`);
     return out;
   }
 
@@ -245,101 +301,116 @@
   }
 
   async function recalcPostStats(log) {
-    log('=== Старт пересчёта игровых постов через API ===');
+    log("=== Старт пересчёта игровых постов через API ===");
     log(
-      `Форумы: [${SETTINGS.forumIds.join(', ')}], ` +
-        `учитывать первый пост: ${SETTINGS.includeFirstPost ? 'да' : 'нет'}`,
+      `Форумы: [${SETTINGS.forumIds.join(", ")}], ` +
+        `учитывать первый пост: ${SETTINGS.includeFirstPost ? "да" : "нет"}`
     );
-
+  
     const topics = await getTopicsForForums(SETTINGS.forumIds, log);
     if (!topics.length) {
-      log('Тем в указанных форумах не найдено, пересчёт прерван.');
+      log("Тем в указанных форумах не найдено, пересчёт прерван.");
       return null;
     }
-
+  
     const topicIds = topics.map((t) => t.id);
+  
     const topicForumMap = new Map();
+    const firstPostIdByTopic = new Map();
     for (const t of topics) {
       topicForumMap.set(t.id, t.forum_id);
+      if (t.first_post) firstPostIdByTopic.set(t.id, t.first_post);
     }
-
+  
     log(`Всего тем для пересчёта: ${topicIds.length}`);
-
+  
     const allPosts = await getAllPostsForTopics(topicIds, topicForumMap, log);
     if (!allPosts.length) {
-      log('Постов по этим темам не найдено, пересчёт прерван.');
+      log("Постов по этим темам не найдено, пересчёт прерван.");
       return null;
     }
-
-    const firstPostIdByTopic = new Map();
-    for (const p of allPosts) {
-      const prev = firstPostIdByTopic.get(p.topic_id);
-      if (prev == null || p.id < prev) {
-        firstPostIdByTopic.set(p.topic_id, p.id);
+  
+    if (firstPostIdByTopic.size < topics.length) {
+      const minByTopic = new Map();
+      for (const p of allPosts) {
+        const prev = minByTopic.get(p.topic_id);
+        if (prev == null || p.id < prev) minByTopic.set(p.topic_id, p.id);
+      }
+      for (const [tid, pid] of minByTopic.entries()) {
+        if (!firstPostIdByTopic.has(tid)) firstPostIdByTopic.set(tid, pid);
       }
     }
-
-    const statsByName = new Map();
+  
+    const statsByKey = new Map();
     let countedPosts = 0;
-
+  
     for (const p of allPosts) {
       const firstId = firstPostIdByTopic.get(p.topic_id);
       if (!SETTINGS.includeFirstPost && firstId != null && p.id === firstId) {
         continue;
       }
-
-      const username = p.username;
-      if (!username) continue;
-
-      const key = username.toLowerCase();
-      let rec = statsByName.get(key);
+  
+      const username = (p.username || "").trim();
+      const uid = Number(p.user_id) || 0;
+      if (!uid && !username) continue;
+  
+      const key = uid > 0 ? `uid:${uid}` : `name:${username.toLowerCase()}`;
+  
+      let rec = statsByKey.get(key);
       if (!rec) {
         rec = {
-          userId: null,
-          username,
+          userId: uid > 0 ? uid : null,
+          username: username || "",
           count: 0,
           posts: 0,
           links: [],
         };
-        statsByName.set(key, rec);
+        statsByKey.set(key, rec);
       }
-
+  
+      if (username && rec.username !== username) rec.username = username;
+      if (uid > 0 && !rec.userId) rec.userId = uid;
+  
       rec.count += 1;
       rec.posts = rec.count;
       rec.links.push(
-        p.link || `${location.origin}/viewtopic.php?id=${p.topic_id}#p${p.id}`,
+        p.link || `${location.origin}/viewtopic.php?id=${p.topic_id}#p${p.id}`
       );
       countedPosts += 1;
     }
-
-    const usersArr = Array.from(statsByName.values()).sort(
-      (a, b) => b.count - a.count,
+  
+    const usersArr = Array.from(statsByKey.values()).sort(
+      (a, b) => b.count - a.count
     );
-
+  
     log(
-      `Промежуточно: пользователей с постами — ${usersArr.length}, постов — ${countedPosts}`,
+      `Промежуточно: пользователей с постами — ${usersArr.length}, постов — ${countedPosts}`
     );
-
-    await resolveUserIds(usersArr, log);
-
+  
+    const needResolve = usersArr.filter((u) => !(Number.isFinite(u.userId) && u.userId > 0));
+    if (needResolve.length) {
+      log(`users.get: нужно дорезолвить user_id для ${needResolve.length} пользователей по username…`);
+      await resolveUserIds(needResolve, log);
+    }
+  
     const usersWithIds = usersArr.filter(
-      (u) => Number.isFinite(u.userId) && u.userId > 0,
+      (u) => Number.isFinite(u.userId) && u.userId > 0
     );
     const usersWithoutIds = usersArr.filter(
-      (u) => !Number.isFinite(u.userId) || u.userId <= 0,
+      (u) => !Number.isFinite(u.userId) || u.userId <= 0
     );
-
+  
     if (usersWithoutIds.length) {
       log(
-        `? ${usersWithoutIds.length} пользователей не имеют user_id (будут пропущены при записи в БД).`,
+        `? ${usersWithoutIds.length} пользователей не имеют user_id (будут пропущены при записи в БД).`
       );
       usersWithoutIds.forEach((u) =>
-        log(`  - "${u.username}" (${u.count} постов)`),
+        log(`  - "${u.username}" (${u.count} постов)`)
       );
     }
-
+  
     const totalPosts = usersArr.reduce((sum, u) => sum + u.count, 0);
-
+  
     const snapshot = {
       settings: { ...SETTINGS },
       forumIds: [...SETTINGS.forumIds],
@@ -355,16 +426,16 @@
       usersWithIds,
       usersWithoutIds,
     };
-
+  
     window.ksForumPostStats = snapshot;
-
+  
     log(
-      `Готово: всего пользователей: ${snapshot.totalUsers}, суммарно постов: ${snapshot.totalPosts}.`,
+      `Готово: всего пользователей: ${snapshot.totalUsers}, суммарно постов: ${snapshot.totalPosts}.`
     );
     log(
-      `Из них с валидными user_id: ${usersWithIds.length}, без user_id: ${usersWithoutIds.length}.`,
+      `Из них с валидными user_id: ${usersWithIds.length}, без user_id: ${usersWithoutIds.length}.`
     );
-
+  
     return snapshot;
   }
 
@@ -557,6 +628,7 @@
     start();
   }
 })();
+
 
 
 
