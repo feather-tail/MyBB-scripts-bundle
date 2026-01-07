@@ -26,11 +26,7 @@
         '‟',
         '‹',
         '›',
-        "'",
-        '‘',
-        '’',
         '‚',
-        '‛',
       ];
 
   const quoteSet = new Set(QUOTE_CHARS);
@@ -182,3 +178,4 @@
 
   helpers?.register?.('replaceQuotes', { init, flush });
 })();
+
