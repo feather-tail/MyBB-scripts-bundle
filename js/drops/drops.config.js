@@ -127,7 +127,6 @@
 
     admin: {
       mountId: 'ks-drops-admin-root',
-      apiKey: '',
     },
   };
 
@@ -145,6 +144,7 @@
   window.ScriptConfig = window.ScriptConfig || {};
   window.ScriptConfig.drops = cfg;
 })();
+
 
 
 
