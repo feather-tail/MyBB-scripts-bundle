@@ -1,58 +1,33 @@
 (() => {
   'use strict';
 
-  const H = window.helpers || null;
-
-  const getConfig = (name, defaults) => {
-    try {
-      if (H && typeof H.getConfig === 'function')
-        return H.getConfig(name, defaults);
-    } catch {}
-    const raw = (window.ScriptConfig && window.ScriptConfig[name]) || {};
-    return Object.assign({}, defaults, raw);
-  };
-
-  const cfg = getConfig('usershow', {
+  const DEFAULTS = {
     rootSelector: '#pun-main',
-    messageSelectors: [
-      '.post-content',
-      '.postmsg',
-      '.post-body',
-      '.post-message',
-      '.post-box',
-    ],
-    alwaysUsers: [],
+    messageSelectors: ['.post-content', '.postmsg'],
+    alwaysUsers: ['Kayden Moore'],
     alwaysGroups: [],
     showAllowedListInStub: true,
     citeText: 'Скрытый текст:',
     stubText: 'Скрытый текст доступен только определённым пользователям.',
     prehide: true,
-  });
+  };
 
-  const norm = (s) =>
-    String(s == null ? '' : s)
-      .trim()
-      .toLowerCase();
-  const uniq = (arr) =>
-    Array.from(
-      new Set((arr || []).map((x) => String(x).trim()).filter(Boolean)),
-    );
+  const norm = (s) => String(s == null ? '' : s).trim().toLowerCase();
+  const uniq = (arr) => Array.from(new Set((arr || []).map((x) => String(x).trim()).filter(Boolean)));
 
-  const currentLoginRaw = (window.UserLogin || '').trim();
-  const currentLogin = norm(currentLoginRaw);
-  const currentGroup = (() => {
-    const g = window.GroupID;
-    const n = typeof g === 'string' ? Number(g) : typeof g === 'number' ? g : 0;
-    return Number.isFinite(n) ? n : 0;
-  })();
-
-  const alwaysUsers = uniq(cfg.alwaysUsers).map(norm);
-  const alwaysGroups = Array.isArray(cfg.alwaysGroups)
-    ? cfg.alwaysGroups.map((x) => Number(x)).filter(Number.isFinite)
-    : [];
-  const isAlwaysAllowed = () =>
-    (currentLogin && alwaysUsers.includes(currentLogin)) ||
-    (currentGroup && alwaysGroups.includes(currentGroup));
+  const readCfg = () => {
+    const raw = window.ScriptConfig?.usershow || {};
+    const cfg = { ...DEFAULTS, ...raw };
+    cfg.messageSelectors = Array.isArray(raw.messageSelectors) ? raw.messageSelectors : DEFAULTS.messageSelectors;
+    cfg.alwaysUsers = Array.isArray(raw.alwaysUsers) ? raw.alwaysUsers : DEFAULTS.alwaysUsers;
+    cfg.alwaysGroups = Array.isArray(raw.alwaysGroups) ? raw.alwaysGroups : DEFAULTS.alwaysGroups;
+    cfg.rootSelector = String(cfg.rootSelector || DEFAULTS.rootSelector);
+    cfg.citeText = String(cfg.citeText || DEFAULTS.citeText);
+    cfg.stubText = String(cfg.stubText || DEFAULTS.stubText);
+    cfg.showAllowedListInStub = !!cfg.showAllowedListInStub;
+    cfg.prehide = !!cfg.prehide;
+    return cfg;
+  };
 
   const escapeHTML = (s) =>
     String(s == null ? '' : s)
@@ -65,13 +40,15 @@
   const escapeAttr = (s) => escapeHTML(s).replace(/\s+/g, ' ').trim();
 
   const sanitizeHTML = (html) => {
-    if (H && typeof H.createEl === 'function') {
-      try {
-        return H.createEl('div', { html: String(html == null ? '' : html) })
-          .innerHTML;
-      } catch {}
-    }
-    return String(html == null ? '' : html);
+    const tpl = document.createElement('template');
+    tpl.innerHTML = String(html == null ? '' : html);
+    tpl.content.querySelectorAll('script').forEach((n) => n.remove());
+    tpl.content.querySelectorAll('*').forEach((node) => {
+      [...node.attributes].forEach((attr) => {
+        if (/^on/i.test(attr.name)) node.removeAttribute(attr.name);
+      });
+    });
+    return tpl.innerHTML;
   };
 
   const decodeParamEntities = (s) =>
@@ -107,18 +84,35 @@
       res.map((t) => {
         t = t.trim();
         if (!t) return '';
-        if (
-          (t.startsWith("'") && t.endsWith("'")) ||
-          (t.startsWith('"') && t.endsWith('"'))
-        ) {
-          t = t.slice(1, -1);
-        }
+        if ((t.startsWith("'") && t.endsWith("'")) || (t.startsWith('"') && t.endsWith('"'))) t = t.slice(1, -1);
         return t.trim();
       }),
     );
   };
 
-  const buildBoxHTML = ({ allowedUsers, allowed, contentHTML }) => {
+  const getCurrentLogin = () => norm(window.UserLogin || '');
+  const getCurrentGroup = () => {
+    const g = window.GroupID;
+    const n = typeof g === 'string' ? Number(g) : typeof g === 'number' ? g : 0;
+    return Number.isFinite(n) ? n : 0;
+  };
+
+  const isAlwaysAllowed = (cfg) => {
+    const login = getCurrentLogin();
+    const group = getCurrentGroup();
+    const alwaysUsers = uniq(cfg.alwaysUsers).map(norm);
+    const alwaysGroups = (cfg.alwaysGroups || []).map((x) => Number(x)).filter(Number.isFinite);
+    return (login && alwaysUsers.includes(login)) || (group && alwaysGroups.includes(group));
+  };
+
+  const renderBlockquoteInner = (safeHtml) => {
+    const t = String(safeHtml || '').trim();
+    if (!t) return '<p></p>';
+    if (/^<(p|div|ul|ol|table|blockquote|pre|h\d|section|article|figure|aside)\b/i.test(t)) return t;
+    return `<p>${safeHtml}</p>`;
+  };
+
+  const buildBoxHTML = (cfg, { allowedUsers, allowed, contentHTML }) => {
     const usersStr = allowedUsers.join(', ');
     const dataUsers = escapeAttr(usersStr);
 
@@ -127,7 +121,7 @@
       return (
         `<div class="quote-box hide-box usershow-box usershow-box--open" data-usershow="1" data-usershow-users="${dataUsers}">` +
         `<cite>${escapeHTML(cfg.citeText)}</cite>` +
-        `<blockquote><p>${safe}</p></blockquote>` +
+        `<blockquote>${renderBlockquoteInner(safe)}</blockquote>` +
         `</div>`
       );
     }
@@ -136,6 +130,7 @@
       cfg.showAllowedListInStub && allowedUsers.length
         ? `Доступно только для: ${usersStr}`
         : String(cfg.stubText || 'Скрытый текст недоступен.');
+
     return (
       `<div class="quote-box hide-box usershow-box usershow-box--locked" data-usershow="1" data-usershow-users="${dataUsers}">` +
       `<cite>${escapeHTML(cfg.citeText)}</cite>` +
@@ -144,16 +139,17 @@
     );
   };
 
-  const isAllowedFor = (tagUsers) => {
-    if (isAlwaysAllowed()) return true;
-    if (!currentLogin) return false;
-    const set = new Set(tagUsers.map(norm));
-    return set.has(currentLogin);
+  const isAllowedFor = (cfg, tagUsers) => {
+    if (isAlwaysAllowed(cfg)) return true;
+    const login = getCurrentLogin();
+    if (!login) return false;
+    const set = new Set((tagUsers || []).map(norm));
+    return set.has(login);
   };
 
   const RE = /\[usershow(?:\s*=\s*([^\]]*))?\]([\s\S]*?)\[\/usershow\]/gi;
 
-  const processMessageEl = (el) => {
+  const processMessageEl = (cfg, el) => {
     if (!el || el.nodeType !== 1) return false;
     if (el.dataset && el.dataset.usershowProcessed === '1') return false;
 
@@ -178,9 +174,9 @@
       const rawParam = (m[1] || '').trim();
       const inner = m[2] || '';
       const users = splitUsers(rawParam);
-      const allowed = isAllowedFor(users);
+      const allowed = isAllowedFor(cfg, users);
 
-      out += buildBoxHTML({ allowedUsers: users, allowed, contentHTML: inner });
+      out += buildBoxHTML(cfg, { allowedUsers: users, allowed, contentHTML: inner });
       last = RE.lastIndex;
     }
 
@@ -195,96 +191,107 @@
     return true;
   };
 
-  const getRoot = () => document.querySelector(cfg.rootSelector) || document;
-  const getMessageEls = (root) => {
-    const sels = Array.isArray(cfg.messageSelectors)
-      ? cfg.messageSelectors
-      : [];
-    const uniqSels = uniq(sels);
-    if (!uniqSels.length) return [];
-    const q = uniqSels.join(',');
+  const getRoot = (cfg) => document.querySelector(cfg.rootSelector) || document;
+
+  const getMessageEls = (cfg, root) => {
+    const sels = uniq(Array.isArray(cfg.messageSelectors) ? cfg.messageSelectors : []);
+    if (!sels.length) return [];
     try {
-      return Array.from(root.querySelectorAll(q));
+      return Array.from(root.querySelectorAll(sels.join(',')));
     } catch {
       return [];
     }
   };
 
-  const addPrehide = () => {
-    if (!cfg.prehide) return null;
-
-    const sels = Array.isArray(cfg.messageSelectors)
-      ? uniq(cfg.messageSelectors)
-      : [];
-    if (!sels.length) return null;
+  let prehideStyleEl = null;
+  const applyPrehideNow = () => {
+    const cfg = readCfg();
+    if (!cfg.prehide) return;
 
     const rootSel = (cfg.rootSelector || '').trim() || '';
+    const sels = uniq(cfg.messageSelectors || []);
     const scoped = sels
       .map((s) => s.trim())
       .filter(Boolean)
       .map((s) => (rootSel && rootSel !== 'document' ? `${rootSel} ${s}` : s))
       .join(', ');
 
-    const style = document.createElement('style');
-    style.id = 'usershow-prehide-style';
-    style.textContent = scoped
+    const css = scoped
       ? `html.usershow-prehide ${scoped}{visibility:hidden!important}`
       : `html.usershow-prehide{visibility:hidden!important}`;
 
     document.documentElement.classList.add('usershow-prehide');
-    (document.head || document.documentElement).appendChild(style);
-    return style;
+
+    if (!prehideStyleEl) {
+      prehideStyleEl = document.createElement('style');
+      prehideStyleEl.id = 'usershow-prehide-style';
+      prehideStyleEl.textContent = css;
+      (document.head || document.documentElement).appendChild(prehideStyleEl);
+    } else if (prehideStyleEl.textContent !== css) {
+      prehideStyleEl.textContent = css;
+    }
   };
 
-  const removePrehide = (styleEl) => {
+  const removePrehide = () => {
     document.documentElement.classList.remove('usershow-prehide');
     try {
-      if (styleEl && styleEl.parentNode)
-        styleEl.parentNode.removeChild(styleEl);
+      if (prehideStyleEl && prehideStyleEl.parentNode) prehideStyleEl.parentNode.removeChild(prehideStyleEl);
     } catch {}
+    prehideStyleEl = null;
   };
 
-  const run = () => {
-    const styleEl = addPrehide();
+  applyPrehideNow();
 
+  const run = () => {
+    const cfg = readCfg();
     try {
-      const root = getRoot();
-      const els = getMessageEls(root);
-      for (const el of els) processMessageEl(el);
+      applyPrehideNow();
+      const root = getRoot(cfg);
+      const els = getMessageEls(cfg, root);
+      for (const el of els) processMessageEl(cfg, el);
     } finally {
-      removePrehide(styleEl);
+      removePrehide();
     }
 
-    const root = getRoot();
-    if (!root || root === document) return;
-
-    let scheduled = false;
-    const schedule = () => {
-      if (scheduled) return;
-      scheduled = true;
-      const fn = () => {
-        scheduled = false;
-        const els = getMessageEls(root);
-        for (const el of els) processMessageEl(el);
-      };
-      if (typeof queueMicrotask === 'function') queueMicrotask(fn);
-      else setTimeout(fn, 0);
-    };
+    const cfg2 = readCfg();
+    const root2 = getRoot(cfg2);
+    if (!root2 || root2 === document) return;
 
     const obs = new MutationObserver((mut) => {
+      const cfgLive = readCfg();
+      const msgSelectors = uniq(cfgLive.messageSelectors || []);
+      if (!msgSelectors.length) return;
+
       for (const rec of mut) {
-        if (
-          rec.type !== 'childList' ||
-          !rec.addedNodes ||
-          !rec.addedNodes.length
-        )
-          continue;
-        schedule();
+        if (rec.type !== 'childList' || !rec.addedNodes || !rec.addedNodes.length) continue;
+
+        const toProcess = [];
+        rec.addedNodes.forEach((node) => {
+          if (!node || node.nodeType !== 1) return;
+          msgSelectors.forEach((sel) => {
+            try {
+              if (node.matches && node.matches(sel)) toProcess.push(node);
+            } catch {}
+            try {
+              node.querySelectorAll && node.querySelectorAll(sel).forEach((n) => toProcess.push(n));
+            } catch {}
+          });
+        });
+
+        if (!toProcess.length) continue;
+
+        for (const el of toProcess) {
+          if ((el.textContent || '').toLowerCase().includes('[usershow')) el.style.visibility = 'hidden';
+        }
+        for (const el of toProcess) processMessageEl(cfgLive, el);
+        for (const el of toProcess) el.style.visibility = '';
+
         break;
       }
     });
+
     try {
-      obs.observe(root, { childList: true, subtree: true });
+      obs.observe(root2, { childList: true, subtree: true });
     } catch {}
   };
 
