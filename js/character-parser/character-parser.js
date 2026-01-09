@@ -140,6 +140,13 @@
     return String(item.img || '').trim();
   }
 
+  function getTopicHref(ch) {
+    const direct = String(ch?.link || '').trim();
+    if (direct) return direct;
+    const tid = Number(ch?.topic_id || 0);
+    return tid ? `/viewtopic.php?id=${tid}` : '';
+  }
+
   const mainName = (it) => it.name_en || it.name || '(без имени)';
 
   function faceSortKey(it) {
@@ -660,59 +667,47 @@
   function makeCard(item, nameToLink) {
     const card = helpers.createEl('article', { className: 'chars__card' });
     card.dataset.nameKey = normKey(item.name);
-    if (item.link) card.dataset.linkKey = normKey(item.link);
-
+  
+    const href = getTopicHref(item);
+    if (href) card.dataset.linkKey = normKey(href);
+  
     const imgWrap = helpers.createEl('div', { className: 'chars__card-img' });
-    const img = helpers.createEl('img', {
-      alt: item.name_en || item.name || '',
-    });
+    const img = helpers.createEl('img', { alt: item.name_en || item.name || '' });
     const src1 = pickPreferredImage(item);
     if (src1) img.src = src1;
     imgWrap.appendChild(img);
-
+  
     const body = helpers.createEl('div', { className: 'chars__card-body' });
-
+  
     const title = helpers.createEl('h3', { className: 'chars__card-title' });
     const mainEn = item.name_en || item.name || '(без имени)';
-    if (item.link) {
-      const a = helpers.createEl('a', { href: item.link, text: mainEn });
+  
+    if (href) {
+      const a = helpers.createEl('a', { href, text: mainEn });
       a.target = '_self';
       title.appendChild(a);
     } else {
       title.textContent = mainEn;
     }
     body.appendChild(title);
-
+  
     if (item.name && item.name !== item.name_en) {
       body.appendChild(
-        helpers.createEl('div', {
-          className: 'chars__name-ru',
-          text: item.name,
-        }),
+        helpers.createEl('div', { className: 'chars__name-ru', text: item.name }),
       );
     }
-
+  
     const meta = helpers.createEl('div', { className: 'chars__meta' });
-
+  
     const addField = (label, value, cls, options = {}) => {
       if (!value && value !== 0) return;
-      const row = helpers.createEl('div', {
-        className: `chars__field ${cls || ''}`,
-      });
+      const row = helpers.createEl('div', { className: `chars__field ${cls || ''}` });
       row.appendChild(
-        helpers.createEl('span', {
-          className: 'chars__field-label',
-          text: label,
-        }),
+        helpers.createEl('span', { className: 'chars__field-label', text: label }),
       );
-      const valueEl = helpers.createEl('span', {
-        className: 'chars__field-value',
-      });
+      const valueEl = helpers.createEl('span', { className: 'chars__field-value' });
       if (options.href) {
-        const link = helpers.createEl('a', {
-          href: options.href,
-          text: String(value),
-        });
+        const link = helpers.createEl('a', { href: options.href, text: String(value) });
         link.target = '_self';
         valueEl.appendChild(link);
       } else {
@@ -721,21 +716,21 @@
       row.appendChild(valueEl);
       meta.appendChild(row);
     };
-
+  
     addField('Род деятельности', item.status, 'is-status');
     addField('Раса', item.race, 'is-race');
+  
     const pairNameKey = item.pair_name ? normKey(item.pair_name) : '';
-    const pairLink =
-      pairNameKey && nameToLink ? nameToLink.get(pairNameKey) : '';
+    const pairLink = pairNameKey && nameToLink ? nameToLink.get(pairNameKey) : '';
     addField('Пара', item.pair_name, 'is-pair', { href: pairLink });
+  
     addField('Пол', item.gender, 'is-gender');
-    if (Number.isFinite(item.age))
-      addField('Возраст', String(item.age), 'is-age');
+    if (Number.isFinite(item.age)) addField('Возраст', String(item.age), 'is-age');
     addField('Дар/форма', item.gift, 'is-gift');
     addField('Внешность', item.faceproto, 'is-face');
-
+  
     body.appendChild(meta);
-
+  
     card.appendChild(imgWrap);
     card.appendChild(body);
     return card;
@@ -748,7 +743,7 @@
     const linkMap = new Map();
     const nameToLink = new Map();
     items.forEach((it) => {
-      const link = (it.link || '').trim();
+      const link = getTopicHref(it);
       if (!link) return;
       const ru = normKey(it.name);
       const en = normKey(it.name_en);
@@ -830,13 +825,9 @@
     const left = helpers.createEl('span', { className: 'chars__line-left' });
     let leftText = '';
     if (fandom) {
-      if (fandom.toLowerCase() === 'original') {
-        leftText = '[original]';
-      } else if (fandom.toLowerCase() === 'real') {
-        leftText = canon ? `[real] ${canon}` : '[real]';
-      } else {
-        leftText = canon ? `[${fandom}] ${canon}` : `[${fandom}]`;
-      }
+      if (fandom.toLowerCase() === 'original') leftText = '[original]';
+      else if (fandom.toLowerCase() === 'real') leftText = canon ? `[real] ${canon}` : '[real]';
+      else leftText = canon ? `[${fandom}] ${canon}` : `[${fandom}]`;
     } else {
       leftText = entry.proto || '—';
     }
@@ -845,11 +836,12 @@
     const mid = helpers.createEl('span', { text: ' — ' });
   
     const right = helpers.createEl('span', { className: 'chars__line-right' });
-    const link = ch.link
-      ? helpers.createEl('a', { href: ch.link, text: ch.name_en || ch.name || '(без имени)' })
+    const href = getTopicHref(ch);
+    const node = href
+      ? helpers.createEl('a', { href, text: ch.name_en || ch.name || '(без имени)' })
       : helpers.createEl('span', { text: ch.name_en || ch.name || '(без имени)' });
-    if (ch.link) link.target = '_self';
-    right.appendChild(link);
+    if (href) node.target = '_self';
+    right.appendChild(node);
   
     row.appendChild(left);
     row.appendChild(mid);
@@ -1057,7 +1049,7 @@
     card.style.padding = '8px';
     card.style.border = '1px solid var(--hair, #ccc)';
     card.style.borderRadius = '8px';
-
+  
     const img = helpers.createEl('img', { alt: it.name_en || it.name || '' });
     img.style.width = '72px';
     img.style.height = '96px';
@@ -1067,19 +1059,15 @@
     const src2 = pickPreferredImage(it);
     if (src2) img.src = src2;
     card.appendChild(img);
-
-    const name = it.link
-      ? helpers.createEl('a', {
-          href: it.link,
-          text: it.name_en || it.name || '(без имени)',
-        })
-      : helpers.createEl('div', {
-          text: it.name_en || it.name || '(без имени)',
-        });
-    if (it.link) name.target = '_self';
-    name.className = 'chars__mini-name';
-    card.appendChild(name);
-
+  
+    const href = getTopicHref(it);
+    const nameNode = href
+      ? helpers.createEl('a', { href, text: it.name_en || it.name || '(без имени)' })
+      : helpers.createEl('div', { text: it.name_en || it.name || '(без имени)' });
+    if (href) nameNode.target = '_self';
+    nameNode.className = 'chars__mini-name';
+    card.appendChild(nameNode);
+  
     const race = helpers.createEl('div', {
       className: 'chars__mini-race',
       text: it.race || '—',
@@ -1087,7 +1075,7 @@
     race.style.fontSize = '12px';
     race.style.opacity = '0.9';
     card.appendChild(race);
-
+  
     const role = helpers.createEl('div', {
       className: 'chars__mini-role',
       text: it.role || '',
@@ -1095,7 +1083,7 @@
     role.style.fontSize = '12px';
     role.style.opacity = '0.75';
     card.appendChild(role);
-
+  
     return card;
   }
 
@@ -1429,10 +1417,3 @@
   helpers.runOnceOnReady(init);
   helpers.register('charactersParser', { init });
 })();
-
-
-
-
-
-
-
