@@ -1193,7 +1193,7 @@
      rootSelector: '#pun-main',
      messageSelectors: ['.post-content', '.postmsg'],
      alwaysUsers: ['Kayden Moore'],
-     alwaysGroups: [1],
+     alwaysGroups: [],
      showAllowedListInStub: true,
      citeText: 'Скрытый текст:',
      stubText: 'Скрытый текст доступен только определённым пользователям.',
@@ -1201,6 +1201,7 @@
    },
   };
 })();
+
 
 
 
