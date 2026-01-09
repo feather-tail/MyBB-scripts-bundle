@@ -1192,7 +1192,7 @@
     usershow: {
      rootSelector: '#pun-main',
      messageSelectors: ['.post-content', '.postmsg'],
-     alwaysUsers: ['Admin', 'Moderator'],
+     alwaysUsers: ['Kayden Moore'],
      alwaysGroups: [1],
      showAllowedListInStub: true,
      citeText: 'Скрытый текст:',
@@ -1201,6 +1201,7 @@
    },
   };
 })();
+
 
 
 
