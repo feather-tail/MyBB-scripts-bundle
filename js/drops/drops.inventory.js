@@ -524,6 +524,15 @@
         ui.voteBox.replaceChildren(wrap);
       };
 
+      const getInventoryItems = (inv, cfg) => {
+        const chestId = toInt(cfg.chest?.chestItemId || 0);
+        const hideChestInGrid = cfg.chest?.hideInGrid !== false;
+        return (inv?.items || []).filter((it) => {
+          if (!hideChestInGrid) return true;
+          return toInt(it.item_id) !== chestId;
+        });
+      };
+
       const renderInventory = (H, cfg, ui, inv, bank, buildingsState, handlers, state) => {
         renderChest(H, cfg, ui, inv, handlers.onOpenChest, state);
 
@@ -537,18 +546,15 @@
         renderBuildings(H, cfg, ui, buildingsState, bank, state);
         renderVoting(H, cfg, ui, buildingsState, state, handlers);
 
-        const chestId = toInt(cfg.chest?.chestItemId || 0);
-        const hideChestInGrid = cfg.chest?.hideInGrid !== false;
-        const items = (inv?.items || []).filter((it) => {
-          if (!hideChestInGrid) return true;
-          return toInt(it.item_id) !== chestId;
-        });
+        const items = getInventoryItems(inv, cfg);
 
         const invKey = `${inv?.total_qty ?? 0}|${buildItemsKey(items)}|${canDeposit() ? 1 : 0}`;
         if (state.invKey === invKey) return;
         state.invKey = invKey;
 
         ui.totalEl.textContent = `Всего: ${inv?.total_qty ?? 0}`;
+        ui.depositAllBtn.hidden = !canDeposit();
+        ui.depositAllBtn.disabled = !items.length;
 
         const frag = document.createDocumentFragment();
 
@@ -712,6 +718,11 @@
           invBox: H.createEl('div', { className: 'ks-drops-bank ks-drops-invbox' }),
           invHead: H.createEl('div', { className: 'ks-drops-bank__head' }),
           totalEl: H.createEl('div', { className: 'ks-drops-bank__total' }),
+          depositAllBtn: H.createEl('button', {
+            type: 'button',
+            className: 'ks-drops-inv__deposit-all',
+            text: 'Внести всё',
+          }),
           grid: H.createEl('div', { className: 'ks-drops-bank__grid' }),
 
           buildingsBox: H.createEl('div', { className: 'ks-drops-buildings' }),
@@ -722,6 +733,7 @@
           H.createEl('div', { className: 'ks-drops-bank__title', text: 'Инвентарь' }),
         );
         ui.invHead.appendChild(ui.totalEl);
+        ui.invHead.appendChild(ui.depositAllBtn);
         ui.invBox.append(ui.invHead, ui.grid);
 
         root.append(
@@ -897,6 +909,59 @@
             }
           },
 
+          onDepositAll: async (btn) => {
+            const items = getInventoryItems(inv, cfg).filter(
+              (item) => toInt(item.qty) > 0,
+            );
+            if (!items.length) return;
+
+            if (btn) {
+              btn.disabled = true;
+              btn.classList.add('is-busy');
+            }
+
+            try {
+              let updatedInv = null;
+              let updatedBank = null;
+
+              for (const item of items) {
+                const qty = toInt(item.qty);
+                if (qty <= 0) continue;
+                const res = await postDeposit(item.item_id, qty);
+                if (!res.success) {
+                  toast(res.message || 'Ошибка взноса', 'error');
+                  return;
+                }
+                if (res.inventory) updatedInv = res.inventory;
+                if (res.bank) updatedBank = res.bank;
+              }
+
+              if (updatedInv) {
+                inv = updatedInv;
+                window.dispatchEvent(
+                  new CustomEvent('ks:drops:inventoryUpdated', { detail: { inventory: inv } }),
+                );
+              }
+              if (updatedBank) {
+                bank = updatedBank;
+                window.dispatchEvent(
+                  new CustomEvent('ks:drops:bankUpdated', { detail: { bank } }),
+                );
+              }
+
+              toast('Все ресурсы внесены', 'success');
+              scheduleRender();
+            } catch (e) {
+              log('deposit all error', e);
+              toast('Не удалось внести в банк', 'error');
+            } finally {
+              if (btn) {
+                btn.classList.remove('is-busy');
+                btn.disabled = false;
+              }
+            }
+          },
+
           onVote: async (buildingId, btn) => {
             if (!buildingId) return;
             if (btn) {
@@ -922,6 +987,12 @@
             }
           },
         };
+
+        ui.depositAllBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          handlers.onDepositAll(ui.depositAllBtn);
+        });
 
         try {
           const [invRes, bankRes, buildingsRes] = await Promise.allSettled([
@@ -965,6 +1036,7 @@
     })
     .catch((e) => console.warn('[drops:inv] init failed:', e));
 })();
+
 
 
 
