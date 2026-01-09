@@ -33,6 +33,7 @@
       gender: (UI.filters && UI.filters.gender) || 'Пол',
       race: (UI.filters && UI.filters.race) || 'Раса',
       status: (UI.filters && UI.filters.status) || 'Статус',
+      role: (UI.filters && UI.filters.role) || 'Роль',
       pair: (UI.filters && UI.filters.pair) || 'Пара',
       clear: (UI.filters && UI.filters.clear) || 'Сбросить',
       refresh: (UI.filters && UI.filters.refresh) || 'Обновить',
@@ -46,6 +47,7 @@
     },
     placeholders: {
       name: (UI.placeholders && UI.placeholders.name) || 'Имя или фамилия',
+      role: (UI.placeholders && UI.placeholders.role) || 'Должность/роль',
       ageFrom: (UI.placeholders && UI.placeholders.ageFrom) || 'от',
       ageTo: (UI.placeholders && UI.placeholders.ageTo) || 'до',
     },
@@ -64,6 +66,7 @@
     items: [],
     filters: {
       name: '',
+      role: '',
       ageMin: '',
       ageMax: '',
       gender: 'all',
@@ -547,6 +550,7 @@
   function applyFilters(items) {
     const f = state.filters;
     const nameNeedle = normKey(f.name);
+    const roleNeedle = normKey(f.role);
     const ageMin = toIntOrNull(f.ageMin);
     const ageMax = toIntOrNull(f.ageMax);
 
@@ -585,6 +589,14 @@
           ? occs.map((o) => normKey(o?.status)).filter(Boolean)
           : [normKey(it.status)];
         if (!hay.some((s) => s === needle)) return false;
+      }
+
+      if (roleNeedle) {
+        const occs = Array.isArray(it.occupations) ? it.occupations : [];
+        const roles = occs.length
+          ? occs.map((o) => normKey(o?.role)).filter(Boolean)
+          : [normKey(it.role)];
+        if (!roles.some((s) => s && s.includes(roleNeedle))) return false;
       }
 
       if (f.hasPair === 'with' && !it.pair_name) return false;
@@ -1069,13 +1081,23 @@
 
   function renderRoleGrid(mount, items) {
     const wrap = helpers.createEl('div', { className: 'chars__roles' });
-  
+
     const byStatus = new Map();
-  
+    const roleNeedle = normKey(state.filters.role);
+
     for (const ch of items) {
       const occs = Array.isArray(ch.occupations) ? ch.occupations : [];
-      const list = occs.length ? occs : [{ status: ch.status || '—', role: ch.role || '' }];
-  
+      let list = occs.length
+        ? occs
+        : [{ status: ch.status || '—', role: ch.role || '' }];
+
+      if (roleNeedle) {
+        list = list.filter((o) =>
+          normKey(o?.role).includes(roleNeedle),
+        );
+        if (!list.length) continue;
+      }
+
       for (const o of list) {
         const st = String(o?.status || '—').trim() || '—';
         const rl = String(o?.role || '').trim();
@@ -1178,6 +1200,10 @@
       className: 'chars__input',
       placeholder: UIText.placeholders.name,
     });
+    const inRole = helpers.createEl('input', {
+      className: 'chars__input',
+      placeholder: UIText.placeholders.role,
+    });
 
     const ageFrom = helpers.createEl('input', {
       className: 'chars__input chars__input--age',
@@ -1257,6 +1283,7 @@
     });
 
     wrap.appendChild(mkGroup(UIText.filters.name, inName));
+    wrap.appendChild(mkGroup(UIText.filters.role, inRole));
     const ageRow = helpers.createEl('div', { className: 'chars__age-row' });
     ageRow.appendChild(ageFrom);
     ageRow.appendChild(ageTo);
@@ -1273,6 +1300,7 @@
     wrap.appendChild(actions);
 
     inName.value = state.filters.name;
+    inRole.value = state.filters.role;
     ageFrom.value = state.filters.ageMin;
     ageTo.value = state.filters.ageMax;
     selGender.value = state.filters.gender;
@@ -1283,6 +1311,7 @@
 
     const debounced = helpers.debounce(() => {
       state.filters.name = String(inName.value || '').trim();
+      state.filters.role = String(inRole.value || '').trim();
       state.filters.ageMin = String(ageFrom.value || '').trim();
       state.filters.ageMax = String(ageTo.value || '').trim();
       state.filters.gender = selGender.value || 'all';
@@ -1299,6 +1328,7 @@
     }, 150);
 
     inName.addEventListener('input', debounced);
+    inRole.addEventListener('input', debounced);
     ageFrom.addEventListener('input', debounced);
     ageTo.addEventListener('input', debounced);
     selGender.addEventListener('change', debounced);
@@ -1309,6 +1339,7 @@
 
     btnClear.addEventListener('click', () => {
       inName.value = '';
+      inRole.value = '';
       ageFrom.value = '';
       ageTo.value = '';
       selGender.value = 'all';
@@ -1378,6 +1409,7 @@
   helpers.runOnceOnReady(init);
   helpers.register('charactersParser', { init });
 })();
+
 
 
 
