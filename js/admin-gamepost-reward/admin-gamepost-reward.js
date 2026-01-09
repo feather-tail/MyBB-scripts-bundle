@@ -51,6 +51,14 @@
       warningBox: '#ks-gpreward-warning',
       errorBox: '#ks-gpreward-error',
     },
+    episodeCompletedForumId: 0,
+    episodeCompletion: {
+      enabled: true,
+      metaKey: '__meta__',
+      rewardedKey: 'completedRewarded',
+      rewardedAtKey: 'completedRewardedAt',
+      completedAtKey: 'completedAt',
+    },
   };
 
   const SETTINGS =
@@ -1149,4 +1157,5 @@
   else if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();
 })();
+
 
