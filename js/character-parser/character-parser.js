@@ -657,7 +657,7 @@
     return el;
   };
 
-  function makeCard(item) {
+  function makeCard(item, nameToLink) {
     const card = helpers.createEl('article', { className: 'chars__card' });
     card.dataset.nameKey = normKey(item.name);
     if (item.link) card.dataset.linkKey = normKey(item.link);
@@ -694,7 +694,7 @@
 
     const meta = helpers.createEl('div', { className: 'chars__meta' });
 
-    const addField = (label, value, cls) => {
+    const addField = (label, value, cls, options = {}) => {
       if (!value && value !== 0) return;
       const row = helpers.createEl('div', {
         className: `chars__field ${cls || ''}`,
@@ -705,18 +705,29 @@
           text: label,
         }),
       );
-      row.appendChild(
-        helpers.createEl('span', {
-          className: 'chars__field-value',
+      const valueEl = helpers.createEl('span', {
+        className: 'chars__field-value',
+      });
+      if (options.href) {
+        const link = helpers.createEl('a', {
+          href: options.href,
           text: String(value),
-        }),
-      );
+        });
+        link.target = '_self';
+        valueEl.appendChild(link);
+      } else {
+        valueEl.textContent = String(value);
+      }
+      row.appendChild(valueEl);
       meta.appendChild(row);
     };
 
     addField('Род деятельности', item.status, 'is-status');
     addField('Раса', item.race, 'is-race');
-    addField('Пара', item.pair_name, 'is-pair');
+    const pairNameKey = item.pair_name ? normKey(item.pair_name) : '';
+    const pairLink =
+      pairNameKey && nameToLink ? nameToLink.get(pairNameKey) : '';
+    addField('Пара', item.pair_name, 'is-pair', { href: pairLink });
     addField('Пол', item.gender, 'is-gender');
     if (Number.isFinite(item.age))
       addField('Возраст', String(item.age), 'is-age');
@@ -735,9 +746,18 @@
 
     const mapByName = new Map();
     const linkMap = new Map();
+    const nameToLink = new Map();
+    items.forEach((it) => {
+      const link = (it.link || '').trim();
+      if (!link) return;
+      const ru = normKey(it.name);
+      const en = normKey(it.name_en);
+      if (ru) nameToLink.set(ru, link);
+      if (en) nameToLink.set(en, link);
+    });
 
     const cards = items.map((it) => {
-      const card = makeCard(it);
+      const card = makeCard(it, nameToLink);
       cont.appendChild(card);
 
       const ru = normKey(it.name);
@@ -1409,6 +1429,7 @@
   helpers.runOnceOnReady(init);
   helpers.register('charactersParser', { init });
 })();
+
 
 
 
