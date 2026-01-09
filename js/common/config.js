@@ -1189,8 +1189,19 @@
         titleOffline: 'Был(а) онлайн {{time}}',
       },
     },
+    usershow: {
+     rootSelector: '#pun-main',
+     messageSelectors: ['.post-content', '.postmsg'],
+     alwaysUsers: ['Admin', 'Moderator'],
+     alwaysGroups: [1],
+     showAllowedListInStub: true,
+     citeText: 'Скрытый текст:',
+     stubText: 'Скрытый текст доступен только определённым пользователям.',
+     prehide: true,
+   },
   };
 })();
+
 
 
 
