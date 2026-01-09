@@ -60,6 +60,7 @@
       fastMultiplier: 1.5,
       fastThresholdSeconds: 24 * 3600,
       episodeForumId: 17,
+      episodeCompletedForumId: 17,
       endpoints: {
         bankApiUrl: 'https://feathertail.ru/ks/bank/bank-api.php',
         stateApiUrl: 'https://feathertail.ru/ks/rewards/rewards-state-api.php',
@@ -1190,6 +1191,7 @@
     },
   };
 })();
+
 
 
 
