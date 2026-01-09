@@ -90,6 +90,167 @@
     return { [headerName]: token };
   }
 
+  function isObject(v) {
+    return v && typeof v === 'object';
+  }
+
+  function cloneEpisodeParticipants(cursor) {
+    const ep = cursor && isObject(cursor.episodeParticipants) ? cursor.episodeParticipants : null;
+    if (!ep) return null;
+    try {
+      return { ...ep };
+    } catch {
+      return ep;
+    }
+  }
+  
+  function ensureEpisodeParticipantsContainer(topicForumId, cursor) {
+    let ep = cloneEpisodeParticipants(cursor);
+  
+    const f = Number(topicForumId) || 0;
+    const epForum = Number(SETTINGS.episodeForumId) || 0;
+    const doneForum = Number(SETTINGS.episodeCompletedForumId) || 0;
+  
+    const shouldHave = (epForum && f === epForum) || (doneForum && f === doneForum);
+    if (!ep && shouldHave) ep = {};
+    return ep;
+  }
+  
+  async function buildEpisodeParticipantsFromPosts(topicId, log) {
+    const posts = await getAllPostsForTopicAsc(topicId, log);
+    const ep = {};
+  
+    for (let i = 0; i < posts.length; i += 1) {
+      const p = posts[i];
+      const uname = (p.username || '').trim();
+      if (!uname) continue;
+  
+      let uid = p.userId;
+      if (!uid) uid = await getUserIdByUsername(uname, log);
+  
+      if (uid && uid > 0) {
+        ep[String(uid)] = uname;
+      } else {
+        ep[`name:${uname.toLowerCase()}`] = uname;
+      }
+    }
+  
+    return ep;
+  }
+  
+  async function normalizeEpisodeParticipants(ep, log) {
+    if (!isObject(ep)) return ep;
+  
+    const keys = Object.keys(ep);
+    for (const k of keys) {
+      if (!k.startsWith('name:')) continue;
+  
+      const uname = safeText(ep[k]).trim();
+      if (!uname) {
+        delete ep[k];
+        continue;
+      }
+  
+      const uid = await getUserIdByUsername(uname, log);
+      if (uid && uid > 0) {
+        delete ep[k];
+        ep[String(uid)] = uname;
+      }
+    }
+  
+    return ep;
+  }
+  
+  function getEpisodeMeta(ep) {
+    const cfg = SETTINGS.episodeCompletion || DEFAULT_CONFIG.episodeCompletion;
+    const metaKey = String(cfg?.metaKey || '__meta__');
+    const meta = isObject(ep?.[metaKey]) ? ep[metaKey] : {};
+    return { metaKey, meta };
+  }
+  
+  function setEpisodeMeta(ep, patch) {
+    const cfg = SETTINGS.episodeCompletion || DEFAULT_CONFIG.episodeCompletion;
+    const metaKey = String(cfg?.metaKey || '__meta__');
+    const meta = isObject(ep?.[metaKey]) ? ep[metaKey] : {};
+    ep[metaKey] = { ...meta, ...patch };
+  }
+  
+  async function applyEpisodeCompletionsFromCompletedForum(topics, baseById, nextCursors, log) {
+    const cfg = SETTINGS.episodeCompletion || DEFAULT_CONFIG.episodeCompletion;
+    if (!cfg || cfg.enabled === false) return;
+  
+    const completedForumId = Number(SETTINGS.episodeCompletedForumId) || 0;
+    if (!completedForumId) return;
+  
+    const rewardedKey = String(cfg.rewardedKey || 'completedRewarded');
+    const rewardedAtKey = String(cfg.rewardedAtKey || 'completedRewardedAt');
+    const completedAtKey = String(cfg.completedAtKey || 'completedAt');
+  
+    const tsNow = nowSec();
+  
+    let topicsAwarded = 0;
+    let userAwards = 0;
+  
+    for (const t of topics) {
+      if (Number(t.forum_id) !== completedForumId) continue;
+  
+      const cur = nextCursors.get(t.id);
+      if (!cur) continue;
+  
+      let ep = isObject(cur.episodeParticipants) ? cur.episodeParticipants : null;
+  
+      const hasSome = ep && Object.keys(ep).some((k) => /^\d+$/.test(k) || k.startsWith('name:'));
+      if (!hasSome) {
+        log(`episode topic#${t.id}: нет участников в курсоре → строю из постов`);
+        ep = await buildEpisodeParticipantsFromPosts(t.id, log);
+      }
+  
+      await normalizeEpisodeParticipants(ep, log);
+  
+      const { meta } = getEpisodeMeta(ep);
+      if (meta && meta[rewardedKey]) {
+        cur.episodeParticipants = ep;
+        continue;
+      }
+  
+      const uids = Object.keys(ep)
+        .filter((k) => /^\d+$/.test(k))
+        .map((k) => Number(k))
+        .filter((n) => Number.isFinite(n) && n > 0);
+  
+      const uniq = Array.from(new Set(uids));
+      if (!uniq.length) {
+        log(`episode topic#${t.id}: участников (uid) не найдено → пропуск`);
+        cur.episodeParticipants = ep;
+        continue;
+      }
+  
+      for (const uid of uniq) {
+        const uname = safeText(ep[String(uid)] || '');
+        const rec = ensureUser(baseById, uid, uname);
+        if (!rec) continue;
+        rec.episodesTotal += 1;
+        userAwards += 1;
+      }
+  
+      setEpisodeMeta(ep, {
+        [completedAtKey]: meta && meta[completedAtKey] ? meta[completedAtKey] : tsNow,
+        [rewardedKey]: 1,
+        [rewardedAtKey]: tsNow,
+      });
+  
+      cur.episodeParticipants = ep;
+      nextCursors.set(t.id, cur);
+  
+      topicsAwarded += 1;
+      log(`episode topic#${t.id}: начислено участникам ${uniq.length} (marked rewarded)`);
+    }
+  
+    if (topicsAwarded) {
+      log(`episodes completion: тем=${topicsAwarded}, начислений пользователям=${userAwards}`);
+    }
+  }
+
   async function fetchJsonWithRetry(url, label = 'request') {
     const { retryAttempts, retryBaseDelayMs, logToConsole } = SETTINGS;
     let lastError = null;
@@ -616,7 +777,6 @@
     const fastThreshold = SETTINGS.fastThresholdSeconds || 24 * 3600;
     const tsNow = nowSec();
 
-    // 1) Быстрая ветка
     if (
       cursor &&
       topic.last_post_id &&
@@ -627,13 +787,11 @@
       return;
     }
 
-    // 2) Нет курсора — полный скан
     if (!cursor || !cursor.lastPostId) {
       log(`topic#${topic.id}: no cursor → full scan`);
       const posts = await getAllPostsForTopicAsc(topic.id, log);
 
-      let epParticipants = null;
-      if (topic.forum_id === Number(SETTINGS.episodeForumId)) epParticipants = {};
+      let epParticipants = ensureEpisodeParticipantsContainer(topic.forum_id, cursor);
 
       let prev = null;
 
@@ -758,10 +916,7 @@
       const lastPostedBoundary = Number(cursor.lastPostedTs) || 0;
       const lastIdBoundary = targetId;
 
-      let epParticipants = cursor.episodeParticipants ? { ...cursor.episodeParticipants } : null;
-      if (topic.forum_id === Number(SETTINGS.episodeForumId)) {
-        if (!epParticipants) epParticipants = {};
-      }
+      let epParticipants = ensureEpisodeParticipantsContainer(topic.forum_id, cursor);
 
       const newPosts = fallback.filter((p) => p.id > lastIdBoundary);
 
@@ -856,10 +1011,7 @@
       if (cursorPost && cursorPost.posted) boundaryPosted = cursorPost.posted;
     }
 
-    let epParticipants = cursor.episodeParticipants ? { ...cursor.episodeParticipants } : null;
-    if (topic.forum_id === Number(SETTINGS.episodeForumId)) {
-      if (!epParticipants) epParticipants = {};
-    }
+    let epParticipants = ensureEpisodeParticipantsContainer(topic.forum_id, cursor);
 
     let prevPosted = boundaryPosted;
 
@@ -1027,7 +1179,7 @@
         await sleep(SETTINGS.delayBetweenRequestsMs);
       }
 
-      applyEpisodeTotalsFromParticipants(baseById, nextCursors, lastPrevCursors, log);
+      await applyEpisodeCompletionsFromCompletedForum(topics, baseById, nextCursors, log);
 
       const users = Array.from(baseById.values()).filter(
         (u) => Number.isFinite(u.userId) && u.userId > 0,
@@ -1157,5 +1309,6 @@
   else if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();
 })();
+
 
 
