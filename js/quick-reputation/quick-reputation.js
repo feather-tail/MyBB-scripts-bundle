@@ -1,45 +1,5 @@
 (() => {
   'use strict';
-  window.ScriptConfig = {
-    quickReputation: {
-      enabled: true,
-      addComment: true,
-      behavior: {
-        ratingClickMode: 'ajax+default',
-        openDefaultWithCtrlClick: true,
-        modalFix: {
-          enabled: true,
-          lockScroll: true,
-          useVisualViewport: true,
-        },
-      },
-      selectors: {
-        post: '.post',
-        ratingLink: '.post-rating p > a',
-        postVoteBlock: 'div.post-vote',
-        postVoteLink: 'div.post-vote p > a',
-        emailProfileLink: '.pl-email a[href*="profile.php?"]',
-        respectField: '.pa-respect',
-        positiveField: '.pa-positive',
-        reputationSendBtn: '#reputationButtonSend',
-      },
-      classes: {
-        noNull: 'noNull',
-      },
-      texts: {
-        plusNoCommentTitle: 'Плюс без комментария',
-        plusWithCommentTitle: 'Плюсики с комментарием',
-        ignoreAlertSubstring: 'Мы не смогли сохранить ваше сообщение',
-      },
-      ids: {
-        postVotePrefix: 'post-',
-      },
-    },
-  };
-})();
-
-(() => {
-  'use strict';
 
   const cfgRoot =
     (window.ScriptConfig && window.ScriptConfig.quickReputation) || {};
@@ -52,6 +12,7 @@
   const behaviorCfg = cfgRoot.behavior || {};
 
   const POST_SELECTOR = sel.post || '.post';
+  const POSTBOX_SELECTOR = sel.postBox || '.post-box';
   const RATING_LINK_SELECTOR = sel.ratingLink || '.post-rating p > a';
   const POSTVOTE_BLOCK_SELECTOR = sel.postVoteBlock || 'div.post-vote';
   const POSTVOTE_LINK_SELECTOR = sel.postVoteLink || 'div.post-vote p > a';
@@ -76,11 +37,6 @@
   const ratingClickMode = behaviorCfg.ratingClickMode || 'ajax-only';
   const openDefaultWithCtrlClick =
     behaviorCfg.openDefaultWithCtrlClick !== false;
-
-  const modalFixCfg = behaviorCfg.modalFix || {};
-  const modalFixEnabled = modalFixCfg.enabled !== false;
-  const modalFixLockScroll = modalFixCfg.lockScroll !== false;
-  const modalFixUseVV = modalFixCfg.useVisualViewport !== false;
 
   const originalAlert =
     typeof window.alert === 'function' ? window.alert.bind(window) : null;
@@ -119,19 +75,19 @@
 
   const getUserIdFromProfileLink = (href) => {
     if (!href) return null;
-    const m = href.match(/[?&]id=(\d+)/);
+    const m = href.match(/\?id=(\d+)$/);
     return m ? m[1] : null;
   };
 
   const getPostIdFromHref = (href) => {
     if (!href) return null;
-    const m = href.match(/[?&]id=(\d+)/);
+    const m = href.match(/\?id=(\d+)/);
     return m ? m[1] : null;
   };
 
   const getVoteValueFromHref = (href) => {
     if (!href) return 1;
-    const m = href.match(/[?&]v=(\d+)/);
+    const m = href.match(/&v=(\d+)/);
     if (!m) return 1;
     const vRaw = parseInt(m[1], 10);
     return vRaw === 0 ? -1 : 1;
@@ -149,7 +105,7 @@
     if (!uid) return result;
 
     const anchors = document.querySelectorAll(
-      `.pl-email a[href*="profile.php?id=${uid}"]`,
+      `.pl-email a[href$="profile.php?id=${uid}"]`,
     );
     anchors.forEach((a) => {
       const post = a.closest(POST_SELECTOR);
@@ -167,7 +123,7 @@
     if (!myId) return result;
 
     const anchors = document.querySelectorAll(
-      `.pl-email a[href*="profile.php?id=${myId}"]`,
+      `.pl-email a[href$="profile.php?id=${myId}"]`,
     );
     anchors.forEach((a) => {
       const post = a.closest(POST_SELECTOR);
@@ -250,7 +206,7 @@
     }
   };
 
-  const sendQuickPlus = (post) => {
+  const sendQuickPlus = (post, ratingLink) => {
     if (!post) return;
 
     const voteLink = post.querySelector(POSTVOTE_LINK_SELECTOR);
@@ -286,7 +242,9 @@
       const ratingEl = document.querySelector(`#p${pid} .post-rating p > a`);
       if (ratingEl) {
         let pr = data.response;
-        if (typeof pr === 'number') pr = pr.toString();
+        if (typeof pr === 'number') {
+          pr = pr.toString();
+        }
         const n = parseInt(pr, 10);
         ratingEl.textContent = Number.isNaN(n) ? String(pr) : String(n);
         if (!Number.isNaN(n) && n > 0) {
@@ -366,133 +324,202 @@
     }
   };
 
-  const setupReputationModalFix = () => {
-    if (!modalFixEnabled) return;
+  const setupMobileReputationModalFix = () => {
+    let bound = false;
+    let overlay = null;
+    let inner = null;
+    let scrollY = 0;
+    let locked = false;
+    let raf = 0;
 
-    const tryInit = () => {
-      const root = document.querySelector(REPUTATION_OVERLAY_SELECTOR);
-      if (!root) return false;
+    const lockScroll = () => {
+      if (locked) return;
+      locked = true;
+      scrollY = window.scrollY || document.documentElement.scrollTop || 0;
+      document.documentElement.classList.add('qr-modal-open');
+      document.body.classList.add('qr-modal-open');
+      document.body.style.top = `-${scrollY}px`;
+    };
 
-      const vv = modalFixUseVV ? window.visualViewport : null;
-      let locked = false;
-      let savedScrollY = 0;
+    const unlockScroll = () => {
+      if (!locked) return;
+      locked = false;
+      document.documentElement.classList.remove('qr-modal-open');
+      document.body.classList.remove('qr-modal-open');
+      const top = document.body.style.top;
+      document.body.style.top = '';
+      const y = scrollY;
+      scrollY = 0;
+      window.scrollTo(0, y);
+    };
 
-      const setVars = () => {
-        const h = vv ? Math.round(vv.height) : window.innerHeight;
-        const top = vv ? Math.round(vv.offsetTop) : 0;
-        document.documentElement.style.setProperty('--qr-vh', `${h}px`);
-        document.documentElement.style.setProperty('--qr-vv-top', `${top}px`);
-      };
+    const getOpenState = () => {
+      if (!overlay) return false;
+      const inr =
+        inner ||
+        overlay.querySelector('.inner.post_reputation') ||
+        overlay.querySelector('.inner');
+      if (!inr) return false;
+      const cs = window.getComputedStyle(inr);
+      if (cs.display === 'none' || cs.visibility === 'hidden') return false;
+      return inr.getClientRects().length > 0;
+    };
 
-      const isVisible = () => {
-        const inner = root.querySelector('.inner.post_reputation, .inner');
-        if (!inner) return false;
-        return window.getComputedStyle(inner).display !== 'none';
-      };
+    const enhanceButtons = () => {
+      if (!overlay) return;
+      const send = overlay.querySelector('#reputationButtonSend');
+      const cancel = overlay.querySelector('#reputationButtonCancel');
+      if (!send || !cancel) return;
+      const parent = send.parentElement;
+      if (!parent) return;
+      if (parent.querySelector('.qr-actions')) return;
 
-      const lockScroll = () => {
-        if (!modalFixLockScroll || locked) return;
-        locked = true;
-        savedScrollY = window.scrollY || window.pageYOffset || 0;
-        document.documentElement.classList.add('qr-modal-open');
-        document.body.style.position = 'fixed';
-        document.body.style.top = `-${savedScrollY}px`;
-        document.body.style.left = '0';
-        document.body.style.right = '0';
-        document.body.style.width = '100%';
-      };
+      const actions = document.createElement('div');
+      actions.className = 'qr-actions';
+      actions.append(send);
+      actions.append(cancel);
 
-      const unlockScroll = () => {
-        if (!modalFixLockScroll || !locked) return;
-        locked = false;
-        document.documentElement.classList.remove('qr-modal-open');
-        const top = document.body.style.top;
-        document.body.style.position = '';
-        document.body.style.top = '';
-        document.body.style.left = '';
-        document.body.style.right = '';
-        document.body.style.width = '';
-        const y = top ? -parseInt(top, 10) : savedScrollY;
-        window.scrollTo(0, Number.isFinite(y) ? y : 0);
-      };
+      parent.textContent = '';
+      parent.append(actions);
+    };
 
-      const ensureButtonTaps = () => {
-        const send = root.querySelector('#reputationButtonSend');
-        const cancel = root.querySelector('#reputationButtonCancel');
-        const btns = [send, cancel].filter(Boolean);
-        btns.forEach((btn) => {
-          if (btn.__qrTapBound) return;
-          btn.__qrTapBound = true;
+    const updateVars = () => {
+      if (!overlay) return;
+      const vv = window.visualViewport;
+      const h = vv && vv.height ? vv.height : window.innerHeight;
+      const top = vv && typeof vv.offsetTop === 'number' ? vv.offsetTop : 0;
 
-          btn.addEventListener(
-            'touchend',
-            (ev) => {
-              if (ev && ev.cancelable) ev.preventDefault();
-              btn.click();
-            },
-            { passive: false },
-          );
-        });
-      };
+      document.documentElement.style.setProperty('--qr-vvh', `${h}px`);
+      document.documentElement.style.setProperty('--qr-vv-top', `${top}px`);
 
-      const onOpen = () => {
-        setVars();
-        lockScroll();
-        ensureButtonTaps();
-      };
+      const baseH = window.innerHeight || h;
+      const kbdOpen = vv ? baseH - vv.height > 120 : false;
+      overlay.classList.toggle('qr-kbd', !!kbdOpen);
+    };
 
-      const onClose = () => {
-        unlockScroll();
-      };
+    const scheduleUpdate = () => {
+      if (raf) return;
+      raf = requestAnimationFrame(() => {
+        raf = 0;
+        updateVars();
+      });
+    };
 
-      setVars();
+    const ensureVisibleInScrollContainer = (el) => {
+      if (!overlay || !el) return;
+      const sc =
+        overlay.querySelector('.inner.post_reputation .container') ||
+        overlay.querySelector('.inner .container') ||
+        overlay.querySelector('.inner.post_reputation') ||
+        overlay.querySelector('.inner');
+      if (!sc) return;
 
-      if (vv) {
-        vv.addEventListener('resize', setVars);
-        vv.addEventListener('scroll', setVars);
+      const sr = sc.getBoundingClientRect();
+      const r = el.getBoundingClientRect();
+
+      const pad = 12;
+      const bottomLimit = sr.bottom - pad;
+      const topLimit = sr.top + pad;
+
+      if (r.bottom > bottomLimit) {
+        sc.scrollTop += r.bottom - bottomLimit;
+      } else if (r.top < topLimit) {
+        sc.scrollTop -= topLimit - r.top;
       }
-      window.addEventListener('orientationchange', () => setTimeout(setVars, 50));
+    };
 
-      root.addEventListener(
+    const bindOverlay = (node) => {
+      if (bound || !node) return;
+      overlay = node;
+      inner =
+        overlay.querySelector('.inner.post_reputation') ||
+        overlay.querySelector('.inner') ||
+        null;
+      bound = true;
+
+      const applyState = () => {
+        const open = getOpenState();
+        overlay.classList.toggle('qr-active', open);
+
+        if (open) {
+          lockScroll();
+          enhanceButtons();
+          scheduleUpdate();
+        } else {
+          unlockScroll();
+        }
+      };
+
+      const mo = new MutationObserver(() => {
+        applyState();
+      });
+      mo.observe(overlay, {
+        subtree: true,
+        childList: true,
+        attributes: true,
+        attributeFilter: ['style', 'class'],
+      });
+
+      overlay.addEventListener(
         'focusin',
-        (ev) => {
-          if (!isVisible()) return;
-          setVars();
-          const t = ev && ev.target;
-          if (t && typeof t.scrollIntoView === 'function') {
-            setTimeout(() => {
-              setVars();
-              t.scrollIntoView({ block: 'center' });
-            }, 60);
+        (e) => {
+          if (!getOpenState()) return;
+          scheduleUpdate();
+          const t = e.target;
+          if (!t) return;
+          const tag = (t.tagName || '').toLowerCase();
+          if (tag === 'textarea' || tag === 'input') {
+            setTimeout(() => ensureVisibleInScrollContainer(t), 60);
           }
         },
         true,
       );
 
-      const mo = new MutationObserver(() => {
-        setVars();
-        if (isVisible()) onOpen();
-        else onClose();
-      });
+      overlay.addEventListener(
+        'click',
+        (e) => {
+          const t = e.target;
+          if (!t) return;
+          if (
+            t.id === 'reputationButtonCancel' ||
+            t.closest('#reputationButtonCancel')
+          ) {
+            setTimeout(() => {
+              scheduleUpdate();
+            }, 0);
+          }
+        },
+        true,
+      );
 
-      mo.observe(root, {
-        attributes: true,
-        attributeFilter: ['style', 'class'],
-        subtree: true,
-      });
+      if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', scheduleUpdate, {
+          passive: true,
+        });
+        window.visualViewport.addEventListener('scroll', scheduleUpdate, {
+          passive: true,
+        });
+      } else {
+        window.addEventListener('resize', scheduleUpdate, { passive: true });
+      }
 
-      if (isVisible()) onOpen();
-
-      return true;
+      applyState();
     };
 
-    if (tryInit()) return;
+    const findAndBind = () => {
+      const node = document.querySelector(REPUTATION_OVERLAY_SELECTOR);
+      if (node) bindOverlay(node);
+      return !!node;
+    };
 
-    const domObs = new MutationObserver(() => {
-      if (tryInit()) domObs.disconnect();
-    });
-
-    domObs.observe(document.documentElement, { childList: true, subtree: true });
+    if (!findAndBind()) {
+      const docMo = new MutationObserver(() => {
+        if (findAndBind()) {
+          docMo.disconnect();
+        }
+      });
+      docMo.observe(document.documentElement, { childList: true, subtree: true });
+    }
   };
 
   const init = () => {
@@ -545,7 +572,7 @@
         }
 
         if (doAjax) {
-          sendQuickPlus(post);
+          sendQuickPlus(post, link);
         }
 
         if (cancelDefault) {
@@ -558,8 +585,7 @@
     });
 
     document.addEventListener('click', onDocumentClick);
-
-    setupReputationModalFix();
+    setupMobileReputationModalFix();
   };
 
   if (document.readyState === 'loading') {
