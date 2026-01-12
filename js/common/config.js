@@ -473,6 +473,7 @@
       headingDone: 'Завершённые эпизоды',
       seriesDefaultStyle: 'https://forumstatic.ru/files/001c/82/f2/24385.css',
       seriesStyles: {},
+      announceMaxChars: 220,
     },
     cursorManager: {
       insertAfterSelector: '#pun-crumbs1',
@@ -1201,6 +1202,7 @@
    },
   };
 })();
+
 
 
 
