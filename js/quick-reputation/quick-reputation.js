@@ -1,5 +1,45 @@
 (() => {
   'use strict';
+  window.ScriptConfig = {
+    quickReputation: {
+      enabled: true,
+      addComment: true,
+      behavior: {
+        ratingClickMode: 'ajax+default',
+        openDefaultWithCtrlClick: true,
+        modalFix: {
+          enabled: true,
+          lockScroll: true,
+          useVisualViewport: true,
+        },
+      },
+      selectors: {
+        post: '.post',
+        ratingLink: '.post-rating p > a',
+        postVoteBlock: 'div.post-vote',
+        postVoteLink: 'div.post-vote p > a',
+        emailProfileLink: '.pl-email a[href*="profile.php?"]',
+        respectField: '.pa-respect',
+        positiveField: '.pa-positive',
+        reputationSendBtn: '#reputationButtonSend',
+      },
+      classes: {
+        noNull: 'noNull',
+      },
+      texts: {
+        plusNoCommentTitle: 'Плюс без комментария',
+        plusWithCommentTitle: 'Плюсики с комментарием',
+        ignoreAlertSubstring: 'Мы не смогли сохранить ваше сообщение',
+      },
+      ids: {
+        postVotePrefix: 'post-',
+      },
+    },
+  };
+})();
+
+(() => {
+  'use strict';
 
   const cfgRoot =
     (window.ScriptConfig && window.ScriptConfig.quickReputation) || {};
@@ -12,7 +52,6 @@
   const behaviorCfg = cfgRoot.behavior || {};
 
   const POST_SELECTOR = sel.post || '.post';
-  const POSTBOX_SELECTOR = sel.postBox || '.post-box';
   const RATING_LINK_SELECTOR = sel.ratingLink || '.post-rating p > a';
   const POSTVOTE_BLOCK_SELECTOR = sel.postVoteBlock || 'div.post-vote';
   const POSTVOTE_LINK_SELECTOR = sel.postVoteLink || 'div.post-vote p > a';
@@ -37,6 +76,11 @@
   const ratingClickMode = behaviorCfg.ratingClickMode || 'ajax-only';
   const openDefaultWithCtrlClick =
     behaviorCfg.openDefaultWithCtrlClick !== false;
+
+  const modalFixCfg = behaviorCfg.modalFix || {};
+  const modalFixEnabled = modalFixCfg.enabled !== false;
+  const modalFixLockScroll = modalFixCfg.lockScroll !== false;
+  const modalFixUseVV = modalFixCfg.useVisualViewport !== false;
 
   const originalAlert =
     typeof window.alert === 'function' ? window.alert.bind(window) : null;
@@ -75,19 +119,19 @@
 
   const getUserIdFromProfileLink = (href) => {
     if (!href) return null;
-    const m = href.match(/\?id=(\d+)$/);
+    const m = href.match(/[?&]id=(\d+)/);
     return m ? m[1] : null;
   };
 
   const getPostIdFromHref = (href) => {
     if (!href) return null;
-    const m = href.match(/\?id=(\d+)/);
+    const m = href.match(/[?&]id=(\d+)/);
     return m ? m[1] : null;
   };
 
   const getVoteValueFromHref = (href) => {
     if (!href) return 1;
-    const m = href.match(/&v=(\d+)/);
+    const m = href.match(/[?&]v=(\d+)/);
     if (!m) return 1;
     const vRaw = parseInt(m[1], 10);
     return vRaw === 0 ? -1 : 1;
@@ -105,7 +149,7 @@
     if (!uid) return result;
 
     const anchors = document.querySelectorAll(
-      `.pl-email a[href$="profile.php?id=${uid}"]`,
+      `.pl-email a[href*="profile.php?id=${uid}"]`,
     );
     anchors.forEach((a) => {
       const post = a.closest(POST_SELECTOR);
@@ -123,7 +167,7 @@
     if (!myId) return result;
 
     const anchors = document.querySelectorAll(
-      `.pl-email a[href$="profile.php?id=${myId}"]`,
+      `.pl-email a[href*="profile.php?id=${myId}"]`,
     );
     anchors.forEach((a) => {
       const post = a.closest(POST_SELECTOR);
@@ -206,7 +250,7 @@
     }
   };
 
-  const sendQuickPlus = (post, ratingLink) => {
+  const sendQuickPlus = (post) => {
     if (!post) return;
 
     const voteLink = post.querySelector(POSTVOTE_LINK_SELECTOR);
@@ -242,9 +286,7 @@
       const ratingEl = document.querySelector(`#p${pid} .post-rating p > a`);
       if (ratingEl) {
         let pr = data.response;
-        if (typeof pr === 'number') {
-          pr = pr.toString();
-        }
+        if (typeof pr === 'number') pr = pr.toString();
         const n = parseInt(pr, 10);
         ratingEl.textContent = Number.isNaN(n) ? String(pr) : String(n);
         if (!Number.isNaN(n) && n > 0) {
@@ -324,6 +366,135 @@
     }
   };
 
+  const setupReputationModalFix = () => {
+    if (!modalFixEnabled) return;
+
+    const tryInit = () => {
+      const root = document.querySelector(REPUTATION_OVERLAY_SELECTOR);
+      if (!root) return false;
+
+      const vv = modalFixUseVV ? window.visualViewport : null;
+      let locked = false;
+      let savedScrollY = 0;
+
+      const setVars = () => {
+        const h = vv ? Math.round(vv.height) : window.innerHeight;
+        const top = vv ? Math.round(vv.offsetTop) : 0;
+        document.documentElement.style.setProperty('--qr-vh', `${h}px`);
+        document.documentElement.style.setProperty('--qr-vv-top', `${top}px`);
+      };
+
+      const isVisible = () => {
+        const inner = root.querySelector('.inner.post_reputation, .inner');
+        if (!inner) return false;
+        return window.getComputedStyle(inner).display !== 'none';
+      };
+
+      const lockScroll = () => {
+        if (!modalFixLockScroll || locked) return;
+        locked = true;
+        savedScrollY = window.scrollY || window.pageYOffset || 0;
+        document.documentElement.classList.add('qr-modal-open');
+        document.body.style.position = 'fixed';
+        document.body.style.top = `-${savedScrollY}px`;
+        document.body.style.left = '0';
+        document.body.style.right = '0';
+        document.body.style.width = '100%';
+      };
+
+      const unlockScroll = () => {
+        if (!modalFixLockScroll || !locked) return;
+        locked = false;
+        document.documentElement.classList.remove('qr-modal-open');
+        const top = document.body.style.top;
+        document.body.style.position = '';
+        document.body.style.top = '';
+        document.body.style.left = '';
+        document.body.style.right = '';
+        document.body.style.width = '';
+        const y = top ? -parseInt(top, 10) : savedScrollY;
+        window.scrollTo(0, Number.isFinite(y) ? y : 0);
+      };
+
+      const ensureButtonTaps = () => {
+        const send = root.querySelector('#reputationButtonSend');
+        const cancel = root.querySelector('#reputationButtonCancel');
+        const btns = [send, cancel].filter(Boolean);
+        btns.forEach((btn) => {
+          if (btn.__qrTapBound) return;
+          btn.__qrTapBound = true;
+
+          btn.addEventListener(
+            'touchend',
+            (ev) => {
+              if (ev && ev.cancelable) ev.preventDefault();
+              btn.click();
+            },
+            { passive: false },
+          );
+        });
+      };
+
+      const onOpen = () => {
+        setVars();
+        lockScroll();
+        ensureButtonTaps();
+      };
+
+      const onClose = () => {
+        unlockScroll();
+      };
+
+      setVars();
+
+      if (vv) {
+        vv.addEventListener('resize', setVars);
+        vv.addEventListener('scroll', setVars);
+      }
+      window.addEventListener('orientationchange', () => setTimeout(setVars, 50));
+
+      root.addEventListener(
+        'focusin',
+        (ev) => {
+          if (!isVisible()) return;
+          setVars();
+          const t = ev && ev.target;
+          if (t && typeof t.scrollIntoView === 'function') {
+            setTimeout(() => {
+              setVars();
+              t.scrollIntoView({ block: 'center' });
+            }, 60);
+          }
+        },
+        true,
+      );
+
+      const mo = new MutationObserver(() => {
+        setVars();
+        if (isVisible()) onOpen();
+        else onClose();
+      });
+
+      mo.observe(root, {
+        attributes: true,
+        attributeFilter: ['style', 'class'],
+        subtree: true,
+      });
+
+      if (isVisible()) onOpen();
+
+      return true;
+    };
+
+    if (tryInit()) return;
+
+    const domObs = new MutationObserver(() => {
+      if (tryInit()) domObs.disconnect();
+    });
+
+    domObs.observe(document.documentElement, { childList: true, subtree: true });
+  };
+
   const init = () => {
     if (addCommentEnabled) {
       const voteBlocks = document.querySelectorAll(POSTVOTE_BLOCK_SELECTOR);
@@ -374,7 +545,7 @@
         }
 
         if (doAjax) {
-          sendQuickPlus(post, link);
+          sendQuickPlus(post);
         }
 
         if (cancelDefault) {
@@ -387,6 +558,8 @@
     });
 
     document.addEventListener('click', onDocumentClick);
+
+    setupReputationModalFix();
   };
 
   if (document.readyState === 'loading') {
