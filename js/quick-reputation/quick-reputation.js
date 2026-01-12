@@ -206,6 +206,36 @@
     }
   };
 
+  const isCoarsePointer = () =>
+    Boolean(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+
+  const isEditableTextField = (el) => {
+    if (!el || !el.tagName) return false;
+    if (el.tagName === 'TEXTAREA') return true;
+    if (el.tagName !== 'INPUT') return false;
+    const type = (el.getAttribute('type') || '').toLowerCase();
+    return [
+      'text',
+      'search',
+      'email',
+      'url',
+      'tel',
+      'password',
+    ].includes(type);
+  };
+
+  const avoidMobileFocusZoom = (target) => {
+    if (!isCoarsePointer() || !isEditableTextField(target)) return;
+    const overlay = document.querySelector(REPUTATION_OVERLAY_SELECTOR);
+    if (!overlay || !overlay.contains(target)) return;
+
+    const style = window.getComputedStyle(target);
+    const fontSize = parseFloat(style.fontSize);
+    if (!Number.isNaN(fontSize) && fontSize < 16) {
+      target.style.fontSize = '16px';
+    }
+  };
+
   const sendQuickPlus = (post, ratingLink) => {
     if (!post) return;
 
@@ -387,6 +417,9 @@
     });
 
     document.addEventListener('click', onDocumentClick);
+    document.addEventListener('focusin', (event) => {
+      avoidMobileFocusZoom(event.target);
+    });
   };
 
   if (document.readyState === 'loading') {
@@ -395,3 +428,4 @@
     init();
   }
 })();
+
