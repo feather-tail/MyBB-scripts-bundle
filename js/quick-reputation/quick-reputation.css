@@ -1,0 +1,32 @@
+.rsp_wrap {
+  margin: 10px 0 0;
+  display: flex;
+  justify-content: flex-start;
+  flex-direction: row-reverse;
+  gap: 20px;
+}
+.rsp_wrap .post-vote p {
+  padding: 0 !important;
+  margin-right: 0 !important;
+}
+
+.rsp_wrap .post-vote {
+  padding: 0;
+  cursor: pointer;
+}
+
+.rsp_wrap .post-vote .container {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rsp_wrap .post-vote a.positive {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 15px;
+  width: 100%;
+  height: 100%;
+}
