@@ -471,7 +471,7 @@
       mountId: 'chrono-root',
       headingActive: 'Активные эпизоды',
       headingDone: 'Завершённые эпизоды',
-      seriesDefaultStyle: 'https://forumstatic.ru/files/001c/82/f2/24385.css',
+      seriesDefaultStyle: 'https://forumstatic.ru/files/001c/82/f2/24385.css?v=3',
       seriesStyles: {},
       announceMaxChars: 220,
     },
@@ -1202,3 +1202,4 @@
    },
   };
 })();
+
