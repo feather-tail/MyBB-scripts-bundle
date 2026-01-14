@@ -43,8 +43,25 @@
   };
 
   const setTooltipPos = (el, pageX, pageY) => {
-    el.style.left = pageX + yOffset + 'px';
-    el.style.top = pageY + xOffset + 'px';
+    const scrollX = window.pageXOffset || 0;
+    const scrollY = window.pageYOffset || 0;
+    const clientX = pageX - scrollX;
+    const clientY = pageY - scrollY;
+    const tipRect = el.getBoundingClientRect();
+    const viewportWidth = document.documentElement.clientWidth;
+
+    let left = pageX + xOffset;
+    const rightEdge = clientX + xOffset + tipRect.width;
+    if (rightEdge > viewportWidth) {
+      left = pageX - tipRect.width - xOffset;
+    }
+
+    if (left < scrollX) {
+      left = scrollX;
+    }
+
+    el.style.left = left + 'px';
+    el.style.top = clientY + yOffset + scrollY + 'px';
   };
 
   const showTooltipFor = (el, pageX, pageY) => {
@@ -191,3 +208,4 @@
     start();
   }
 })();
+
