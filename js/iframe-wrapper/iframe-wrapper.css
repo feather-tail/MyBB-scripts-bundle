@@ -1,0 +1,22 @@
+.punbb .post-video {
+  width: 100%;
+  max-width: 100%;
+}
+
+.punbb .post-video__inner {
+  position: relative;
+  width: 100%;
+  padding-top: 56.25%;
+  overflow: hidden;
+}
+
+.punbb .post-video__inner iframe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100% !important;
+  height: 100% !important;
+  margin: 0;
+  border: 0;
+  box-sizing: border-box;
+}
