@@ -1166,6 +1166,14 @@
             subjectIncludes: ['Флуд', 'Мысли'],
           },
         },
+        {
+          userId: 45,
+          login: 'Casey Addams',
+          block: {
+            topicIds: [382],
+            subjectIncludes: ['Новое начало'],
+          },
+        },
       ],
     },
     userActivityIndicator: {
@@ -1202,5 +1210,6 @@
    },
   };
 })();
+
 
 
