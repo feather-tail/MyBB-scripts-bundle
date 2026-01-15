@@ -1159,11 +1159,11 @@
       },
       users: [
         {
-          userId: 0,
-          login: '',
+          userId: 110,
+          login: 'Evelyn Evangeline',
           block: {
-            topicIds: [],
-            subjectIncludes: [''],
+            topicIds: [465, 462],
+            subjectIncludes: ['Флуд', 'Мысли'],
           },
         },
       ],
@@ -1202,4 +1202,5 @@
    },
   };
 })();
+
 
