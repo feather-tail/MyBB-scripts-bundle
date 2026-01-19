@@ -33,7 +33,7 @@
     let v = NaN;
     try {
       v = parseInt(localStorage.getItem(config.storageKey), 10);
-    } catch (e) {}
+    } catch {}
     return !isNaN(v) && v >= config.minSize && v <= config.maxSize
       ? v
       : config.defaultSize;
@@ -42,7 +42,7 @@
   const storeSize = (size) => {
     try {
       localStorage.setItem(config.storageKey, String(size));
-    } catch (e) {}
+    } catch {}
   };
 
   const applySizeToMain = (size) => {
@@ -61,31 +61,77 @@
       (f) => f && f.tagName === 'IFRAME',
     );
 
+  const postSizeToFrame = (frame, size) => {
+    try {
+      frame.contentWindow?.postMessage(
+        { eventName: 'fontSizeChange', size },
+        '*',
+      );
+    } catch {}
+  };
+
+  const postSizeToAllFrames = (size) => {
+    const frames = getHtmlFrames();
+    frames.forEach((f) => postSizeToFrame(f, size));
+  };
+
+  const isKnownFrameSource = (srcWin) => {
+    if (!srcWin) return false;
+    const frames = getHtmlFrames();
+    for (const f of frames) {
+      if (f.contentWindow === srcWin) return true;
+    }
+    return false;
+  };
+
+  window.addEventListener('message', (e) => {
+    const d = e.data || {};
+    if (d.eventName !== 'fontSizeRequest') return;
+    if (!isKnownFrameSource(e.source)) return;
+
+    try {
+      e.source?.postMessage(
+        { eventName: 'fontSizeChange', size: getStoredSize() },
+        '*',
+      );
+    } catch {}
+  });
+
   const applySizeToFrame = (frame, size) => {
+    let applied = false;
+
     try {
       const doc =
-        frame.contentDocument || (frame.contentWindow && frame.contentWindow.document);
-      if (!doc) return;
+        frame.contentDocument ||
+        (frame.contentWindow && frame.contentWindow.document);
 
-      const target = doc.body || doc.documentElement;
-      if (target) {
-        target.style.setProperty('font-size', size + 'px', 'important');
-      }
+      if (doc) {
+        const target = doc.body || doc.documentElement;
+        if (target) {
+          target.style.setProperty('font-size', size + 'px', 'important');
+          applied = true;
+        }
 
-      const win = frame.contentWindow;
-      if (win) {
-        if (typeof win.setHeight === 'function') {
-          win.setHeight();
-        } else {
-          win.dispatchEvent(new win.Event('resize'));
+        const win = frame.contentWindow;
+        if (win) {
+          if (typeof win.setHeight === 'function') {
+            win.setHeight();
+          } else {
+            win.dispatchEvent(new win.Event('resize'));
+          }
         }
       }
-    } catch (e) {}
+    } catch {}
+
+    if (!applied) {
+      postSizeToFrame(frame, size);
+    }
   };
 
   const applySizeToAllFrames = (size) => {
     const frames = getHtmlFrames();
     frames.forEach((f) => applySizeToFrame(f, size));
+    postSizeToAllFrames(size);
   };
 
   const wireFrameLoads = () => {
@@ -96,7 +142,9 @@
       applySizeToFrame(f, currentSize);
 
       f.addEventListener('load', () => {
-        applySizeToFrame(f, getStoredSize());
+        const s = getStoredSize();
+        applySizeToFrame(f, s);
+        postSizeToFrame(f, s);
       });
     });
   };
@@ -109,25 +157,26 @@
           m.addedNodes.forEach((node) => {
             if (!node || node.nodeType !== 1) return;
 
-            if (
-              node.tagName === 'IFRAME' &&
-              node.matches(config.htmlFrameSelector)
-            ) {
+            if (node.tagName === 'IFRAME' && node.matches(config.htmlFrameSelector)) {
               applySizeToFrame(node, currentSize);
-              node.addEventListener('load', () =>
-                applySizeToFrame(node, getStoredSize()),
-              );
+              postSizeToFrame(node, currentSize);
+              node.addEventListener('load', () => {
+                const s = getStoredSize();
+                applySizeToFrame(node, s);
+                postSizeToFrame(node, s);
+              });
             }
 
             if (node.querySelectorAll) {
-              node
-                .querySelectorAll(config.htmlFrameSelector)
-                .forEach((fr) => {
-                  applySizeToFrame(fr, currentSize);
-                  fr.addEventListener('load', () =>
-                    applySizeToFrame(fr, getStoredSize()),
-                  );
+              node.querySelectorAll(config.htmlFrameSelector).forEach((fr) => {
+                applySizeToFrame(fr, currentSize);
+                postSizeToFrame(fr, currentSize);
+                fr.addEventListener('load', () => {
+                  const s = getStoredSize();
+                  applySizeToFrame(fr, s);
+                  postSizeToFrame(fr, s);
                 });
+              });
             }
           });
       }
@@ -192,9 +241,15 @@
       applySizeToAllFrames(getStoredSize());
     }, 250);
 
-    let anchor = config.insertAfterSelector
-      ? $(config.insertAfterSelector)
-      : null;
+    setTimeout(() => {
+      postSizeToAllFrames(getStoredSize());
+    }, 300);
+
+    setTimeout(() => {
+      postSizeToAllFrames(getStoredSize());
+    }, 1200);
+
+    let anchor = config.insertAfterSelector ? $(config.insertAfterSelector) : null;
     if (!anchor) anchor = $(config.defaultAnchorSelector);
     if (!anchor) return;
 
