@@ -24,7 +24,7 @@
       },
     },
     adminGamepostRecount: {
-      forumIds: [10, 13, 11, 12, 17, 18],
+      forumIds: [10, 13, 11, 12, 17, 18, 29],
       includeFirstPost: false,
       apiBase: '/api.php',
       topicsPerRequest: 100,
@@ -1202,6 +1202,7 @@
    },
   };
 })();
+
 
 
 
