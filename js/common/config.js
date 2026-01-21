@@ -462,7 +462,7 @@
       resetTimeout: 1200,
     },
     chronoParser: {
-      forumsWithGames: { active: [10, 11, 13], done: [17] },
+      forumsWithGames: { active: [10, 11, 13], done: [17, 29] },
       currentYear: 2025,
       topicsPerRequest: 100,
       postsPerRequest: 100,
@@ -1202,6 +1202,7 @@
    },
   };
 })();
+
 
 
 
