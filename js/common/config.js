@@ -463,9 +463,15 @@
     },
     chronoParser: {
       forumsWithGames: { active: [10, 11, 13], done: [17, 29] },
-      currentYear: 2025,
+      currentYear: 2026,
       topicsPerRequest: 100,
       postsPerRequest: 100,
+      topicIdsPerRequest: 25,
+      maxTopicsPages: 500,
+      maxPostsPages: 500,
+      pageDelayMs: 200,
+      retryAttempts: 2,
+      retryBaseDelayMs: 800,
       apiBase: '/api.php',
       pagePath: '/pages/chrono',
       mountId: 'chrono-root',
@@ -1208,6 +1214,7 @@
    },
   };
 })();
+
 
 
 
