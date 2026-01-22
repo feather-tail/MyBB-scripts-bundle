@@ -554,7 +554,7 @@
         },
         {
           rootSelector: '.punbb .post .post-author',
-          targetSelector: 'li.pa-title, .pa-avatar, .pa-fld1',
+          targetSelector: 'li.pa-title, .pa-avatar, .pa-fld6,.pa-fld1',
           wrapperClass: 'author-wrap',
         },
         {
@@ -1214,6 +1214,7 @@
    },
   };
 })();
+
 
 
 
