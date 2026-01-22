@@ -8,10 +8,14 @@
   const currentYearSetting = Number(config.currentYear) || new Date().getFullYear();
   const topicsPerRequest = Math.min(Number(config.topicsPerRequest) || 100, 100);
   const postsPerRequest = Math.min(Number(config.postsPerRequest) || 100, 100);
+  const topicIdsPerRequest = Math.max(1, Math.min(Number(config.topicIdsPerRequest) || 25, 50));
+
   const apiBase = config.apiBase || '/api.php';
   const pageDelayMs = Number(config.pageDelayMs) || 200;
   const retryAttempts = Number(config.retryAttempts) || 2;
   const retryBaseDelayMs = Number(config.retryBaseDelayMs) || 800;
+  const maxTopicsPages = Math.max(1, Math.min(Number(config.maxTopicsPages) || 500, 5000));
+  const maxPostsPages = Math.max(1, Math.min(Number(config.maxPostsPages) || 500, 5000));
 
   const pagePath = config.pagePath || '/pages/chrono';
   const mountId = config.mountId || 'chrono-root';
@@ -241,7 +245,7 @@
   }
 
   function parseHtmlEpisode(message) {
-    const html = String(message || '');
+    const html = decodeHtml(String(message ?? ''));
     if (!/[Cc]hrono(?:episode|data|date|display|members|member|announce|location|images|serial|quest)/.test(html)) {
       return null;
     }
@@ -285,7 +289,7 @@
     const announce = getText('.chrono-announce, .chronoannounce');
 
     const membersRaw = getAllTexts(
-      '.chrono-members .chrono-member, .chronomembers .epcharacter, .chrono-members .ep-character',
+      '.chrono-members .chrono-member, .chronomembers .chronomember, .chronomembers .chrono-member, .chronomembers .epcharacter, .chrono-members .ep-character',
     );
     const members = uniqNames(
       membersRaw
@@ -373,39 +377,87 @@
     return null;
   }
 
-  async function getTopics(forumIds) {
-    const url =
-      `${apiBase}?method=topic.get&forum_id=${forumIds.join(',')}` +
-      `&fields=id,subject,forum_id,first_post,init_post&limit=${topicsPerRequest}`;
-    const data = await fetchJsonWithRetry(url);
-    const rows = Array.isArray(data?.response) ? data.response : [];
-    const safe = rows.filter((r) => r && typeof r === 'object');
-    return safe
-      .map((raw) => ({
-        id: Number(raw.id),
-        subject: decodeHtml(raw.subject ?? ''),
-        forum_id: String(raw.forum_id ?? raw.forum ?? ''),
-        first_post: Number(raw.init_post ?? raw.first_post ?? 0) || 0,
-      }))
-      .filter((t) => t.id && t.forum_id);
+  async function getTopicsPaged(forumIds) {
+    const out = [];
+    const seen = new Set();
+    let skip = 0;
+    let pages = 0;
+
+    for (;;) {
+      pages++;
+      if (pages > maxTopicsPages) break;
+
+      const url =
+        `${apiBase}?method=topic.get&forum_id=${forumIds.join(',')}` +
+        `&fields=id,subject,forum_id,first_post,init_post&limit=${topicsPerRequest}&skip=${skip}`;
+
+      const data = await fetchJsonWithRetry(url);
+      const rows = Array.isArray(data?.response) ? data.response : [];
+      if (!rows.length) break;
+
+      let added = 0;
+
+      for (const raw of rows) {
+        const id = Number(raw?.id);
+        if (!id || seen.has(id)) continue;
+        seen.add(id);
+        out.push({
+          id,
+          subject: decodeHtml(raw?.subject ?? ''),
+          forum_id: String(raw?.forum_id ?? raw?.forum ?? ''),
+          first_post: Number(raw?.init_post ?? raw?.first_post ?? 0) || 0,
+        });
+        added++;
+      }
+
+      if (rows.length < topicsPerRequest) break;
+      if (added === 0) break;
+
+      skip += topicsPerRequest;
+      await delay(pageDelayMs);
+    }
+
+    return out.filter((t) => t.id && t.forum_id);
+  }
+
+  function chunkArray(arr, size) {
+    const out = [];
+    for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+    return out;
   }
 
   async function getAllPostsForTopics(topicIds) {
     if (!topicIds.length) return [];
-    let skip = 0;
     const out = [];
-    for (;;) {
-      const url =
-        `${apiBase}?method=post.get&topic_id=${topicIds.join(',')}` +
-        `&fields=id,user_id,username,message,topic_id&limit=${postsPerRequest}&skip=${skip}`;
-      const data = await fetchJsonWithRetry(url);
-      const arr = Array.isArray(data?.response) ? data.response : null;
-      if (!arr || arr.length === 0) break;
-      out.push(...arr);
-      if (arr.length < postsPerRequest) break;
-      skip += postsPerRequest;
-      await delay(pageDelayMs);
+    const chunks = chunkArray(topicIds, topicIdsPerRequest);
+
+    for (let ci = 0; ci < chunks.length; ci++) {
+      const part = chunks[ci];
+      let skip = 0;
+      let pages = 0;
+
+      for (;;) {
+        pages++;
+        if (pages > maxPostsPages) break;
+
+        const url =
+          `${apiBase}?method=post.get&topic_id=${part.join(',')}` +
+          `&fields=id,user_id,username,message,topic_id&limit=${postsPerRequest}&skip=${skip}`;
+
+        const data = await fetchJsonWithRetry(url);
+        const arr = Array.isArray(data?.response) ? data.response : null;
+        if (!arr || arr.length === 0) break;
+
+        out.push(...arr);
+
+        if (arr.length < postsPerRequest) break;
+        skip += postsPerRequest;
+        await delay(pageDelayMs);
+      }
+
+      if (ci < chunks.length - 1) await delay(pageDelayMs);
     }
+
     return out;
   }
 
@@ -803,8 +855,48 @@
     }
   }
 
+  function buildTabsBar(onChange) {
+    const tabs = helpers.createEl('div', { className: 'chrono__tabs' });
+
+    const mk = (status, text) => {
+      const btn = helpers.createEl('button', { className: 'chrono__tab', text });
+      btn.type = 'button';
+      btn.dataset.status = status;
+      btn.addEventListener('click', () => {
+        state.filters.status = status;
+        setActive(status);
+        onChange();
+      });
+      return btn;
+    };
+
+    const btnAll = mk('all', 'Все');
+    const btnActive = mk('active', 'Активные');
+    const btnDone = mk('done', 'Завершённые');
+
+    tabs.appendChild(btnAll);
+    tabs.appendChild(btnActive);
+    tabs.appendChild(btnDone);
+
+    function setActive(status) {
+      [btnAll, btnActive, btnDone].forEach((b) => b.classList.remove('is-active'));
+      const map = { all: btnAll, active: btnActive, done: btnDone };
+      const b = map[status] || btnAll;
+      b.classList.add('is-active');
+    }
+
+    setActive(state.filters.status || 'all');
+
+    return { el: tabs, setActive };
+  }
+
   function buildFiltersBar(onChange) {
     const wrap = helpers.createEl('div', { className: 'chrono__filters' });
+
+    const topRow = helpers.createEl('div', { className: 'chrono__filters-row chrono__filters-row--top' });
+    const bottomRow = helpers.createEl('div', { className: 'chrono__filters-row chrono__filters-row--inputs' });
+
+    const tabsApi = buildTabsBar(onChange);
 
     const mkGroup = (labelText, controlEl) => {
       const g = helpers.createEl('div', { className: 'chrono__filter-group' });
@@ -831,21 +923,22 @@
       placeholder: 'Через запятую: Имя, Имя…',
     });
 
-    const selStatus = helpers.createEl('select', { className: 'chrono__filter-select' });
-    ['all:Все', 'active:Активные', 'done:Завершённые'].forEach((opt) => {
-      const [v, t] = opt.split(':');
-      selStatus.appendChild(helpers.createEl('option', { value: v, text: t }));
-    });
-
     const btnClear = helpers.createEl('button', { className: 'chrono__filter-clear', text: 'Сбросить' });
+    btnClear.type = 'button';
 
-    wrap.appendChild(mkGroup('С даты', inFrom));
-    wrap.appendChild(mkGroup('По дату', inTo));
-    wrap.appendChild(mkGroup('Название', inTitle));
-    wrap.appendChild(mkGroup('Участники', inUsers));
-    wrap.appendChild(mkGroup('Статус', selStatus));
+    const actions = helpers.createEl('div', { className: 'chrono__filter-actions' });
+    actions.appendChild(btnClear);
 
-    wrap.appendChild(helpers.createEl('div', { className: 'chrono__filter-actions' })).appendChild(btnClear);
+    topRow.appendChild(tabsApi.el);
+    topRow.appendChild(actions);
+
+    bottomRow.appendChild(mkGroup('С даты', inFrom));
+    bottomRow.appendChild(mkGroup('По дату', inTo));
+    bottomRow.appendChild(mkGroup('Название', inTitle));
+    bottomRow.appendChild(mkGroup('Участники', inUsers));
+
+    wrap.appendChild(topRow);
+    wrap.appendChild(bottomRow);
 
     const debounced = helpers.debounce(() => onChange(), 250);
 
@@ -869,15 +962,11 @@
         .filter(Boolean);
       debounced();
     });
-    selStatus.addEventListener('change', () => {
-      state.filters.status = selStatus.value || 'all';
-      onChange();
-    });
 
     btnClear.addEventListener('click', () => {
       inFrom.value = inTo.value = inTitle.value = inUsers.value = '';
-      selStatus.value = 'all';
       state.filters = { dateFrom: null, dateTo: null, title: '', users: [], status: 'all' };
+      tabsApi.setActive('all');
       onChange();
     });
 
@@ -905,7 +994,7 @@
   function renderLoading(mount) {
     mount.innerHTML = '';
     const wrap = helpers.createEl('div', { className: 'chrono__loading' });
-    wrap.appendChild(helpers.createEl('div', { className: 'chrono__spinner', ariaLabel: 'Загрузка…' }));
+    wrap.appendChild(helpers.createEl('div', { className: 'chrono__spinner' }));
     wrap.appendChild(helpers.createEl('div', { className: 'chrono__loading-text', text: 'Загрузка эпизодов…' }));
     mount.appendChild(wrap);
   }
@@ -922,7 +1011,8 @@
     if (!allForums.length) return [];
 
     const activeSet = new Set(activeForums);
-    const rawTopics = await getTopics(allForums);
+    const rawTopics = await getTopicsPaged(allForums);
+
     const topicsByForum = new Map();
     const arr = Array.isArray(rawTopics) ? rawTopics : [];
 
@@ -941,6 +1031,7 @@
       if (!list.length) continue;
       const processed = await processForum(activeSet.has(String(fid)), list);
       results.push(...processed);
+      await delay(pageDelayMs);
     }
 
     return results;
