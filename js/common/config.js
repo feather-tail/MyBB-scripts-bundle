@@ -1008,6 +1008,12 @@
               target: '_blank',
               rel: 'noopener noreferrer',
             },
+            {
+              text: 'Библиотека',
+              href: 'https://library.kindredspirits.ru',
+              target: '_blank',
+              rel: 'noopener noreferrer',
+            },
           ],
         },
         games: {
@@ -1202,6 +1208,7 @@
    },
   };
 })();
+
 
 
 
