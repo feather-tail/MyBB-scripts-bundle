@@ -826,12 +826,11 @@
       pass: '1111',
       redirectUrl: 'https://kindredspirits.ru/viewtopic.php?id=515',
       selectors: {
-        triggerLink: '#forum_f30 .pf-lnks a',
+        triggerRoot: '#forum_f30',
         form: 'form[action*="login"]',
-        userInput: 'input[name="req_username"]',
-        passInput: 'input[name="req_password"]',
-        submitInput: 'input[type="submit"]',
-        redirectField: 'input[name="redirect_url"]',
+        userInput: 'input[name="req_username"], input[name="req_user"], input[name="username"]',
+        passInput: 'input[name="req_password"], input[name="req_pass"], input[type="password"]',
+        redirectField: 'input[name="redirect_url"], input[name="redirect"], input[name="redirect_uri"]',
       },
     },
     prQuickLogin: {
@@ -1227,3 +1226,4 @@
    },
   };
 })();
+
