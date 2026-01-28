@@ -4,60 +4,55 @@
   const helpers = window.helpers;
   if (!helpers) return;
 
-  const { $, getGroupId } = helpers;
+  const { $, createEl } = helpers;
   const config = helpers.getConfig('gossipQuickLogin', {});
 
-  function patchGossipLink() {
+  function loginToGossip() {
+    const action = config.loginUrl || 'login.php?action=in';
+
+    const form = createEl('form', { method: 'post', action });
+
+    form.append(
+      createEl('input', {
+        type: 'hidden',
+        name: config.formFields.formSent,
+        value: '1',
+      }),
+      createEl('input', {
+        type: 'hidden',
+        name: config.formFields.redirectUrl,
+        value: config.redirectUrl || '',
+      }),
+      createEl('input', {
+        type: 'hidden',
+        name: config.formFields.username,
+        value: config.login || '',
+      }),
+      createEl('input', {
+        type: 'hidden',
+        name: config.formFields.password,
+        value: config.pass || '',
+      }),
+    );
+
+    document.body.appendChild(form);
+    form.submit();
+  }
+
+  function bind() {
     const a = $(config.selectors.triggerLink);
     if (!a) return;
 
-    if (a.dataset.gossipQuickLogin === '1') return;
-    a.dataset.gossipQuickLogin = '1';
+    if (a.dataset.gossipQuickLoginBound === '1') return;
+    a.dataset.gossipQuickLoginBound = '1';
 
-    let url = '/login.php?login=1&gossip=1';
-    if (config.redirectUrl) {
-      url += '&redirect=' + encodeURIComponent(config.redirectUrl);
-    }
-
-    a.setAttribute('href', url);
+    a.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      loginToGossip();
+    });
   }
 
-  function autoGossipLogin() {
-    if (
-      !location.pathname.endsWith('/login.php') ||
-      !location.search.includes('gossip=1')
-    )
-      return;
-
-    const form = $(config.selectors.form);
-    if (!form) return;
-
-    const u = $(config.selectors.userInput, form);
-    const p = $(config.selectors.passInput, form);
-    if (!u || !p) return;
-
-    u.value = config.login;
-    p.value = config.pass;
-
-    const params = new URLSearchParams(location.search);
-    const redirectUrl = params.get('redirect');
-    const redirectField = $(config.selectors.redirectField, form);
-    if (redirectField && redirectUrl) {
-      redirectField.value = redirectUrl;
-    }
-
-    const submit = $(config.selectors.submitInput, form);
-    if (submit) submit.click();
-  }
-
-  function init() {
-    if (location.pathname.endsWith('/login.php')) {
-      autoGossipLogin();
-    } else {
-      patchGossipLink();
-    }
-  }
-
-  helpers.runOnceOnReady(init);
-  helpers.register('gossipQuickLogin', { init });
+  helpers.runOnceOnReady(bind);
+  helpers.register('gossipQuickLogin', { init: bind });
 })();
