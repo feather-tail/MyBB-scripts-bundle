@@ -7,38 +7,52 @@
   const { $, getGroupId } = helpers;
   const config = helpers.getConfig('gossipQuickLogin', {});
 
+  const MARK = 'gossip=1';
+
+  function isGuest() {
+    return typeof getGroupId === 'function' ? getGroupId() === 3 : true;
+  }
+
+  function goToLogin() {
+    let url = `/login.php?login=1&${MARK}`;
+    const redirect = config.redirectUrl || '';
+    if (redirect) url += `&redirect=${encodeURIComponent(redirect)}`;
+    location.href = url;
+  }
+
   function bindCreateGossipLink() {
-    if (getGroupId && getGroupId() !== 3) return;
+    if (!isGuest()) return;
 
-    const link = $(config.selectors.triggerLink);
-    if (!link) return;
-    if (link.dataset.gossipQuickLoginBound === '1') return;
-    link.dataset.gossipQuickLoginBound = '1';
+    const root = $(config.selectors.triggerRoot);
+    if (!root) return;
 
-    link.addEventListener('click', (e) => {
+    if (root.dataset.gossipQuickLoginBound === '1') return;
+    root.dataset.gossipQuickLoginBound = '1';
+
+    root.addEventListener('click', (e) => {
+      const a = e.target && e.target.closest ? e.target.closest('a') : null;
+      if (!a || !root.contains(a)) return;
+
+      const text = (a.textContent || '').trim().toLowerCase();
+      if (text !== 'создать сплетню') return;
+
       e.preventDefault();
       e.stopPropagation();
 
-      let url = '/login.php?login=1&gossip=1';
-      if (config.redirectUrl) {
-        url += '&redirect=' + encodeURIComponent(config.redirectUrl);
-      }
-      location.href = url;
+      goToLogin();
     });
   }
 
   function autoGossipLogin() {
     if (!location.pathname.endsWith('/login.php')) return;
-    if (!location.search.includes('gossip=1')) return;
+    if (!location.search.includes(MARK)) return;
 
-    const form = $(config.selectors.form);
+    const form = $(config.selectors.form) || $('form');
     if (!form) return;
 
     const u = $(config.selectors.userInput, form);
     const p = $(config.selectors.passInput, form);
-    const s = $(config.selectors.submitInput, form);
-
-    if (!u || !p || !s) return;
+    if (!u || !p) return;
 
     u.value = config.login || '';
     p.value = config.pass || '';
@@ -48,7 +62,7 @@
     const redirectField = $(config.selectors.redirectField, form);
     if (redirectField && redirectUrl) redirectField.value = redirectUrl;
 
-    s.click();
+    form.submit();
   }
 
   function init() {
