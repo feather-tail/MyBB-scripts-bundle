@@ -825,13 +825,15 @@
       login: 'Gossip',
       pass: '1111',
       redirectUrl: 'https://kindredspirits.ru/viewtopic.php?id=515',
+      loginUrl: 'login.php?action=in',
+      formFields: {
+        formSent: 'form_sent',
+        redirectUrl: 'redirect_url',
+        username: 'req_username',
+        password: 'req_password',
+      },
       selectors: {
-        triggerLink: '#forum_f30 .pf-lnks a',
-        form: 'form[action*="login"]',
-        userInput: 'input[name="req_username"]',
-        passInput: 'input[name="req_password"]',
-        submitInput: 'input[type="submit"]',
-        redirectField: 'input[name="redirect_url"]',
+        triggerLink: '#gossip-create',
       },
     },
     prQuickLogin: {
@@ -1227,5 +1229,6 @@
    },
   };
 })();
+
 
 
