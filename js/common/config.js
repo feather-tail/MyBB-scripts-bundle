@@ -742,7 +742,7 @@
       cookieDays: 365,
     },
     multiaccount: {
-      allowedGroups: [1, 2, 6],
+      allowedGroups: [1, 2, 6, 10],
       selectors: {
         navMenu: '#pun-navlinks ul.container',
         logout: '#navlogout',
@@ -1214,6 +1214,7 @@
    },
   };
 })();
+
 
 
 
