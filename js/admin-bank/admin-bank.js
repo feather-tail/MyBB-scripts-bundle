@@ -96,33 +96,195 @@
   const MULT_SIGN = '\u00D7';
   const DELTA_SIGN = '\u0394';
 
+  const createEl =
+    typeof helpers.createEl === 'function'
+      ? helpers.createEl
+      : (tag, props = {}) => {
+          const el = document.createElement(tag);
+          for (const [k, v] of Object.entries(props || {})) {
+            if (k === 'className') el.className = String(v || '');
+            else if (k === 'text') el.textContent = String(v ?? '');
+            else if (k === 'html') el.innerHTML = String(v ?? '');
+            else if (k === 'style') el.setAttribute('style', String(v ?? ''));
+            else if (k in el) el[k] = v;
+            else el.setAttribute(k, String(v));
+          }
+          return el;
+        };
+
+  const FOCUSABLE_SEL =
+    'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+
+  const localModal = (() => {
+    function openModal(content, { className = '', onClose } = {}) {
+      const overlay = createEl('div', {
+        className: 'modal-overlay' + (className ? ' ' + className : ''),
+      });
+      overlay.style.cssText =
+        'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:10000;padding:16px;';
+
+      const node =
+        typeof content === 'string' ? createEl('div', { html: content }) : content;
+
+      overlay.appendChild(node);
+      document.body.appendChild(overlay);
+
+      const closeBtn = createEl('button', {
+        className: 'modal-close',
+        'aria-label': 'Закрыть',
+        text: '×',
+        type: 'button',
+      });
+      closeBtn.style.cssText =
+        'position:absolute;top:10px;right:10px;width:34px;height:34px;border:0;border-radius:10px;background:rgba(0,0,0,0.08);font-size:22px;line-height:34px;cursor:pointer;';
+
+      if (getComputedStyle(node).position === 'static') {
+        node.style.position = 'relative';
+      }
+      node.appendChild(closeBtn);
+
+      const prevFocus = document.activeElement;
+      const prevOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+
+      function trapFocus(e) {
+        if (e.key !== 'Tab') return;
+        const focusable = overlay.querySelectorAll(FOCUSABLE_SEL);
+        if (!focusable.length) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (e.shiftKey) {
+          if (document.activeElement === first) {
+            e.preventDefault();
+            last.focus();
+          }
+        } else if (document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+
+      function onKey(e) {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          close();
+        } else {
+          trapFocus(e);
+        }
+      }
+
+      function onClick(e) {
+        if (e.target === overlay) close();
+      }
+
+      function close() {
+        document.removeEventListener('keydown', onKey, true);
+        overlay.removeEventListener('click', onClick, true);
+        overlay.remove();
+        document.body.style.overflow = prevOverflow;
+        if (prevFocus && typeof prevFocus.focus === 'function') prevFocus.focus();
+        if (typeof onClose === 'function') onClose();
+      }
+
+      closeBtn.addEventListener('click', close);
+      overlay.addEventListener('click', onClick, true);
+      document.addEventListener('keydown', onKey, true);
+
+      const focusEl = overlay.querySelector(FOCUSABLE_SEL);
+      if (focusEl && typeof focusEl.focus === 'function') focusEl.focus();
+
+      return { close, overlay, content: node };
+    }
+
+    function dialog(message, opts = {}) {
+      const {
+        prompt = false,
+        placeholder = '',
+        defaultValue = '',
+        okText = 'OK',
+        cancelText = 'Отмена',
+      } = opts;
+
+      return new Promise((resolve) => {
+        const box = createEl('div', { className: 'modal-dialog' });
+        box.style.cssText =
+          'background:#fff;padding:18px 18px 14px;max-width:520px;width:100%;border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,.25);';
+
+        const p = createEl('p', { text: String(message || '') });
+        p.style.cssText = 'margin:0 0 12px;line-height:1.45;';
+        box.appendChild(p);
+
+        let input = null;
+        if (prompt) {
+          input = createEl('input', {
+            type: 'text',
+            value: defaultValue,
+            placeholder,
+          });
+          input.style.cssText =
+            'width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #ddd;border-radius:10px;outline:none;';
+          box.appendChild(input);
+        }
+
+        const actions = createEl('div', { className: 'modal-actions' });
+        actions.style.cssText =
+          'margin-top:14px;display:flex;gap:10px;justify-content:flex-end;';
+
+        const btnCancel = createEl('button', {
+          type: 'button',
+          text: cancelText,
+        });
+        btnCancel.style.cssText =
+          'padding:10px 12px;border-radius:10px;border:1px solid rgba(0,0,0,.12);background:#fff;cursor:pointer;';
+
+        const btnOk = createEl('button', { type: 'button', text: okText });
+        btnOk.style.cssText =
+          'padding:10px 12px;border-radius:10px;border:0;background:#111;color:#fff;cursor:pointer;';
+
+        actions.append(btnCancel, btnOk);
+        box.appendChild(actions);
+
+        const { close } = openModal(box, {
+          onClose: () => resolve(prompt ? null : false),
+        });
+
+        btnCancel.addEventListener('click', () => {
+          resolve(prompt ? null : false);
+          close();
+        });
+
+        btnOk.addEventListener('click', () => {
+          resolve(prompt ? (input ? input.value : '') : true);
+          close();
+        });
+
+        const focusTarget = prompt ? input : btnOk;
+        if (focusTarget && typeof focusTarget.focus === 'function') focusTarget.focus();
+      });
+    }
+
+    return { openModal, dialog };
+  })();
+
+  const modalDialog =
+    (typeof helpers.dialog === 'function' && helpers.dialog) ||
+    (helpers.modal && typeof helpers.modal.dialog === 'function' && helpers.modal.dialog) ||
+    localModal.dialog;
+
+  if (!helpers.modal) helpers.modal = {};
+  if (typeof helpers.modal.dialog !== 'function') helpers.modal.dialog = localModal.dialog;
+  if (typeof helpers.modal.openModal !== 'function') helpers.modal.openModal = localModal.openModal;
+  if (typeof helpers.dialog !== 'function') helpers.dialog = localModal.dialog;
+
   const uiConfirm = async (message, opts = {}) => {
     const okText = opts.okText || 'OK';
     const cancelText = opts.cancelText || 'Отмена';
-
-    const dlg =
-      (helpers && typeof helpers.dialog === 'function' && helpers.dialog) ||
-      (helpers &&
-        helpers.modal &&
-        typeof helpers.modal.dialog === 'function' &&
-        helpers.modal.dialog);
-
-    if (dlg) {
-      try {
-        const res = await dlg(String(message || ''), {
-          okText,
-          cancelText,
-          prompt: false,
-        });
-        return res === true;
-      } catch (e) {}
-    }
-
-    try {
-      return window.confirm(String(message || ''));
-    } catch (e) {
-      return false;
-    }
+    const res = await modalDialog(String(message || ''), {
+      okText,
+      cancelText,
+      prompt: false,
+    });
+    return res === true;
   };
 
   const encodeNonAscii = (s) =>
@@ -552,11 +714,7 @@
 
           li.textContent = `${row.label} — ${row.qty} шт. ${MULT_SIGN} ${row.cost} = ${row.sum}`;
 
-          const urls = Array.isArray(row.urls)
-            ? row.urls
-            : row.url
-              ? [row.url]
-              : [];
+          const urls = Array.isArray(row.urls) ? row.urls : row.url ? [row.url] : [];
           urls.forEach((u) => {
             if (!u) return;
             li.appendChild(document.createElement('br'));
@@ -598,11 +756,7 @@
           const li = document.createElement('li');
           li.textContent = `${row.label} — +${row.amount}`;
 
-          const urls = Array.isArray(row.urls)
-            ? row.urls
-            : row.url
-              ? [row.url]
-              : [];
+          const urls = Array.isArray(row.urls) ? row.urls : row.url ? [row.url] : [];
           urls.forEach((u) => {
             if (!u) return;
             li.appendChild(document.createElement('br'));
@@ -807,10 +961,7 @@
       lastItems = json.items || [];
 
       applyFiltersAndRender();
-      setMsg(
-        `Загружено заявок: ${lastItems.length}. Обновляем текущие балансы…`,
-        'info',
-      );
+      setMsg(`Загружено заявок: ${lastItems.length}. Обновляем текущие балансы…`, 'info');
 
       await enrichUserBalances(lastItems);
 
@@ -834,13 +985,9 @@
       }),
       REQUEST_TIMEOUT_MS,
     );
-    if (!resp.ok) {
-      throw new Error(`HTTP ${resp.status}`);
-    }
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const json = await resp.json();
-    if (!json.ok) {
-      throw new Error(json.error || 'UNKNOWN_ERROR');
-    }
+    if (!json.ok) throw new Error(json.error || 'UNKNOWN_ERROR');
   };
 
   const updateStatus = async (id, action) => {
@@ -879,6 +1026,7 @@
 
         setMsg('Обновляем баланс пользователя…', 'info');
         const result = await applyBalanceForRequest(item);
+
         if (result.before !== null && result.after !== null) {
           setMsg(`Баланс обновлён: было ${result.before}, стало ${result.after}.`, 'info');
 
@@ -890,13 +1038,10 @@
               (uid && (it.user_id === uid || it.userId === uid)) ||
               (!uid && uname && String(it.user_login || '').toLowerCase() === uname);
 
-            if (sameUser) {
-              it.user_balance = result.after;
-            }
+            if (sameUser) it.user_balance = result.after;
           });
 
           item.balanceApplied = true;
-
           applyFiltersAndRender();
         } else {
           setMsg(`${DELTA_SIGN} по заявке равен 0, баланс пользователя не изменён.`, 'info');
