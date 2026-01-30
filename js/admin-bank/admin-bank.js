@@ -96,6 +96,35 @@
   const MULT_SIGN = '\u00D7';
   const DELTA_SIGN = '\u0394';
 
+  const uiConfirm = async (message, opts = {}) => {
+    const okText = opts.okText || 'OK';
+    const cancelText = opts.cancelText || 'Отмена';
+
+    const dlg =
+      (helpers && typeof helpers.dialog === 'function' && helpers.dialog) ||
+      (helpers &&
+        helpers.modal &&
+        typeof helpers.modal.dialog === 'function' &&
+        helpers.modal.dialog);
+
+    if (dlg) {
+      try {
+        const res = await dlg(String(message || ''), {
+          okText,
+          cancelText,
+          prompt: false,
+        });
+        return res === true;
+      } catch (e) {}
+    }
+
+    try {
+      return window.confirm(String(message || ''));
+    } catch (e) {
+      return false;
+    }
+  };
+
   const encodeNonAscii = (s) =>
     String(s).replace(/[\u0080-\uFFFF]/g, (ch) => `&#${ch.charCodeAt(0)};`);
 
@@ -107,7 +136,7 @@
     return Math.round(n * p) / p;
   };
 
-    const linkifyText = (text) => {
+  const linkifyText = (text) => {
     const frag = document.createDocumentFragment();
     const str = String(text || '');
     if (!str) return frag;
@@ -121,9 +150,7 @@
       const url = match[0];
 
       if (index > lastIndex) {
-        frag.appendChild(
-          document.createTextNode(str.slice(lastIndex, index)),
-        );
+        frag.appendChild(document.createTextNode(str.slice(lastIndex, index)));
       }
 
       const a = document.createElement('a');
@@ -143,11 +170,24 @@
     return frag;
   };
 
+  const parseUserIdFromProfileUrl = (url) => {
+    const s = String(url || '').trim();
+    if (!s) return null;
+
+    try {
+      const u = new URL(s, location.origin);
+      const v = u.searchParams.get('id') || u.searchParams.get('user_id');
+      const n = Number.parseInt(v || '', 10);
+      return Number.isFinite(n) ? n : null;
+    } catch (e) {}
+
+    const m = s.match(/(?:\?|&)(?:id|user_id)=(\d+)/i);
+    return m ? Number.parseInt(m[1], 10) : null;
+  };
+
   const fetchDoc = async (url) => {
     if (request && typeof TextDecoder !== 'undefined') {
-      const res = await request(url, {
-        timeout: REQUEST_TIMEOUT_MS,
-      });
+      const res = await request(url, { timeout: REQUEST_TIMEOUT_MS });
       if (!res.ok) throw new Error(`GET ${url} ${res.status}`);
 
       const buf = await res.arrayBuffer();
@@ -234,7 +274,6 @@
 
     for (const el of Array.from(form.elements || [])) {
       if (!el.name || el.disabled) continue;
-      const type = (el.type || '').toLowerCase();
 
       if (isHidden(el)) {
         p.append(el.name, el.value ?? '');
@@ -273,21 +312,18 @@
     if (!form) throw new Error('Форма профиля не найдена.');
 
     const raw = form.getAttribute('action') || url;
-    const actionUrl = raw.startsWith('http')
-      ? raw
-      : new URL(raw, url).toString();
+    const actionUrl = raw.startsWith('http') ? raw : new URL(raw, url).toString();
 
     return { form, actionUrl };
   };
 
   const fetchJson = (url) =>
-    withTimeout(
-      fetch(url, { credentials: 'same-origin' }),
-      REQUEST_TIMEOUT_MS,
-    ).then((res) => {
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return res.json();
-    });
+    withTimeout(fetch(url, { credentials: 'same-origin' }), REQUEST_TIMEOUT_MS).then(
+      (res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      },
+    );
 
   const getUserIdByUsername = async (username) => {
     if (!username) return null;
@@ -373,7 +409,7 @@
     const root = $(SELECTORS.list);
     if (!root) return;
     root.innerHTML = '';
-  
+
     if (!items.length) {
       const div = document.createElement('div');
       div.className = 'ks-bank-admin__empty';
@@ -381,7 +417,7 @@
       root.appendChild(div);
       return;
     }
-  
+
     items.forEach((item) => {
       const art = document.createElement('article');
       art.className = 'ks-bank-admin__item';
@@ -389,28 +425,28 @@
       if (item.user_id != null) {
         art.dataset.userId = String(item.user_id);
       }
-  
+
       const header = document.createElement('div');
       header.className = 'ks-bank-admin__item-header';
-  
+
       const meta = document.createElement('div');
       meta.className = 'ks-bank-admin__item-meta';
-  
+
       const line1 = document.createElement('div');
       const userLabel =
         item.user_login || (item.user_id != null ? `uid ${item.user_id}` : '—');
       line1.innerHTML = `<strong>#${item.id}</strong> — ${userLabel}`;
-  
+
       const line2 = document.createElement('div');
       line2.textContent = `Создано: ${formatTs(item.created_at)}`;
-  
+
       const line3 = document.createElement('div');
       const deltaVal =
         Number(item.delta) ||
         (Number(item.total_earn) || 0) - (Number(item.total_spend) || 0);
       const deltaSign = deltaVal >= 0 ? '+' : '';
       line3.textContent = `Итоги: -${item.total_spend} / +${item.total_earn} (${DELTA_SIGN} ${deltaSign}${deltaVal})`;
-  
+
       const line4 = document.createElement('div');
       if (typeof item.user_balance === 'number') {
         const after = item.user_balance + deltaVal;
@@ -418,76 +454,79 @@
       } else {
         line4.textContent = 'Баланс: –';
       }
-  
+
       meta.append(line1, line2, line3, line4);
-  
+
       const actions = document.createElement('div');
       actions.className = 'ks-bank-admin__item-actions';
-  
+
       const balanceBtn = document.createElement('button');
       balanceBtn.type = 'button';
       balanceBtn.className = 'ks-bank-admin__btn ks-bank-admin__btn--balance';
       balanceBtn.textContent = 'Изменить баланс';
       balanceBtn.dataset.action = 'balance';
       balanceBtn.dataset.id = String(item.id);
-  
+
       if (item.balanceApplied) {
         balanceBtn.disabled = true;
         balanceBtn.textContent = 'Изменено';
         balanceBtn.classList.add('ks-bank-admin__btn--done');
       }
-  
+
       const okBtn = document.createElement('button');
       okBtn.type = 'button';
       okBtn.className = 'ks-bank-admin__btn ks-bank-admin__btn--ok';
       okBtn.textContent = 'Обработано';
       okBtn.dataset.action = 'processed';
       okBtn.dataset.id = String(item.id);
-  
+
       const rejBtn = document.createElement('button');
       rejBtn.type = 'button';
       rejBtn.className = 'ks-bank-admin__btn ks-bank-admin__btn--reject';
       rejBtn.textContent = 'Отклонено';
       rejBtn.dataset.action = 'rejected';
       rejBtn.dataset.id = String(item.id);
-  
+
       actions.append(balanceBtn, okBtn, rejBtn);
-  
+
       header.append(meta, actions);
       art.appendChild(header);
-  
+
       const details = document.createElement('div');
       details.className = 'ks-bank-admin__details';
-  
+
       const payload = item.payload || {};
       const spend = Array.isArray(payload.spend) ? payload.spend : [];
       const earn = Array.isArray(payload.earn) ? payload.earn : [];
-  
+
       const spendBlock = document.createElement('div');
       spendBlock.className = 'ks-bank-admin__subsection';
       const sTitle = document.createElement('h4');
       sTitle.textContent = 'Покупки';
       spendBlock.appendChild(sTitle);
-  
+
       const sList = document.createElement('ul');
       if (spend.length) {
         spend.forEach((row) => {
           const li = document.createElement('li');
-  
+
           if (row && row.id === 'money_transfer') {
             const amount = Number(row.sum) || Number(row.cost) || 0;
             const meta = row.meta || {};
             const toId = Number(meta.toUserId) || null;
-            const url =
-              String(meta.toProfileUrl || row.url || (Array.isArray(row.urls) ? row.urls[0] : '') || '')
-                .trim();
-  
+            const url = String(
+              meta.toProfileUrl ||
+                row.url ||
+                (Array.isArray(row.urls) ? row.urls[0] : '') ||
+                '',
+            ).trim();
+
             li.textContent = `${row.label || 'Перевод средств'} — ${amount}`;
-  
+
             if (toId) {
               li.appendChild(document.createTextNode(` → uid ${toId}`));
             }
-  
+
             if (url) {
               li.appendChild(document.createElement('br'));
               const link = document.createElement('a');
@@ -497,7 +536,7 @@
               link.textContent = url;
               li.appendChild(link);
             }
-  
+
             if (row.comment) {
               li.appendChild(document.createElement('br'));
               const span = document.createElement('span');
@@ -506,14 +545,18 @@
               span.append(linkifyText(row.comment));
               li.appendChild(span);
             }
-  
+
             sList.appendChild(li);
             return;
           }
-  
+
           li.textContent = `${row.label} — ${row.qty} шт. ${MULT_SIGN} ${row.cost} = ${row.sum}`;
-  
-          const urls = Array.isArray(row.urls) ? row.urls : row.url ? [row.url] : [];
+
+          const urls = Array.isArray(row.urls)
+            ? row.urls
+            : row.url
+              ? [row.url]
+              : [];
           urls.forEach((u) => {
             if (!u) return;
             li.appendChild(document.createElement('br'));
@@ -524,7 +567,7 @@
             link.textContent = u;
             li.appendChild(link);
           });
-  
+
           if (row.comment) {
             li.appendChild(document.createElement('br'));
             const span = document.createElement('span');
@@ -533,7 +576,7 @@
             span.append(linkifyText(row.comment));
             li.appendChild(span);
           }
-  
+
           sList.appendChild(li);
         });
       } else {
@@ -542,20 +585,24 @@
         sList.appendChild(li);
       }
       spendBlock.appendChild(sList);
-  
+
       const earnBlock = document.createElement('div');
       earnBlock.className = 'ks-bank-admin__subsection';
       const eTitle = document.createElement('h4');
       eTitle.textContent = 'Начисления';
       earnBlock.appendChild(eTitle);
-  
+
       const eList = document.createElement('ul');
       if (earn.length) {
         earn.forEach((row) => {
           const li = document.createElement('li');
           li.textContent = `${row.label} — +${row.amount}`;
-  
-          const urls = Array.isArray(row.urls) ? row.urls : row.url ? [row.url] : [];
+
+          const urls = Array.isArray(row.urls)
+            ? row.urls
+            : row.url
+              ? [row.url]
+              : [];
           urls.forEach((u) => {
             if (!u) return;
             li.appendChild(document.createElement('br'));
@@ -566,7 +613,7 @@
             link.textContent = u;
             li.appendChild(link);
           });
-  
+
           if (row.comment) {
             li.appendChild(document.createElement('br'));
             const span = document.createElement('span');
@@ -575,7 +622,7 @@
             span.append(linkifyText(row.comment));
             li.appendChild(span);
           }
-  
+
           eList.appendChild(li);
         });
       } else {
@@ -584,7 +631,7 @@
         eList.appendChild(li);
       }
       earnBlock.appendChild(eList);
-  
+
       details.append(spendBlock, earnBlock);
       art.appendChild(details);
       root.appendChild(art);
@@ -594,7 +641,7 @@
   const enrichUserBalances = async (items) => {
     const balanceByUserId = new Map();
     const userIdByName = new Map();
-  
+
     for (const item of items) {
       try {
         if (typeof item.user_balance === 'number') {
@@ -604,10 +651,10 @@
           }
           continue;
         }
-  
+
         let userId = item.user_id || item.userId || null;
         const username = item.user_login || null;
-  
+
         if (!userId && username) {
           if (userIdByName.has(username)) {
             userId = userIdByName.get(username);
@@ -618,18 +665,20 @@
             userId = fetchedId;
           }
         }
-  
+
         if (!userId) continue;
-  
+
         if (!balanceByUserId.has(userId)) {
           const { form } = await fetchProfileForm(userId);
-          const inp = form.querySelector(`input[name="${CSS.escape(MONEY_FIELD_NAME)}"]`);
+          const inp = form.querySelector(
+            `input[name="${CSS.escape(MONEY_FIELD_NAME)}"]`,
+          );
           if (!inp) continue;
-  
+
           const current = parseFloat(String(inp.value).replace(',', '.')) || 0;
           balanceByUserId.set(userId, current);
         }
-  
+
         const bal = balanceByUserId.get(userId);
         if (typeof bal === 'number') {
           item.user_balance = bal;
@@ -643,20 +692,24 @@
   const applyBalanceForRequest = async (item) => {
     const applyDeltaToUser = async (userId, delta) => {
       const { form, actionUrl } = await fetchProfileForm(userId);
-      const inp = form.querySelector(`input[name="${CSS.escape(MONEY_FIELD_NAME)}"]`);
+      const inp = form.querySelector(
+        `input[name="${CSS.escape(MONEY_FIELD_NAME)}"]`,
+      );
       if (!inp) {
-        throw new Error(`Поле баланса "${MONEY_FIELD_NAME}" не найдено в форме профиля (uid ${userId}).`);
+        throw new Error(
+          `Поле баланса "${MONEY_FIELD_NAME}" не найдено в форме профиля (uid ${userId}).`,
+        );
       }
-  
+
       const current = parseFloat(String(inp.value).replace(',', '.')) || 0;
       const next = roundVal(current + delta, DECIMALS);
-  
+
       const params = buildProfileParams(form, MONEY_FIELD_NAME, next);
       await postForm(actionUrl, params, actionUrl);
-  
+
       return { before: current, after: next, delta };
     };
-  
+
     let userId = item.user_id || item.userId || null;
     if (!userId && item.user_login) {
       userId = await getUserIdByUsername(item.user_login);
@@ -664,56 +717,58 @@
     if (!userId) {
       throw new Error('Не удалось определить ID пользователя для этой заявки.');
     }
-  
+
     const delta =
       Number(item.delta) ||
       (Number(item.total_earn) || 0) - (Number(item.total_spend) || 0);
-  
+
     const payload = item.payload || {};
     const spendRows = Array.isArray(payload.spend) ? payload.spend : [];
-  
+
     const transfersMap = new Map();
     spendRows.forEach((r) => {
       if (!r || r.id !== 'money_transfer') return;
-  
+
       const meta = r.meta || {};
-      const url =
-        String(meta.toProfileUrl || r.url || (Array.isArray(r.urls) ? r.urls[0] : '') || '')
-          .trim();
-  
+      const url = String(
+        meta.toProfileUrl ||
+          r.url ||
+          (Array.isArray(r.urls) ? r.urls[0] : '') ||
+          '',
+      ).trim();
+
       const toId =
-        Number(meta.toUserId) ||
-        (url ? parseUserIdFromProfileUrl(url) : null);
-  
+        Number(meta.toUserId) || (url ? parseUserIdFromProfileUrl(url) : null);
+
       const amount = Number(r.sum) || Number(r.cost) || 0;
       const cleanAmount = Math.max(0, Math.trunc(amount));
-  
+
       if (!toId || cleanAmount <= 0) return;
-  
+
       transfersMap.set(toId, (transfersMap.get(toId) || 0) + cleanAmount);
     });
-  
+
     if (!delta && transfersMap.size === 0) {
       return { before: null, after: null, delta: 0, recipients: [] };
     }
-  
-    const senderResult = delta ? await applyDeltaToUser(userId, delta) : { before: null, after: null, delta: 0 };
-  
+
+    const senderResult = delta
+      ? await applyDeltaToUser(userId, delta)
+      : { before: null, after: null, delta: 0 };
+
     const recipients = [];
     for (const [toUserId, amount] of transfersMap.entries()) {
       if (toUserId === userId) continue;
       const r = await applyDeltaToUser(toUserId, amount);
       recipients.push({ userId: toUserId, ...r });
     }
-  
+
     return { ...senderResult, recipients };
   };
-  
+
   const applyFiltersAndRender = () => {
     let items = lastItems;
-    const query = ((searchInput && searchInput.value) || '')
-      .trim()
-      .toLowerCase();
+    const query = ((searchInput && searchInput.value) || '').trim().toLowerCase();
     if (query) {
       items = items.filter((item) =>
         (item.user_login || '').toLowerCase().includes(query),
@@ -801,10 +856,7 @@
 
       if (action === 'balance') {
         if (item.balanceApplied) {
-          setMsg(
-            'Баланс по этой заявке уже был изменён в текущей сессии.',
-            'info',
-          );
+          setMsg('Баланс по этой заявке уже был изменён в текущей сессии.', 'info');
           return;
         }
 
@@ -813,33 +865,22 @@
           (Number(item.total_earn) || 0) - (Number(item.total_spend) || 0);
 
         if (!delta) {
-          setMsg(
-            '&#916; по заявке равен 0, баланс пользователя не изменён.',
-            'info',
-          );
+          setMsg(`${DELTA_SIGN} по заявке равен 0, баланс пользователя не изменён.`, 'info');
           return;
         }
 
         const userLabel =
           item.user_login ||
-          (item.user_id != null
-            ? `uid ${item.user_id}`
-            : 'неизвестный пользователь');
+          (item.user_id != null ? `uid ${item.user_id}` : 'неизвестный пользователь');
 
-        const confirmText = `Применить ${
-          delta >= 0 ? '+' : ''
-        }${delta} к балансу пользователя ${userLabel}?`;
-        if (!window.confirm(confirmText)) {
-          return;
-        }
+        const confirmText = `Применить ${delta >= 0 ? '+' : ''}${delta} к балансу пользователя ${userLabel}?`;
+        const ok = await uiConfirm(confirmText, { okText: 'Применить', cancelText: 'Отмена' });
+        if (!ok) return;
 
         setMsg('Обновляем баланс пользователя…', 'info');
         const result = await applyBalanceForRequest(item);
         if (result.before !== null && result.after !== null) {
-          setMsg(
-            `Баланс обновлён: было ${result.before}, стало ${result.after}.`,
-            'info',
-          );
+          setMsg(`Баланс обновлён: было ${result.before}, стало ${result.after}.`, 'info');
 
           const uid = item.user_id || item.userId || null;
           const uname = (item.user_login || '').toLowerCase();
@@ -847,9 +888,7 @@
           lastItems.forEach((it) => {
             const sameUser =
               (uid && (it.user_id === uid || it.userId === uid)) ||
-              (!uid &&
-                uname &&
-                String(it.user_login || '').toLowerCase() === uname);
+              (!uid && uname && String(it.user_login || '').toLowerCase() === uname);
 
             if (sameUser) {
               it.user_balance = result.after;
@@ -860,10 +899,7 @@
 
           applyFiltersAndRender();
         } else {
-          setMsg(
-            '&#916; по заявке равен 0, баланс пользователя не изменён.',
-            'info',
-          );
+          setMsg(`${DELTA_SIGN} по заявке равен 0, баланс пользователя не изменён.`, 'info');
         }
         return;
       }
@@ -877,9 +913,12 @@
       }
 
       if (action === 'rejected') {
-        if (!window.confirm(`Отклонить заявку #${id} без изменения баланса?`)) {
-          return;
-        }
+        const ok = await uiConfirm(`Отклонить заявку #${id} без изменения баланса?`, {
+          okText: 'Отклонить',
+          cancelText: 'Отмена',
+        });
+        if (!ok) return;
+
         setMsg('Обновляем статус заявки…', 'info');
         await markStatus(id, action);
         await loadRequests();
@@ -922,7 +961,7 @@
     listRoot.addEventListener('click', (evt) => {
       const btn = evt.target.closest('[data-action]');
       if (!btn) return;
-    
+
       const act = btn.dataset.action;
       if (act === 'processed' || act === 'rejected' || act === 'balance') {
         const id = Number(btn.dataset.id || '0');
@@ -950,13 +989,3 @@
     start();
   }
 })();
-
-
-
-
-
-
-
-
-
-
