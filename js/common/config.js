@@ -461,6 +461,43 @@
       doneText: 'Скопировано',
       resetTimeout: 1200,
     },
+    copyPosts: {
+      allowedForumIds: [10, 11, 12, 13, 17, 18, 29],
+      selectors: {
+        singleInsertAfter: 'h3 strong',
+        allInsertAfter: '#pun-main h1 span',
+        postRoot: 'div.post',
+        postAuthor: '.pa-author a',
+        postContent: '.post-content',
+        postSig: '.post-sig',
+      },
+      ui: {
+        singleBtnLabel: '📋',
+        allBtnLabel: '📄',
+        singleBtnTitle: 'Скопировать этот пост',
+        allBtnTitle: 'Скопировать все посты в теме',
+        toastCloseLabel: 'Закрыть',
+        warnHugeOne: 'Текст поста очень большой.',
+        warnHugeAll: 'Текст всей темы очень большой.',
+        copyFail: 'Не удалось скопировать в буфер обмена.',
+        topicIdFail: 'Не удалось определить ID темы.',
+        fetchFail: 'Не удалось получить данные о постах.',
+        copiedOne: 'Пост скопирован в буфер обмена.',
+        copiedAll: 'Весь текст темы скопирован.',
+        actionDownload: 'Скачать .txt',
+        actionCopyAnyway: 'Копировать всё равно',
+      },
+      limits: {
+        clipboardSoftLimitBytes: 1_000_000,
+        maxPages: 200,
+        pageLimit: 100,
+      },
+      format: {
+        joinSeparator: '\n\n---\n\n',
+        fileNamePrefix: 'topic',
+        titleMaxLen: 80,
+      },
+    },
     chronoParser: {
       forumsWithGames: { active: [10, 11, 13], done: [17, 29] },
       currentYear: 2026,
@@ -1229,6 +1266,7 @@
    },
   };
 })();
+
 
 
 
