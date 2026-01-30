@@ -465,7 +465,7 @@
       allowedForumIds: [10, 11, 12, 13, 17, 18, 29],
       selectors: {
         singleInsertAfter: 'h3 strong',
-        allInsertAfter: '#pun-main h1 span',
+        allInsertAfter: '#pun-crumbs1',
         postRoot: 'div.post',
         postAuthor: '.pa-author a',
         postContent: '.post-content',
@@ -1266,6 +1266,7 @@
    },
   };
 })();
+
 
 
 
