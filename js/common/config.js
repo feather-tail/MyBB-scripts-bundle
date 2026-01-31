@@ -876,7 +876,7 @@
     prQuickLogin: {
       login: 'PR',
       pass: '1111',
-      redirectUrl: 'https://kindredspirits.ru/viewtopic.php?id=415',
+      redirectUrl: 'https://kindredspirits.ru/viewtopic.php?id=527',
       selectors: {
         btn: '#pr-quick-login',
         navLogin: '#navlogin',
@@ -1266,6 +1266,7 @@
    },
   };
 })();
+
 
 
 
