@@ -463,39 +463,56 @@
     },
     copyPosts: {
       allowedForumIds: [10, 11, 12, 13, 17, 18, 29],
+    
       selectors: {
+        topicRoot: '#pun-viewtopic, #pun-main',
         singleInsertAfter: 'h3 strong',
-        allInsertAfter: '#pun-crumbs1',
+        allInsertAfter: '#pun-main h1 span',
         postRoot: 'div.post',
-        postAuthor: '.pa-author a',
-        postContent: '.post-content',
+        postAuthor: '.pa-author a, .pa-author',
+        postContent: '.post-content, .postmsg',
         postSig: '.post-sig',
+        topicTitle: '#pun-main h1',
       },
+    
+      icons: {
+        single: 'fa-solid fa-clipboard',
+        all: 'fa-solid fa-file-lines',
+      },
+    
       ui: {
-        singleBtnLabel: '📋',
-        allBtnLabel: '📄',
         singleBtnTitle: 'Скопировать этот пост',
         allBtnTitle: 'Скопировать все посты в теме',
+    
         toastCloseLabel: 'Закрыть',
-        warnHugeOne: 'Текст поста очень большой.',
-        warnHugeAll: 'Текст всей темы очень большой.',
+        copiedOne: 'Пост скопирован в буфер обмена.',
+        done: 'Готово.',
         copyFail: 'Не удалось скопировать в буфер обмена.',
         topicIdFail: 'Не удалось определить ID темы.',
         fetchFail: 'Не удалось получить данные о постах.',
-        copiedOne: 'Пост скопирован в буфер обмена.',
-        copiedAll: 'Весь текст темы скопирован.',
-        actionDownload: 'Скачать .txt',
-        actionCopyAnyway: 'Копировать всё равно',
+    
+        modalTitle: 'Как скопировать тему?',
+        modalCancel: 'Отмена',
+        actionFileBB: 'В файл (BB-коды)',
+        actionFilePlain: 'В файл (без BB-кодов)',
+        actionClipBB: 'В буфер (BB-коды)',
+        actionClipPlain: 'В буфер (без BB-кодов)',
       },
+    
       limits: {
-        clipboardSoftLimitBytes: 1_000_000,
         maxPages: 200,
         pageLimit: 100,
+        clipboardSoftLimitBytes: 1_000_000,
       },
+    
       format: {
         joinSeparator: '\n\n---\n\n',
         fileNamePrefix: 'topic',
-        titleMaxLen: 80,
+        titleMaxLen: 90,
+      },
+    
+      cache: {
+        ttlMs: 120000,
       },
     },
     chronoParser: {
@@ -1266,9 +1283,3 @@
    },
   };
 })();
-
-
-
-
-
-
