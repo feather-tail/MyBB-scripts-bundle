@@ -467,7 +467,7 @@
       selectors: {
         topicRoot: '#pun-viewtopic, #pun-main',
         singleInsertAfter: 'h3 strong',
-        allInsertAfter: '#pun-main h1 span',
+        allInsertAfter: '#pun-crumbs1',
         postRoot: 'div.post',
         postAuthor: '.pa-author a, .pa-author',
         postContent: '.post-content, .postmsg',
@@ -1283,3 +1283,4 @@
    },
   };
 })();
+
