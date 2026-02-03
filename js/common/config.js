@@ -509,6 +509,8 @@
         joinSeparator: '\n\n---\n\n',
         fileNamePrefix: 'topic',
         titleMaxLen: 90,
+        quotePrefix: '> ',
+        quoteEmptyLinePrefix: '>',
       },
     
       cache: {
@@ -1283,4 +1285,5 @@
    },
   };
 })();
+
 
