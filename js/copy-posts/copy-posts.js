@@ -124,6 +124,8 @@
     return p;
   };
 
+  const stripHideProfile = (s) => String(s || '').replace(/\[hideprofile\]/gi, '');
+
   const getAuthorName = (postEl) => {
     const a = postEl.querySelector('.pa-author a');
     if (a?.textContent) return a.textContent.trim();
@@ -158,11 +160,8 @@
       }
 
       const trimmed = line.trimEnd();
-      if (!trimmed) {
-        out.push(qEmpty);
-      } else {
-        out.push(qPref + line);
-      }
+      if (!trimmed) out.push(qEmpty);
+      else out.push(qPref + line);
     }
 
     return out
@@ -174,7 +173,8 @@
   const htmlToPlain = (html, { stripQuotes } = {}) => {
     const shouldStripQuotes = stripQuotes !== false;
 
-    let raw = String(html).replace(/\s*\[(?:block=hvmask|mask)][\s\S]*?\[\/(?:block|mask)]\s*/gi, '');
+    let raw = stripHideProfile(String(html))
+      .replace(/\s*\[(?:block=hvmask|mask)][\s\S]*?\[\/(?:block|mask)]\s*/gi, '');
 
     if (shouldStripQuotes) {
       raw = raw.replace(/\[quote(?:=[^\]]+)?\][\s\S]*?\[\/quote\]/gi, '');
@@ -211,8 +211,7 @@
 
     let text = wrap.textContent || '';
 
-    text = text
-      .replace(/\s*\[(?:block=hvmask|mask)][\s\S]*?\[\/(?:block|mask)]\s*/gi, '')
+    text = stripHideProfile(text)
       .replace(/\[\[PARA\]\]/g, '\n')
       .replace(/\[\[BR\]\]/g, '\n')
       .replace(/\r\n?/g, '\n')
@@ -234,6 +233,115 @@
     if (a) return a;
     const b = htmlToPlain(html, { stripQuotes: false });
     return applyQuotePrefix(b);
+  };
+
+  const htmlToBBCode = (html) => {
+    const tpl = document.createElement('template');
+    tpl.innerHTML = stripHideProfile(String(html || ''));
+
+    const root = tpl.content;
+
+    root.querySelectorAll('script, style').forEach((n) => n.remove());
+    root.querySelectorAll('.posts-char-count-wrapper, .posts-char-count, .rsp_wrap, .post-rating, .post-vote').forEach((n) => n.remove());
+    root.querySelectorAll('.quote-box cite').forEach((n) => n.remove());
+
+    const decodeText = (s) => String(s || '').replace(/\u00A0/g, ' ');
+
+    const serializeChildren = (node) => {
+      let out = '';
+      node.childNodes.forEach((ch) => {
+        out += serializeNode(ch);
+      });
+      return out;
+    };
+
+    const wrap = (tag, content) => {
+      const c = content || '';
+      if (!c.trim()) return '';
+      return `[${tag}]${c}[/${tag}]`;
+    };
+
+    const serializeList = (el, ordered) => {
+      const items = Array.from(el.children).filter((c) => c.tagName && c.tagName.toLowerCase() === 'li');
+      const lines = items
+        .map((li) => serializeChildren(li).trim())
+        .filter(Boolean)
+        .map((t) => `[*]${t}`);
+      if (!lines.length) return '';
+      const head = ordered ? '[list=1]' : '[list]';
+      return `${head}\n${lines.join('\n')}\n[/list]\n\n`;
+    };
+
+    const serializeQuote = (el) => {
+      let target = el;
+      if (el.classList?.contains('quote-box')) {
+        target = el.querySelector('blockquote') || el;
+      }
+      const inner = serializeChildren(target).trim();
+      if (!inner) return '';
+      return `[quote]${inner}[/quote]\n\n`;
+    };
+
+    const serializeNode = (node) => {
+      if (!node) return '';
+      if (node.nodeType === Node.TEXT_NODE) return decodeText(node.nodeValue);
+      if (node.nodeType !== Node.ELEMENT_NODE) return '';
+
+      const el = node;
+      const tag = el.tagName.toLowerCase();
+
+      if (el.classList?.contains('quote-box')) return serializeQuote(el);
+      if (tag === 'blockquote') return serializeQuote(el);
+
+      if (tag === 'br') return '\n';
+
+      if (tag === 'p') {
+        const c = serializeChildren(el).trim();
+        return c ? `${c}\n\n` : '';
+      }
+
+      if (tag === 'strong' || tag === 'b') return wrap('b', serializeChildren(el));
+      if (tag === 'em' || tag === 'i') return wrap('i', serializeChildren(el));
+      if (tag === 'u') return wrap('u', serializeChildren(el));
+      if (tag === 's' || tag === 'del' || tag === 'strike') return wrap('s', serializeChildren(el));
+
+      if (tag === 'a') {
+        const href = el.getAttribute('href') || '';
+        const text = serializeChildren(el).trim() || href;
+        if (!href) return text;
+        if (text === href) return `[url]${href}[/url]`;
+        return `[url=${href}]${text}[/url]`;
+      }
+
+      if (tag === 'img') {
+        const src = el.getAttribute('src') || '';
+        return src ? `[img]${src}[/img]` : '';
+      }
+
+      if (tag === 'ul') return serializeList(el, false);
+      if (tag === 'ol') return serializeList(el, true);
+      if (tag === 'li') return `${serializeChildren(el).trim()}\n`;
+
+      if (tag === 'div') {
+        const c = serializeChildren(el);
+        return c;
+      }
+
+      if (tag === 'h1' || tag === 'h2' || tag === 'h3' || tag === 'h4' || tag === 'h5' || tag === 'h6') {
+        const c = serializeChildren(el).trim();
+        return c ? `${c}\n\n` : '';
+      }
+
+      return serializeChildren(el);
+    };
+
+    const out = serializeChildren(root)
+      .replace(/\r\n?/g, '\n')
+      .replace(/[ \t]+\n/g, '\n')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+
+    return stripHideProfile(out);
   };
 
   const copyToClipboard = async (text) => {
@@ -474,9 +582,14 @@
   const buildAllPayload = (posts, { mode }) => {
     if (mode === 'bbcode') {
       return posts
-        .map((p) => `${p.username || 'Неизвестный автор'}:\n${String(p.message || '').trim()}`)
+        .map((p) => {
+          const author = p.username || 'Неизвестный автор';
+          const bb = htmlToBBCode(p.message || '');
+          return `${author}:\n${bb}`;
+        })
         .join(SETTINGS.format.joinSeparator);
     }
+
     return posts
       .map((p) => `${p.username || 'Неизвестный автор'}:\n${htmlToPlainWithFallback(p.message || '')}`)
       .join(SETTINGS.format.joinSeparator);
