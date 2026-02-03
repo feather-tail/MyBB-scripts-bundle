@@ -51,6 +51,9 @@
       joinSeparator: typeof CFG.format?.joinSeparator === 'string' ? CFG.format.joinSeparator : '\n\n---\n\n',
       fileNamePrefix: typeof CFG.format?.fileNamePrefix === 'string' ? CFG.format.fileNamePrefix : 'topic',
       titleMaxLen: Number.isFinite(CFG.format?.titleMaxLen) ? Number(CFG.format.titleMaxLen) : 90,
+
+      quotePrefix: typeof CFG.format?.quotePrefix === 'string' ? CFG.format.quotePrefix : '> ',
+      quoteEmptyLinePrefix: typeof CFG.format?.quoteEmptyLinePrefix === 'string' ? CFG.format.quoteEmptyLinePrefix : '>',
     },
 
     cache: {
@@ -121,41 +124,116 @@
     return p;
   };
 
-  const htmlToPlain = (html) => {
-    let raw = String(html)
-      .replace(/\s*\[(?:block=hvmask|mask)][\s\S]*?\[\/(?:block|mask)]\s*/gi, '')
-      .replace(/\[quote(?:=[^\]]+)?\][\s\S]*?\[\/quote\]/gi, '');
+  const getAuthorName = (postEl) => {
+    const a = postEl.querySelector('.pa-author a');
+    if (a?.textContent) return a.textContent.trim();
+
+    const raw = postEl.querySelector(SETTINGS.selectors.postAuthor)?.textContent || '';
+    return String(raw)
+      .replace(/\u00A0/g, ' ')
+      .replace(/^Автор:\s*/i, '')
+      .trim() || 'Неизвестный автор';
+  };
+
+  const applyQuotePrefix = (text) => {
+    const qPref = SETTINGS.format.quotePrefix;
+    const qEmpty = SETTINGS.format.quoteEmptyLinePrefix;
+
+    const lines = String(text || '').split('\n');
+    const out = [];
+    let inQuote = false;
+
+    for (const line of lines) {
+      if (line === '[[Q_START]]') {
+        inQuote = true;
+        continue;
+      }
+      if (line === '[[Q_END]]') {
+        inQuote = false;
+        continue;
+      }
+      if (!inQuote) {
+        out.push(line);
+        continue;
+      }
+
+      const trimmed = line.trimEnd();
+      if (!trimmed) {
+        out.push(qEmpty);
+      } else {
+        out.push(qPref + line);
+      }
+    }
+
+    return out
+      .join('\n')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+  };
+
+  const htmlToPlain = (html, { stripQuotes } = {}) => {
+    const shouldStripQuotes = stripQuotes !== false;
+
+    let raw = String(html).replace(/\s*\[(?:block=hvmask|mask)][\s\S]*?\[\/(?:block|mask)]\s*/gi, '');
+
+    if (shouldStripQuotes) {
+      raw = raw.replace(/\[quote(?:=[^\]]+)?\][\s\S]*?\[\/quote\]/gi, '');
+    } else {
+      raw = raw
+        .replace(/\[quote(?:=[^\]]+)?\]/gi, '\n[[Q_START]]\n')
+        .replace(/\[\/quote\]/gi, '\n[[Q_END]]\n');
+    }
 
     const wrap = document.createElement('div');
     wrap.innerHTML = raw;
 
-    wrap.querySelectorAll('.quote-box, blockquote').forEach((q) => q.remove());
-    wrap.querySelectorAll('a[href]').forEach((a) => {
-      const href = a.getAttribute('href') || '';
-      const text = a.textContent.trim() || href;
-      a.textContent = `${text} (${href})`;
+    wrap.querySelectorAll('script').forEach((n) => n.remove());
+
+    wrap.querySelectorAll('a[href]').forEach((aEl) => {
+      const href = aEl.getAttribute('href') || '';
+      const text = aEl.textContent.trim() || href;
+      aEl.textContent = href ? `${text} (${href})` : text;
     });
+
+    if (shouldStripQuotes) {
+      wrap.querySelectorAll('.quote-box, blockquote').forEach((q) => q.remove());
+    } else {
+      wrap.querySelectorAll('.quote-box').forEach((box) => {
+        box.insertAdjacentText('beforebegin', '\n[[Q_START]]\n');
+        box.insertAdjacentText('afterend', '\n[[Q_END]]\n');
+      });
+      wrap.querySelectorAll('.quote-box cite').forEach((c) => c.remove());
+    }
+
     wrap.querySelectorAll('br').forEach((br) => br.replaceWith('[[BR]]'));
     wrap.querySelectorAll('p').forEach((p) => p.insertAdjacentText('afterend', '[[PARA]]'));
-    wrap.querySelectorAll('li,blockquote,tr,td,th,h1,h2,h3,h4,h5,h6').forEach((el) => el.insertAdjacentText('afterend', '[[BR]]'));
+    wrap.querySelectorAll('li,blockquote,tr,td,th,h1,h2,h3,h4,h5,h6,div').forEach((el) => el.insertAdjacentText('afterend', '[[BR]]'));
 
     let text = wrap.textContent || '';
+
     text = text
       .replace(/\s*\[(?:block=hvmask|mask)][\s\S]*?\[\/(?:block|mask)]\s*/gi, '')
-      .replace(/\[quote(?:=[^\]]+)?\][\s\S]*?\[\/quote\]/gi, '')
       .replace(/\[\[PARA\]\]/g, '\n')
       .replace(/\[\[BR\]\]/g, '\n')
       .replace(/\r\n?/g, '\n')
-      .replace(/\u00A0/g, '\uE000');
+      .replace(/\u00A0/g, '\uE000')
+      .replace(/\uE000/g, ' ');
 
-    const reEmpty = /^[ \t\uE000]*$/;
+    const reEmpty = /^[ \t]*$/;
     const out = [];
     for (const rawLine of text.split('\n')) {
       const line = rawLine.replace(/^[ \t]+/, '');
       if (reEmpty.test(line)) continue;
       out.push(line);
     }
-    return out.join('\n').replace(/\uE000/g, ' ');
+    return out.join('\n').trim();
+  };
+
+  const htmlToPlainWithFallback = (html) => {
+    const a = htmlToPlain(html, { stripQuotes: true });
+    if (a) return a;
+    const b = htmlToPlain(html, { stripQuotes: false });
+    return applyQuotePrefix(b);
   };
 
   const copyToClipboard = async (text) => {
@@ -381,7 +459,7 @@
   };
 
   const buildSinglePayload = (postEl) => {
-    const author = postEl.querySelector(SETTINGS.selectors.postAuthor)?.textContent?.trim() || 'Неизвестный автор';
+    const author = getAuthorName(postEl);
     const src = postEl.querySelector(SETTINGS.selectors.postContent);
     let html = '';
     if (src) {
@@ -389,7 +467,8 @@
       clone.querySelector(SETTINGS.selectors.postSig)?.remove();
       html = clone.innerHTML;
     }
-    return `${author}:\n${htmlToPlain(html)}`;
+    const body = htmlToPlainWithFallback(html);
+    return `${author}:\n${body}`;
   };
 
   const buildAllPayload = (posts, { mode }) => {
@@ -399,7 +478,7 @@
         .join(SETTINGS.format.joinSeparator);
     }
     return posts
-      .map((p) => `${p.username || 'Неизвестный автор'}:\n${htmlToPlain(p.message || '')}`)
+      .map((p) => `${p.username || 'Неизвестный автор'}:\n${htmlToPlainWithFallback(p.message || '')}`)
       .join(SETTINGS.format.joinSeparator);
   };
 
