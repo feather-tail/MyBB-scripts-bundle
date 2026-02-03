@@ -68,6 +68,90 @@
 
   const enc = new TextEncoder();
   const topicCache = new Map();
+  const postCache = new Map();
+
+  const RE = {
+    nickInBlock: /\[nick\]([\s\S]*?)\[\/nick\]/i,
+    maskCapture: /\[mask(?:=[^\]]+)?\]([\s\S]*?)\[\/mask\]/gi,
+    blockMaskCapture: /\[block=(?:hvmask|mask)(?:=[^\]]+)?\]([\s\S]*?)\[\/block\]/gi,
+  };
+
+  const STRIP_RE = [
+    /\[hideprofile\]/gi,
+    /\[mask(?:=[^\]]+)?\][\s\S]*?\[\/mask\]/gi,
+    /\[block=(?:hvmask|mask)(?:=[^\]]+)?\][\s\S]*?\[\/block\]/gi,
+  ];
+
+  const htmlDecoder = document.createElement('textarea');
+  const decodeEntities = (s) => {
+    htmlDecoder.innerHTML = String(s || '');
+    return htmlDecoder.value;
+  };
+
+  const trimLineStarts = (text) => {
+    const lines = String(text ?? '').replace(/\r\n?/g, '\n').split('\n');
+    return lines
+      .map((line) => {
+        if (!line) return line;
+        if (line.startsWith('>')) {
+          const m = /^(>+ ?)(.*)$/.exec(line);
+          const pref = m ? m[1] : '>';
+          const rest = m ? m[2] : line.slice(1);
+          return pref + rest.replace(/^[ \t]+/, '');
+        }
+        return line.replace(/^[ \t]+/, '');
+      })
+      .join('\n');
+  };
+
+  const normalizeInline = (s) => {
+    return decodeEntities(String(s ?? ''))
+      .replace(/<[^>]+>/g, '')
+      .replace(/\[[^\]]+]/g, '')
+      .replace(/\u00A0/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  };
+
+  const stripServiceBlocks = (input) => {
+    let out = String(input ?? '');
+    for (let i = 0; i < 8; i++) {
+      const prev = out;
+      for (const re of STRIP_RE) out = out.replace(re, '');
+      if (out === prev) break;
+    }
+    return out;
+  };
+
+  const extractNickFromMaskedBlocks = (raw) => {
+    const s = String(raw ?? '');
+
+    const scan = (re) => {
+      re.lastIndex = 0;
+      let m;
+      while ((m = re.exec(s))) {
+        const inner = m?.[1] ?? '';
+        const nm = RE.nickInBlock.exec(inner);
+        if (nm?.[1]) {
+          const nick = normalizeInline(nm[1]);
+          if (nick) return nick;
+        }
+      }
+      return '';
+    };
+
+    return scan(RE.maskCapture) || scan(RE.blockMaskCapture) || '';
+  };
+
+  const sanitizePost = ({ username, message } = {}) => {
+    const raw = String(message ?? '');
+    const authorFromNick = extractNickFromMaskedBlocks(raw);
+    const cleaned = stripServiceBlocks(raw);
+    return {
+      author: authorFromNick || String(username || '').trim() || 'Неизвестный автор',
+      message: cleaned,
+    };
+  };
 
   const ensureToastRoot = () => {
     let root = document.querySelector('.toast-root');
@@ -103,6 +187,7 @@
     const actionsWrap = el.querySelector('.toast__actions');
     let resolve;
     const p = new Promise((r) => (resolve = r));
+
     const cleanup = () => el.isConnected && el.remove();
     const resolveAndRemove = (val) => {
       resolve(val);
@@ -123,8 +208,6 @@
     if (duration > 0) setTimeout(() => resolveAndRemove(null), duration);
     return p;
   };
-
-  const stripHideProfile = (s) => String(s || '').replace(/\[hideprofile\]/gi, '');
 
   const getAuthorName = (postEl) => {
     const a = postEl.querySelector('.pa-author a');
@@ -159,9 +242,9 @@
         continue;
       }
 
-      const trimmed = line.trimEnd();
-      if (!trimmed) out.push(qEmpty);
-      else out.push(qPref + line);
+      const trimmedEnd = line.trimEnd();
+      if (!trimmedEnd) out.push(qEmpty);
+      else out.push(qPref + line.replace(/^[ \t]+/, ''));
     }
 
     return out
@@ -173,8 +256,7 @@
   const htmlToPlain = (html, { stripQuotes } = {}) => {
     const shouldStripQuotes = stripQuotes !== false;
 
-    let raw = stripHideProfile(String(html))
-      .replace(/\s*\[(?:block=hvmask|mask)][\s\S]*?\[\/(?:block|mask)]\s*/gi, '');
+    let raw = stripServiceBlocks(String(html));
 
     if (shouldStripQuotes) {
       raw = raw.replace(/\[quote(?:=[^\]]+)?\][\s\S]*?\[\/quote\]/gi, '');
@@ -207,11 +289,13 @@
 
     wrap.querySelectorAll('br').forEach((br) => br.replaceWith('[[BR]]'));
     wrap.querySelectorAll('p').forEach((p) => p.insertAdjacentText('afterend', '[[PARA]]'));
-    wrap.querySelectorAll('li,blockquote,tr,td,th,h1,h2,h3,h4,h5,h6,div').forEach((el) => el.insertAdjacentText('afterend', '[[BR]]'));
+    wrap
+      .querySelectorAll('li,blockquote,tr,td,th,h1,h2,h3,h4,h5,h6,div')
+      .forEach((el) => el.insertAdjacentText('afterend', '[[BR]]'));
 
     let text = wrap.textContent || '';
 
-    text = stripHideProfile(text)
+    text = stripServiceBlocks(text)
       .replace(/\[\[PARA\]\]/g, '\n')
       .replace(/\[\[BR\]\]/g, '\n')
       .replace(/\r\n?/g, '\n')
@@ -237,12 +321,14 @@
 
   const htmlToBBCode = (html) => {
     const tpl = document.createElement('template');
-    tpl.innerHTML = stripHideProfile(String(html || ''));
+    tpl.innerHTML = stripServiceBlocks(String(html || ''));
 
     const root = tpl.content;
 
     root.querySelectorAll('script, style').forEach((n) => n.remove());
-    root.querySelectorAll('.posts-char-count-wrapper, .posts-char-count, .rsp_wrap, .post-rating, .post-vote').forEach((n) => n.remove());
+    root
+      .querySelectorAll('.posts-char-count-wrapper, .posts-char-count, .rsp_wrap, .post-rating, .post-vote')
+      .forEach((n) => n.remove());
     root.querySelectorAll('.quote-box cite').forEach((n) => n.remove());
 
     const decodeText = (s) => String(s || '').replace(/\u00A0/g, ' ');
@@ -322,10 +408,7 @@
       if (tag === 'ol') return serializeList(el, true);
       if (tag === 'li') return `${serializeChildren(el).trim()}\n`;
 
-      if (tag === 'div') {
-        const c = serializeChildren(el);
-        return c;
-      }
+      if (tag === 'div') return serializeChildren(el);
 
       if (tag === 'h1' || tag === 'h2' || tag === 'h3' || tag === 'h4' || tag === 'h5' || tag === 'h6') {
         const c = serializeChildren(el).trim();
@@ -341,7 +424,7 @@
       .replace(/\n{3,}/g, '\n\n')
       .trim();
 
-    return stripHideProfile(out);
+    return stripServiceBlocks(out);
   };
 
   const copyToClipboard = async (text) => {
@@ -429,6 +512,26 @@
     all.sort((a, b) => Number(a.posted || 0) - Number(b.posted || 0));
     topicCache.set(topicId, { ts: now, posts: all });
     return all;
+  };
+
+  const fetchPostById = async (postId) => {
+    const now = Date.now();
+    const cached = postCache.get(postId);
+    if (cached && now - cached.ts <= SETTINGS.cache.ttlMs) return cached.post;
+
+    const url = `/api.php?method=post.get&post_id=${encodeURIComponent(postId)}&fields=id,username,message,posted`;
+    const res = await fetch(url).catch(() => null);
+    if (!res || !res.ok) return null;
+
+    const data = await res.json().catch(() => ({}));
+    const resp = data?.response;
+
+    let post = null;
+    if (Array.isArray(resp)) post = resp[0] || null;
+    else if (resp && typeof resp === 'object') post = resp;
+
+    postCache.set(postId, { ts: now, post });
+    return post;
   };
 
   const ensureModalStyles = () => {
@@ -566,32 +669,47 @@
     ensureAllButton();
   };
 
-  const buildSinglePayload = (postEl) => {
+  const buildSinglePayloadFromApi = (postData, fallbackAuthor) => {
+    const { author, message } = sanitizePost(postData);
+    const finalAuthor = author || fallbackAuthor || 'Неизвестный автор';
+    const body = htmlToPlainWithFallback(message);
+    return trimLineStarts(`${finalAuthor}:\n${body}`);
+  };
+
+  const buildSinglePayloadFromDom = (postEl) => {
     const author = getAuthorName(postEl);
     const src = postEl.querySelector(SETTINGS.selectors.postContent);
+
     let html = '';
     if (src) {
       const clone = src.cloneNode(true);
       clone.querySelector(SETTINGS.selectors.postSig)?.remove();
       html = clone.innerHTML;
     }
-    const body = htmlToPlainWithFallback(html);
-    return `${author}:\n${body}`;
+
+    const cleaned = stripServiceBlocks(html);
+    const body = htmlToPlainWithFallback(cleaned);
+
+    return trimLineStarts(`${author}:\n${body}`);
   };
 
   const buildAllPayload = (posts, { mode }) => {
     if (mode === 'bbcode') {
       return posts
         .map((p) => {
-          const author = p.username || 'Неизвестный автор';
-          const bb = htmlToBBCode(p.message || '');
-          return `${author}:\n${bb}`;
+          const { author, message } = sanitizePost(p);
+          const bb = htmlToBBCode(message || '');
+          return trimLineStarts(`${author}:\n${bb}`);
         })
         .join(SETTINGS.format.joinSeparator);
     }
 
     return posts
-      .map((p) => `${p.username || 'Неизвестный автор'}:\n${htmlToPlainWithFallback(p.message || '')}`)
+      .map((p) => {
+        const { author, message } = sanitizePost(p);
+        const plain = htmlToPlainWithFallback(message || '');
+        return trimLineStarts(`${author}:\n${plain}`);
+      })
       .join(SETTINGS.format.joinSeparator);
   };
 
@@ -599,7 +717,16 @@
     const post = btn.closest(SETTINGS.selectors.postRoot);
     if (!post) return;
 
-    const payload = buildSinglePayload(post);
+    const fallbackAuthor = getAuthorName(post);
+    const postId = String(post.id || '').match(/\d+/)?.[0] || '';
+
+    let payload = '';
+    if (postId) {
+      const apiPost = await fetchPostById(postId);
+      if (apiPost?.message != null) payload = buildSinglePayloadFromApi(apiPost, fallbackAuthor);
+    }
+    if (!payload) payload = buildSinglePayloadFromDom(post);
+
     const bytes = enc.encode(payload).length;
 
     if (bytes > SETTINGS.limits.clipboardSoftLimitBytes) {
