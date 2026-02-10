@@ -1,0 +1,626 @@
+/* Common */
+#messages .container:empty,
+#messages.view-dialog:has(.container:empty) .user-info-actions,
+#messages.messenger-cannot-reply .pl-quote {
+  display: none;
+}
+
+/* List of dialogs */
+.dialogs-list .fs-box > .container {
+  margin: 0 !important;
+}
+.dialog div.icon {
+  display: none;
+}
+.dialog .tcl {
+  width: 100% !important;
+  cursor: pointer;
+}
+.dialog .intd {
+  display: block;
+}
+.dialog .tclcon {
+  padding-left: 0.5em;
+}
+.dialog.inew .tcl {
+  background: rgba(122, 122, 122, 0.05);
+}
+.dialog.inew .tclcon a {
+  font-weight: 700;
+}
+.dialog.inew .tclcon a::after {
+  content: '';
+  display: inline-block;
+  height: 1.4em;
+  width: 1.4em;
+  background: currentColor;
+  margin: -0.3em -0.2em -0.3em 0.5em;
+  transform: scale(0.5);
+  border-radius: 50%;
+}
+.dialog.inew .tclcon a[data-count-unshowed]::after {
+  content: attr(data-count-unshowed);
+  height: 1.6em;
+  min-width: 1.6em;
+  width: fit-content;
+  text-align: center;
+  line-height: 1.6em;
+  margin-left: 1.2em;
+  transform: scale(0.8);
+  border-radius: 0.8em;
+  -webkit-text-fill-color: #fff;
+}
+.dialog-message {
+  margin-top: 5px;
+  margin-right: 9em;
+  min-height: 1.2em;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  max-width: 100%;
+  max-height: 3em;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  line-height: 1.6em;
+}
+.dialog-time-ago {
+  float: right;
+  clear: right;
+  margin-top: -1.2em;
+  opacity: 0.6;
+  /*pointer-events: none;*/
+}
+.inew .dialog-time-ago {
+  opacity: 1;
+}
+.dialog-time-ago a {
+  text-decoration: none;
+  pointer-events: none;
+}
+.punbb .dialog-avatar {
+  width: 40px;
+  height: 40px;
+  float: left;
+  margin: 0;
+}
+.punbb .dialog-avatar .avatar-image {
+  display: inline-block;
+  width: 40px;
+  height: 40px;
+}
+.punbb .dialog-avatar .isonline {
+  right: 1px;
+  top: 3px;
+}
+.punbb .dialog-avatar + .tclcon {
+  margin-left: 44px;
+}
+.dialog.is-my .dialog-message::before {
+  content: 'Вы: ';
+  opacity: 0.6;
+}
+.en .dialog.is-my .dialog-message::before {
+  content: 'You: ';
+}
+/*.dialog:not(.dialog-unread) .dialog-message::after {
+    content: "";
+    display: inline-block;
+    float: right;
+    width: 10em;
+    height: 1em;
+}*/
+.dialog-unread .dialog-message {
+  padding: 0.2em 0.6em;
+  background: rgba(0, 0, 0, 0.05);
+  margin-right: 10em;
+  border-radius: 0.3em;
+}
+/*.dialog .dialog-message img[src*="img/smilies"]*/
+.dialog .dialog-message .dialog-image {
+  vertical-align: middle;
+}
+.dialog .dialog-delete {
+  float: right;
+  margin: -0.2em;
+  font-size: 1.1em;
+  opacity: 0;
+}
+.dialog:hover .dialog-delete {
+  opacity: 1;
+}
+.dialog .dialog-delete:hover {
+  opacity: 0.8;
+}
+@media screen and (hover: none) {
+  .dialog .dialog-delete {
+    margin-bottom: -2em;
+    opacity: 1;
+  }
+}
+.dialog.is-writing .dialog-message {
+  display: none;
+}
+.dialog.is-writing .dialog-status {
+  display: block;
+  margin-top: 5px;
+  opacity: 0.6;
+}
+.dialog.is-writing .dialog-status::before {
+  content: 'печатает';
+}
+.en .dialog.is-writing .dialog-status::before {
+  content: 'writing';
+}
+.dialog.is-writing .dialog-status::after {
+  content: '...';
+  animation: messenger_writing 1s linear infinite;
+  -moz-animation: messenger_writing 1s linear infinite;
+  -webkit-animation: messenger_writing 1s linear infinite;
+}
+@keyframes messenger_writing {
+  0% {
+    content: '';
+  }
+  30% {
+    content: '.';
+  }
+  60% {
+    content: '..';
+  }
+  90% {
+    content: '...';
+  }
+}
+@-moz-keyframes messenger_writing {
+  0% {
+    content: '';
+  }
+  30% {
+    content: '.';
+  }
+  60% {
+    content: '..';
+  }
+  90% {
+    content: '...';
+  }
+}
+@-webkit-keyframes messenger_writing {
+  0% {
+    content: '';
+  }
+  30% {
+    content: '.';
+  }
+  60% {
+    content: '..';
+  }
+  90% {
+    content: '...';
+  }
+}
+@media screen and (max-width: 540px) {
+  #pun-messages table .dialog .icon {
+    display: none !important;
+  }
+  #pun-messages table .dialog .tclcon {
+    margin-left: 44px !important;
+  }
+  #pun-messages .dialog-unread .dialog-message {
+    margin: 0.3em 7em 0 0;
+  }
+}
+
+/* Dialogs sorting */
+#messages #dialogs-sort-dir {
+  display: inline-block;
+  position: relative;
+  padding: 0 0.5em;
+  font-size: 0.9em;
+  width: max-content;
+}
+#messages[data-dir='desc'] #dialogs-sort-dir a[data-dir='asc'],
+#messages[data-dir='asc'] #dialogs-sort-dir a[data-dir='desc'] {
+  display: none;
+  position: absolute;
+  top: 0;
+  width: max-content;
+}
+#messages[data-dir='desc'] #dialogs-sort-dir:hover a[data-dir='asc'],
+#messages[data-dir='asc'] #dialogs-sort-dir:hover a[data-dir='desc'] {
+  display: block;
+  padding-top: 1.5em;
+}
+
+/* Messages inside dialog */
+.punbb #messages:not(.messenger-processed) {
+  display: none;
+}
+.punbb .view-dialog .post.post-selected {
+  background: rgba(155, 155, 155, 0.3);
+}
+.punbb .view-dialog .post.post-selected > * {
+  opacity: 0.8;
+}
+.punbb #messages .post.post-new > *,
+.punbb #messages .post.post-unread > * {
+  border-width: 3px;
+}
+.punbb .formal #messages .post .container {
+  margin: 0;
+  padding: 0;
+}
+.punbb .view-dialog .fs-box > .container,
+.punbb .view-search .fs-box > .container,
+.punbb .view-bookmarks .fs-box > .container {
+  max-height: 60vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  position: relative;
+  margin-top: 0 !important;
+  float: none;
+  clear: both;
+}
+.punbb .view-dialog .fs-box > .container.messenger-loading::before,
+.punbb .view-search .fs-box > .container.messenger-loading::after,
+.punbb .view-bookmarks .fs-box > .container.messenger-loading::after,
+.punbb .dialogs-list .container.messenger-loading tbody::after {
+  content: url(/img/loading.gif);
+  margin: 0 calc(50% - 8px);
+  height: unset;
+  line-height: unset;
+  visibility: visible;
+}
+.punbb .view-dialog .fs-box > .container,
+.punbb .view-search .fs-box > .container,
+.punbb .view-bookmarks .fs-box > .container,
+.punbb .formal #messages .post .post-box {
+  border: 0;
+  margin: 0;
+  padding-bottom: 0;
+}
+.punbb .view-dialog .post.post-unread h3 span::after {
+  content: 'Не прочитано';
+  float: right;
+  font-style: italic;
+  opacity: 0.6;
+}
+.en .punbb .view-dialog .post.post-unread h3 span::after {
+  content: 'Not read';
+}
+@media screen and (max-width: 540px) {
+  .punbb .view-dialog .post.post-unread h3 span::after {
+    /*margin-right: 44px;*/
+    font-size: 0.9em;
+  }
+  /*.punbb .view-dialog .post .bookmarklink {
+        margin-right: 40px;
+    }*/
+  .punbb .view-dialog .post .permalink,
+  .punbb .view-dialog .post h3 em {
+    display: none;
+  }
+}
+/*.punbb .view-dialog .answer-box .answer-box {
+    display: none;
+}*/
+.view-dialog .post .post-author {
+  margin-bottom: -2em;
+}
+.view-dialog .post .pa-avatar img,
+.view-search .post .pa-avatar img,
+.view-bookmarks .post .pa-avatar img {
+  max-height: 40px;
+  width: auto;
+}
+.view-dialog .post .pa-avatar .placeholder {
+  display: none;
+}
+#messages .post .quote-box.answer-box {
+  cursor: pointer;
+}
+#messages .post .quote-box.answer-box blockquote {
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  max-width: 100%;
+  text-overflow: ellipsis;
+  max-height: 1.4em;
+}
+#messages .post .quote-box.answer-box blockquote.blockquote-toggle,
+#messages .post .quote-box .quote-box.answer-box blockquote {
+  display: block;
+}
+#messages .post .quote-box .quote-box.answer-box blockquote {
+  max-height: unset;
+}
+#messages .post .quote-box.answer-box,
+.quote-box.answer-box blockquote {
+  position: relative;
+  overflow-y: hidden;
+}
+#messages
+  .post
+  .quote-box.answer-box
+  blockquote:not(.blockquote-toggle)::after {
+  content: '';
+  width: 100%;
+  height: 1.4em;
+  position: absolute;
+  display: block;
+  left: 0;
+  bottom: 0;
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    var(--messenger__quote-background) 80%,
+    var(--messenger__quote-background) 100%
+  );
+  background: -webkit-gradient(
+    linear,
+    left top,
+    left bottom,
+    color-stop(0%, rgb(from var(--messenger__quote-background) r g b / 0)),
+    color-stop(80%, var(--messenger__quote-background)),
+    color-stop(100%, var(--messenger__quote-background))
+  );
+}
+#messages .post .quote-box .quote-box blockquote::after {
+  content: unset !important;
+}
+#messages .post-checker {
+  vertical-align: middle;
+}
+
+/* Bookmark icon */
+.post h3 .bookmarklink {
+  /*display: none;*/
+  visibility: hidden;
+  float: right;
+  margin: 0 0 -0.25em 0.5em;
+  font-size: 1.1em;
+  -webkit-text-stroke: 1px currentColor;
+  text-stroke: 1px currentColor;
+}
+.post:not(.post-bookmark) h3 .bookmarklink i {
+  -webkit-text-fill-color: transparent;
+  text-fill-color: transparent;
+}
+.post:hover h3 .bookmarklink,
+.post.post-bookmark h3 .bookmarklink {
+  display: inline-block;
+  visibility: visible;
+}
+.post h3 .bookmarklink:hover {
+  opacity: 0.8;
+}
+@media (hover: none) {
+  .post h3 .bookmarklink {
+    display: inline-block;
+    visibility: visible;
+  }
+}
+
+/* Reply form */
+.view-dialog #main-reply[rows],
+.view-dialog #main-reply[rows] ~ #wysi-reply {
+  height: 10em;
+}
+@media screen and (max-width: 540px) {
+  .view-dialog #main-reply[rows],
+  .view-dialog #main-reply[rows] ~ #wysi-reply {
+    height: 6em;
+  }
+}
+@media (hover: none) {
+  .view-dialog #post-form .fs-box + p {
+    text-align: right;
+  }
+}
+.view-dialog #post-form .fs-box + p,
+.view-dialog .areafield {
+  padding-bottom: unset !important;
+}
+.view-dialog #post-form .fs-box + p span {
+  float: unset !important;
+}
+.view-dialog #post-form .fs-box + p .checkfield {
+  display: none;
+}
+.view-dialog #post-form .fs-box + p.messenger-loading::after {
+  content: url(/img/loading.gif);
+  margin-left: 1em;
+}
+.view-dialog #post-preview {
+  margin-top: 1em;
+}
+
+/* User info */
+#messages #user-info {
+  float: none;
+  clear: both;
+  min-height: 40px;
+  padding: 0 1em 0.6em;
+  border-bottom: solid 1px rgba(0, 0, 0, 0.1);
+  line-height: 36px;
+}
+#messages #user-info .user-info-content {
+  display: inline-block;
+}
+#messages #user-info .user-info-username {
+  font-size: 1.1em;
+  font-weight: 700;
+}
+#messages #user-info .user-info-status {
+  margin-left: 0.8em;
+  opacity: 0.6;
+}
+#messages #user-info .user-info-actions {
+  float: right;
+}
+#messages #user-info .user-info-actions a {
+  margin-left: 1em;
+}
+#messages #user-info .user-info-multicheck {
+  font-weight: 700;
+  display: none;
+}
+#messages #user-info .user-info-multicheck::after {
+  content: attr(data-count);
+}
+#messages .multi-checked #user-info .user-info-multicheck {
+  display: inline-block;
+}
+#messages .multi-checked #user-info .user-info-content {
+  display: none;
+}
+#messages .multi-checked #user-info #user-action-search,
+#messages .multi-checked #user-info #user-action-delete {
+  display: none;
+}
+#messages .fs-box:not(.multi-checked) #user-info #user-action-multidelete,
+#messages .fs-box:not(.multi-checked) #user-info #user-action-uncheck {
+  display: none;
+}
+@media screen and (max-width: 540px) {
+  #pun-messages .view-dialog .user-avatar,
+  #pun-messages .dialog .user-avatar {
+    margin: 1px 9px 1px 0;
+    float: left;
+  }
+  #messages #user-info .user-info-username/*,
+    #messages #user-info .user-info-actions*/ {
+    display: block;
+    line-height: 1em;
+    margin: 0;
+  }
+  #messages #user-info .user-info-status {
+    margin: 0;
+    line-height: 1em;
+  }
+  #messages #user-info .user-info-content {
+    width: 60%;
+  }
+}
+
+/* User status */
+#messages #user-status {
+  padding: 0.4em 0.6em;
+  margin-bottom: -0.4em;
+}
+#messages #user-status .user-status-text {
+  opacity: 0.6;
+}
+#messages #user-status .user-status-text::before {
+  content: '\200B';
+}
+#messages #user-status.is-writing .user-status-text::before {
+  content: attr(data-username) ' печатает';
+}
+.en #messages #user-status.is-writing .user-status-text::before {
+  content: attr(data-username) ' is writing';
+}
+#messages #user-status.is-writing .user-status-text::after {
+  content: '...';
+  animation: messenger_writing 1s linear infinite;
+  -moz-animation: messenger_writing 1s linear infinite;
+  -webkit-animation: messenger_writing 1s linear infinite;
+}
+
+/* Deletion container */
+.delete_confirm .checkfield {
+  margin-top: 0.5em;
+}
+
+/* Search */
+#messages #search-keywords {
+  padding: 0.2em 0.4em;
+  /*width: calc(100% - 8em);
+    max-width: 40em;*/
+  width: 100%;
+  max-width: 100% !important;
+  box-sizing: border-box;
+}
+@media screen and (max-width: 540px) {
+  #messages #search-keywords {
+    padding: 10px;
+  }
+}
+#messages #search-submit {
+  display: none;
+}
+#messenger-usertable .messenger-user-item {
+  padding: 0;
+  height: 3em;
+  line-height: 3em;
+  cursor: pointer;
+}
+#messenger-usertable tbody tr:first-child > .messenger-user-item {
+  border-top: none 0 transparent;
+}
+#messenger-usertable tbody tr:last-child > .messenger-user-item {
+  border-bottom: none 0 transparent;
+}
+#messenger-usertable .messenger-user-item div {
+  padding: 0 0.8em;
+}
+#messenger-usertable .messenger-user-item:hover div {
+  background: rgba(0, 0, 0, 0.03);
+}
+#messenger-usertable .messenger-user-avatar {
+  display: inline-block;
+  width: 2.5em;
+  height: 2.5em;
+  margin: 0.25em 0;
+  float: left;
+  background-position: center;
+  background-size: cover;
+  border-radius: 50%;
+}
+#messenger-usertable .messenger-user-username {
+  display: inline-block;
+  padding-left: 0.8em;
+  line-height: 3em;
+}
+
+/* Send mode hints */
+#messages[data-send-mode] .fs-box + p::after {
+  float: right;
+  font-size: 0.9em;
+  opacity: 0.6;
+  white-space: pre;
+}
+#messages[data-send-mode='1'] .fs-box + p::after {
+  content: '[ Ctrl + Enter ] \2014  отправка сообщения';
+}
+.en #messages[data-send-mode='1'] .fs-box + p::after {
+  content: '[ Ctrl + Enter ] \2014  send message';
+}
+#messages[data-send-mode='2'] .fs-box + p::after {
+  content: '[ Enter ] \2014  отправка сообщения \A [ Shift + Enter ] \2014  новая строка';
+}
+.en #messages[data-send-mode='2'] .fs-box + p::after {
+  content: '[ Enter ] \2014  send message \A [ Shift + Enter ] \2014  new line';
+}
+
+/* Default mode checker */
+#default-mode-check #fld-default_mode {
+  vertical-align: middle;
+}
+
+/* misc */
+#__MESSENGER_FOCUS_ANCHOR__ {
+  display: block !important;
+  font-size: 0;
+  height: 0;
+  width: 0;
+  line-height: 0;
+  position: absolute;
+  left: -9999px;
+  overflow: hidden;
+}
+
+link[rel='stylesheet'][href*='/messenger.']::before {
+  content: '1.0.7';
+  display: none;
+}
