@@ -1102,6 +1102,12 @@
               target: '_blank',
               rel: 'noopener noreferrer',
             },
+            {
+              text: 'Ловец Сердец',
+              href: 'https://kindredspirits.ru/pages/heart_catcher',
+              target: '_blank',
+              rel: 'noopener noreferrer',
+            },
           ],
         },
         settings: {
@@ -1285,5 +1291,6 @@
    },
   };
 })();
+
 
 
