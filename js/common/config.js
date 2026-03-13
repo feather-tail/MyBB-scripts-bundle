@@ -842,7 +842,7 @@
       ALLOWED_GROUPS: [1, 2, 4, 5, 6],
       TARGET_TOPIC: 'Реклама',
       PR_TEMPLATES: [
-        `[align=center][url=https://kindredspirits.ru][img]https://forumstatic.ru/files/001c/82/f2/21734.jpg[/img][/url][/align]
+        `[align=center][url=https://kindredspirits.ru][img]https://forumstatic.ru/files/001c/8d/fd/17402.jpg[/img][/url][/align]
 [align=center][i]Kindred Spirits. Место, где можно отдохнуть душой.[/i][/align]
 [align=center]&#10070; авторский мир    &#10070; мистика    &#10070; академия      &#10070; рисованные внешности  &#10070; 18+[/align]`,
       ],
