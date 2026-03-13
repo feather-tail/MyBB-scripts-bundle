@@ -582,10 +582,10 @@
       ],
     },
     defaultAvatars: {
-      DEFAULT_AVATAR: 'https://forumstatic.ru/files/001c/82/f2/64447.jpg',
+      DEFAULT_AVATAR: 'https://forumstatic.ru/files/001c/8d/fd/91077.jpg',
       avatarByRole: {
-        0: 'https://forumstatic.ru/files/001c/82/f2/23507.jpg',
-        3: 'https://forumstatic.ru/files/001c/82/f2/50471.jpg',
+        0: 'https://forumstatic.ru/files/001c/8d/fd/54243.jpg',
+        3: 'https://forumstatic.ru/files/001c/8d/fd/47019.jpg',
       },
     },
     dice: {
