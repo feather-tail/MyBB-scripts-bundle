@@ -1,12 +1,12 @@
 (function () {
   try {
     var baseKey = 'mybb.display.v1';
-    var newKey = baseKey + ':winter2025';
+    var newKey = baseKey + ':spring2025';
     var oldKey = baseKey;
 
     var rawNew = localStorage.getItem(newKey);
 
-    var s = { style: 'winter', scheme: 'light', view: 'desktop' };
+    var s = { style: 'spring', scheme: 'light', view: 'desktop' };
 
     if (!rawNew) {
       var rawOld = localStorage.getItem(oldKey);
@@ -26,11 +26,11 @@
       try {
         s = JSON.parse(rawNew) || s;
       } catch (e) {}
-      if (!s.style) s.style = 'winter';
+      if (!s.style) s.style = 'spring';
     }
 
     var html = document.documentElement;
-    html.setAttribute('data-style', s.style || 'winter');
+    html.setAttribute('data-style', s.style || '');
     html.setAttribute('data-scheme', s.scheme || 'light');
     html.setAttribute('data-view', s.view || 'desktop');
 
@@ -45,3 +45,4 @@
     );
   } catch (e) {}
 })();
+
