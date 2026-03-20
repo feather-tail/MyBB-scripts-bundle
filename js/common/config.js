@@ -1191,6 +1191,11 @@
           search: 'Последним зарегистрировался: ',
           replace: 'Приветствуем: ',
         },
+        {
+          selector: '.pa-awards span a',
+          search: 'Наград: ',
+          replace: 'Подарки: ',
+        },
       ],
     },
     themeSwitcher: {
