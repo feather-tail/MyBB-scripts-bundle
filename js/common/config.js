@@ -1192,7 +1192,7 @@
           replace: 'Приветствуем: ',
         },
         {
-          selector: '#pa-awards span a',
+          selector: 'li#pa-awards span a',
           search: 'Наград: ',
           replace: 'Подарки: ',
         },
