@@ -22,7 +22,8 @@ body {
 .kindred-quote,
 .minimal-toggle,
 .nav-scrolled,
-.knews {
+.knews,
+.spirit-clock {
   display: none !important;
 }
 
