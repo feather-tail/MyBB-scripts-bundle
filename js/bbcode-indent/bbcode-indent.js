@@ -51,6 +51,50 @@
     return null;
   }
 
+  function isInsideCode(node) {
+    const host = node?.nodeType === Node.ELEMENT_NODE ? node : node?.parentNode;
+    return !!host?.closest?.('.code-box, .blockcode, pre, code');
+  }
+
+  function getDisplay(node) {
+    if (!node || node.nodeType !== Node.ELEMENT_NODE) return '';
+    return window.getComputedStyle(node).display;
+  }
+
+  function isBlockLike(node) {
+    if (!node || node.nodeType !== Node.ELEMENT_NODE) return false;
+
+    const display = getDisplay(node);
+
+    return [
+      'block',
+      'list-item',
+      'table',
+      'table-caption',
+      'table-cell',
+      'table-row',
+      'flex',
+      'grid',
+    ].includes(display);
+  }
+
+  function hasMeaningfulContent(node) {
+    if (!node) return false;
+    if (/\S/.test(normText(node.textContent))) return true;
+    return !!node.querySelector?.('img, svg, canvas, video, iframe, object, embed');
+  }
+
+  function unwrap(node) {
+    const parent = node?.parentNode;
+    if (!parent) return;
+
+    while (node.firstChild) {
+      parent.insertBefore(node.firstChild, node);
+    }
+
+    parent.removeChild(node);
+  }
+
   function needLineBreakBefore(curTextNode, idxInNode) {
     const beforeInNode = normText(curTextNode.nodeValue.slice(0, idxInNode));
     if (/\S/.test(beforeInNode)) return true;
@@ -58,22 +102,104 @@
     let n = curTextNode.previousSibling;
     while (n) {
       if (isBr(n)) return false;
+
       if (n.nodeType === Node.TEXT_NODE) {
         if (/\S/.test(normText(n.nodeValue))) return true;
       } else if (n.nodeType === Node.ELEMENT_NODE) {
         if (!isBr(n) && /\S/.test(normText(n.textContent))) return true;
         if (n.tagName === 'IMG') return true;
       }
+
       n = n.previousSibling;
     }
+
     return false;
   }
 
   function ensureBrBefore(node) {
     if (!node || !node.parentNode) return;
+
     const prev = prevMeaningfulSibling(node);
     if (isBr(prev)) return;
+
     node.parentNode.insertBefore(createEl('br'), node);
+  }
+
+  function findLineStart(node, root) {
+    let start = findNextMeaningful(node, root);
+    if (!start || isInsideCode(start)) return null;
+
+    if (start.nodeType === Node.ELEMENT_NODE && start.classList?.contains(IND_CLASS)) {
+      return null;
+    }
+
+    let lineStart = start;
+
+    while (
+      lineStart.parentNode &&
+      lineStart.parentNode !== root &&
+      lineStart.parentNode.nodeType === Node.ELEMENT_NODE &&
+      !lineStart.parentNode.classList?.contains(IND_CLASS) &&
+      !isInsideCode(lineStart.parentNode) &&
+      !isBlockLike(lineStart.parentNode)
+    ) {
+      const prev = prevMeaningfulSibling(lineStart);
+      if (prev && !isBr(prev)) break;
+
+      lineStart = lineStart.parentNode;
+    }
+
+    return lineStart;
+  }
+
+  function shouldStopLineWrap(node, isFirstNode) {
+    if (!node) return true;
+    if (isBr(node)) return true;
+
+    if (
+      !isFirstNode &&
+      node.nodeType === Node.ELEMENT_NODE &&
+      isBlockLike(node)
+    ) {
+      return true;
+    }
+
+    return false;
+  }
+
+  function applyIndentLine(node, root) {
+    const indentVal = config.textIndent || config.marginLeft || '2em';
+    const lineStart = findLineStart(node, root);
+
+    if (!lineStart || !lineStart.parentNode || isInsideCode(lineStart)) return;
+
+    if (lineStart.nodeType === Node.ELEMENT_NODE && isBlockLike(lineStart)) {
+      lineStart.style.textIndent = indentVal;
+      lineStart.classList.add(IND_CLASS);
+      return;
+    }
+
+    const parent = lineStart.parentNode;
+    const wrap = createEl('span', {
+      class: IND_CLASS,
+      style: `display:block;text-indent:${indentVal};`,
+    });
+
+    parent.insertBefore(wrap, lineStart);
+
+    let cur = lineStart;
+    let isFirstNode = true;
+
+    while (cur && !shouldStopLineWrap(cur, isFirstNode)) {
+      const next = cur.nextSibling;
+      wrap.appendChild(cur);
+      cur = next;
+      isFirstNode = false;
+    }
+
+    if (!hasMeaningfulContent(wrap)) {
+      unwrap(wrap);
+    }
   }
 
   function injectButton() {
@@ -100,75 +226,54 @@
     ref.after(td);
   }
 
-  function applyIndent(node) {
-    const indentVal = config.textIndent || config.marginLeft || '2em';
-    if (!node) return;
-
-    if (node.nodeType === Node.TEXT_NODE && isBlankTextNode(node)) return;
-
-    const host = node.nodeType === Node.ELEMENT_NODE ? node : node.parentNode;
-    if (host && host.closest?.('.code-box, .blockcode, pre, code')) return;
-
-    if (node.nodeType === Node.ELEMENT_NODE && node.classList?.contains(IND_CLASS)) return;
-
-    if (node.nodeType === Node.TEXT_NODE) {
-      const span = createEl('span', {
-        class: IND_CLASS,
-        style: `display:block;text-indent:${indentVal};`,
-      });
-      node.parentNode.insertBefore(span, node);
-      span.appendChild(node);
-      return;
-    }
-
-    if (node.nodeType === Node.ELEMENT_NODE) {
-      const display = window.getComputedStyle(node).display;
-
-      if (['block', 'list-item', 'table-caption'].includes(display)) {
-        node.style.textIndent = indentVal;
-        node.classList.add(IND_CLASS);
-        return;
-      }
-
-      const wrap = createEl('span', {
-        class: IND_CLASS,
-        style: `display:block;text-indent:${indentVal};`,
-      });
-      node.parentNode.insertBefore(wrap, node);
-      wrap.appendChild(node);
-    }
-  }
-
   function processIndent(container) {
     if (!container) return;
+
     const tagRaw = String(config.bbcode || '[indent]');
     const tag = tagRaw.toLowerCase();
+
     if (!container.textContent.toLowerCase().includes(tag)) return;
+
     const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
     const nodes = [];
+
     while (walker.nextNode()) {
       const n = walker.currentNode;
-      if (n.nodeValue && n.nodeValue.toLowerCase().includes(tag)) nodes.push(n);
+
+      if (
+        n.nodeValue &&
+        n.nodeValue.toLowerCase().includes(tag) &&
+        !isInsideCode(n)
+      ) {
+        nodes.push(n);
+      }
     }
 
     nodes.forEach((startNode) => {
       let cur = startNode;
 
-      while (cur && cur.nodeType === Node.TEXT_NODE) {
+      while (cur && cur.nodeType === Node.TEXT_NODE && cur.parentNode) {
         const low = (cur.nodeValue || '').toLowerCase();
         const idx = low.indexOf(tag);
+
         if (idx === -1) break;
 
         try {
           const needBr = needLineBreakBefore(cur, idx);
           const after = cur.splitText(idx);
+
           after.nodeValue = after.nodeValue.slice(tagRaw.length);
-          const indentTarget = findNextMeaningful(after, container);
+
           if (needBr && after.parentNode) {
             ensureBrBefore(after);
           }
-          applyIndent(indentTarget);
-          if (after.parentNode && isBlankTextNode(after)) after.remove();
+
+          applyIndentLine(after, container);
+
+          if (after.parentNode && isBlankTextNode(after)) {
+            after.remove();
+          }
+
           cur = after && after.parentNode && after.nodeType === Node.TEXT_NODE ? after : null;
         } catch (e) {
           if (config.debug) console.error('[bbcodeIndent] error:', e);
@@ -190,12 +295,14 @@
         processIndent(prevBox);
         obs.observe(prevBox, { childList: true, subtree: true });
       });
+
       obs.observe(prevBox, { childList: true, subtree: true });
       state.bbcodeIndentObserver = obs;
     }
   }
 
   const run = helpers.once(init);
+
   helpers.ready(run);
   document.addEventListener('pun_main_ready', run);
   document.addEventListener('pun_preview', run);
