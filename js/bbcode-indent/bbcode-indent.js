@@ -7,6 +7,7 @@
   const state = helpers.register('bbcodeIndent', {});
   const IND_CLASS = 'bbindent-line';
   const INVIS_RE = /[\u00a0\u200b\u200c\u200d\u200e\u200f\ufeff]/g;
+  const SKIP_SELECTOR = '.code-box, .blockcode, pre, code, script, style, template, textarea, noscript';
 
   function normText(s) {
     return (s || '').replace(INVIS_RE, '');
@@ -20,40 +21,88 @@
     return n && n.nodeType === Node.ELEMENT_NODE && n.tagName === 'BR';
   }
 
+  function getElement(node) {
+    if (!node) return null;
+    if (node.nodeType === Node.ELEMENT_NODE) return node;
+    return node.parentElement || null;
+  }
+
+  function getSkipHost(node) {
+    const el = getElement(node);
+    return el?.closest?.(SKIP_SELECTOR) || null;
+  }
+
+  function isInsideSkipped(node) {
+    return !!getSkipHost(node);
+  }
+
+  function isSkippedElement(node) {
+    return node?.nodeType === Node.ELEMENT_NODE && node.matches?.(SKIP_SELECTOR);
+  }
+
   function prevMeaningfulSibling(node) {
     let p = node ? node.previousSibling : null;
-    while (p && isBlankTextNode(p)) p = p.previousSibling;
+
+    while (p && (isBlankTextNode(p) || isInsideSkipped(p))) {
+      p = p.previousSibling;
+    }
+
     return p;
   }
 
-  function nextInDom(node, root) {
-    if (!node) return null;
-    if (node.firstChild) return node.firstChild;
-
+  function nextAfterSubtree(node, root) {
     let n = node;
+
     while (n && n !== root) {
       if (n.nextSibling) return n.nextSibling;
       n = n.parentNode;
     }
+
+    return null;
+  }
+
+  function nextInDom(node, root) {
+    if (!node) return null;
+
+    if (
+      node.nodeType === Node.ELEMENT_NODE &&
+      !isSkippedElement(node) &&
+      node.firstChild
+    ) {
+      return node.firstChild;
+    }
+
+    let n = node;
+
+    while (n && n !== root) {
+      if (n.nextSibling) return n.nextSibling;
+      n = n.parentNode;
+    }
+
     return null;
   }
 
   function findNextMeaningful(start, root) {
     let n = start;
+
     while (n) {
+      const skipHost = getSkipHost(n);
+
+      if (skipHost) {
+        n = nextAfterSubtree(skipHost, root);
+        continue;
+      }
+
       if (n.nodeType === Node.ELEMENT_NODE) {
         if (!isBr(n)) return n;
       } else if (n.nodeType === Node.TEXT_NODE) {
         if (!isBlankTextNode(n)) return n;
       }
+
       n = nextInDom(n, root);
     }
-    return null;
-  }
 
-  function isInsideCode(node) {
-    const host = node?.nodeType === Node.ELEMENT_NODE ? node : node?.parentNode;
-    return !!host?.closest?.('.code-box, .blockcode, pre, code');
+    return null;
   }
 
   function getDisplay(node) {
@@ -64,8 +113,6 @@
   function isBlockLike(node) {
     if (!node || node.nodeType !== Node.ELEMENT_NODE) return false;
 
-    const display = getDisplay(node);
-
     return [
       'block',
       'list-item',
@@ -75,7 +122,7 @@
       'table-row',
       'flex',
       'grid',
-    ].includes(display);
+    ].includes(getDisplay(node));
   }
 
   function hasMeaningfulContent(node) {
@@ -100,7 +147,14 @@
     if (/\S/.test(beforeInNode)) return true;
 
     let n = curTextNode.previousSibling;
+
     while (n) {
+      if (isInsideSkipped(n)) {
+        const skipHost = getSkipHost(n);
+        n = skipHost ? skipHost.previousSibling : n.previousSibling;
+        continue;
+      }
+
       if (isBr(n)) return false;
 
       if (n.nodeType === Node.TEXT_NODE) {
@@ -127,7 +181,7 @@
 
   function findLineStart(node, root) {
     let start = findNextMeaningful(node, root);
-    if (!start || isInsideCode(start)) return null;
+    if (!start || isInsideSkipped(start)) return null;
 
     if (start.nodeType === Node.ELEMENT_NODE && start.classList?.contains(IND_CLASS)) {
       return null;
@@ -140,7 +194,7 @@
       lineStart.parentNode !== root &&
       lineStart.parentNode.nodeType === Node.ELEMENT_NODE &&
       !lineStart.parentNode.classList?.contains(IND_CLASS) &&
-      !isInsideCode(lineStart.parentNode) &&
+      !isInsideSkipped(lineStart.parentNode) &&
       !isBlockLike(lineStart.parentNode)
     ) {
       const prev = prevMeaningfulSibling(lineStart);
@@ -171,7 +225,7 @@
     const indentVal = config.textIndent || config.marginLeft || '2em';
     const lineStart = findLineStart(node, root);
 
-    if (!lineStart || !lineStart.parentNode || isInsideCode(lineStart)) return;
+    if (!lineStart || !lineStart.parentNode || isInsideSkipped(lineStart)) return;
 
     if (lineStart.nodeType === Node.ELEMENT_NODE && isBlockLike(lineStart)) {
       lineStart.style.textIndent = indentVal;
@@ -227,7 +281,7 @@
   }
 
   function processIndent(container) {
-    if (!container) return;
+    if (!container || isInsideSkipped(container)) return;
 
     const tagRaw = String(config.bbcode || '[indent]');
     const tag = tagRaw.toLowerCase();
@@ -243,7 +297,7 @@
       if (
         n.nodeValue &&
         n.nodeValue.toLowerCase().includes(tag) &&
-        !isInsideCode(n)
+        !isInsideSkipped(n)
       ) {
         nodes.push(n);
       }
@@ -253,6 +307,8 @@
       let cur = startNode;
 
       while (cur && cur.nodeType === Node.TEXT_NODE && cur.parentNode) {
+        if (isInsideSkipped(cur)) break;
+
         const low = (cur.nodeValue || '').toLowerCase();
         const idx = low.indexOf(tag);
 
@@ -283,21 +339,32 @@
     });
   }
 
+  function observeContainer(container) {
+    if (!container || container.__bbcodeIndentObserver) return;
+
+    const obs = new MutationObserver(() => {
+      obs.disconnect();
+      processIndent(container);
+      obs.observe(container, { childList: true, subtree: true });
+    });
+
+    obs.observe(container, { childList: true, subtree: true });
+    container.__bbcodeIndentObserver = obs;
+  }
+
   function init() {
     injectButton();
 
-    $$(config.selectors).forEach((el) => processIndent(el));
+    $$(config.selectors).forEach((el) => {
+      processIndent(el);
+      observeContainer(el);
+    });
 
     const prevBox = $('#post-preview .post-content');
-    if (prevBox && !state.bbcodeIndentObserver) {
-      const obs = new MutationObserver(() => {
-        obs.disconnect();
-        processIndent(prevBox);
-        obs.observe(prevBox, { childList: true, subtree: true });
-      });
-
-      obs.observe(prevBox, { childList: true, subtree: true });
-      state.bbcodeIndentObserver = obs;
+    if (prevBox && !state.bbcodeIndentPreviewObserver) {
+      processIndent(prevBox);
+      observeContainer(prevBox);
+      state.bbcodeIndentPreviewObserver = true;
     }
   }
 
