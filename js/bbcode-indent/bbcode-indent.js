@@ -40,6 +40,11 @@
     return node?.nodeType === Node.ELEMENT_NODE && node.matches?.(SKIP_SELECTOR);
   }
 
+  function isInsideIndent(node) {
+    const el = getElement(node);
+    return !!el?.closest?.(`.${IND_CLASS}`);
+  }
+
   function prevMeaningfulSibling(node) {
     let p = node ? node.previousSibling : null;
 
@@ -48,6 +53,16 @@
     }
 
     return p;
+  }
+
+  function nextMeaningfulSibling(node) {
+    let n = node ? node.nextSibling : null;
+
+    while (n && (isBlankTextNode(n) || isInsideSkipped(n))) {
+      n = n.nextSibling;
+    }
+
+    return n;
   }
 
   function nextAfterSubtree(node, root) {
@@ -179,11 +194,17 @@
     node.parentNode.insertBefore(createEl('br'), node);
   }
 
+  function isHardBreak(node) {
+    if (!isBr(node)) return false;
+
+    const next = nextMeaningfulSibling(node);
+    return isBr(next);
+  }
+
   function findLineStart(node, root) {
     let start = findNextMeaningful(node, root);
-    if (!start || isInsideSkipped(start)) return null;
 
-    if (start.nodeType === Node.ELEMENT_NODE && start.classList?.contains(IND_CLASS)) {
+    if (!start || isInsideSkipped(start) || isInsideIndent(start)) {
       return null;
     }
 
@@ -206,9 +227,17 @@
     return lineStart;
   }
 
-  function shouldStopLineWrap(node, isFirstNode) {
+  function shouldStopWrap(node, isFirstNode) {
     if (!node) return true;
-    if (isBr(node)) return true;
+    if (isHardBreak(node)) return true;
+
+    if (
+      !isFirstNode &&
+      node.nodeType === Node.ELEMENT_NODE &&
+      node.classList?.contains(IND_CLASS)
+    ) {
+      return true;
+    }
 
     if (
       !isFirstNode &&
@@ -244,7 +273,7 @@
     let cur = lineStart;
     let isFirstNode = true;
 
-    while (cur && !shouldStopLineWrap(cur, isFirstNode)) {
+    while (cur && !shouldStopWrap(cur, isFirstNode)) {
       const next = cur.nextSibling;
       wrap.appendChild(cur);
       cur = next;
@@ -297,7 +326,8 @@
       if (
         n.nodeValue &&
         n.nodeValue.toLowerCase().includes(tag) &&
-        !isInsideSkipped(n)
+        !isInsideSkipped(n) &&
+        !isInsideIndent(n)
       ) {
         nodes.push(n);
       }
@@ -307,7 +337,7 @@
       let cur = startNode;
 
       while (cur && cur.nodeType === Node.TEXT_NODE && cur.parentNode) {
-        if (isInsideSkipped(cur)) break;
+        if (isInsideSkipped(cur) || isInsideIndent(cur)) break;
 
         const low = (cur.nodeValue || '').toLowerCase();
         const idx = low.indexOf(tag);
@@ -361,16 +391,13 @@
     });
 
     const prevBox = $('#post-preview .post-content');
-    if (prevBox && !state.bbcodeIndentPreviewObserver) {
+    if (prevBox) {
       processIndent(prevBox);
       observeContainer(prevBox);
-      state.bbcodeIndentPreviewObserver = true;
     }
   }
 
-  const run = helpers.once(init);
-
-  helpers.ready(run);
-  document.addEventListener('pun_main_ready', run);
-  document.addEventListener('pun_preview', run);
+  helpers.ready(init);
+  document.addEventListener('pun_main_ready', init);
+  document.addEventListener('pun_preview', init);
 })();
