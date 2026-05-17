@@ -895,7 +895,7 @@
     prQuickLogin: {
       login: 'PR',
       pass: '1111',
-      redirectUrl: 'https://kindredspirits.ru/viewtopic.php?id=666',
+      redirectUrl: 'https://kindredspirits.ru/viewtopic.php?id=727',
       selectors: {
         btn: '#pr-quick-login',
         navLogin: '#navlogin',
