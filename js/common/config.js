@@ -1205,6 +1205,7 @@
         { id: 'classic', label: 'Classic' },
         { id: 'winter', label: 'Winter' },
         { id: 'spring', label: 'Spring' },
+        { id: 'summer', label: 'Summer' },
       ],
       htmlFrameSelector:
         'iframe.html_frame, .html-post-box iframe.html_frame, .html-content iframe.html_frame',
