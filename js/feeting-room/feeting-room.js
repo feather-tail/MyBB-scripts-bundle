@@ -5,7 +5,7 @@
     topicId: 13,
     tagSelector: '.custom_tag.custom_tag_fittingroom',
     fakePostId: 'ks-fittingroom-post',
-    debug: true,
+    debug: false,
     shopJsonUrl: 'https://feathertail.ru/ks/characters/customize.json',
     characterPageBase: '/pages/',
     storageKeyPrefix: 'ks-fr-cart-v1:',
@@ -36,39 +36,9 @@
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;');
 
-  const ensureUnhideProfileCSS = () => {
-    const id = 'ks-fr-unhideprofile';
-    if (document.getElementById(id)) return;
-    const st = document.createElement('style');
-    st.id = id;
-    const cls = cssEsc(HIDE_PROFILE_CLASS);
-    st.textContent =
-      `.${cls} .post-author[data-ks="fitting-profile"]{display:block !important;visibility:visible !important;opacity:1 !important;height:auto !important;max-height:none !important;overflow:visible !important;}`.trim();
-    (document.head || document.documentElement).appendChild(st);
-  };
+  const ensureUnhideProfileCSS = () => {};
 
-  const ensureFittingProfileCSS = () => {
-    const id = 'ks-fr-profilefix';
-    if (document.getElementById(id)) return;
-
-    const st = document.createElement('style');
-    st.id = id;
-    st.textContent = `
-    .post-author[data-ks="fitting-profile"] .author-wrap{
-      position: relative;
-    }
-
-    .post-author[data-ks="fitting-profile"] #ks-fr-fld6 img,
-    .post-author[data-ks="fitting-profile"] .pa-fld6#ks-fr-fld6 img{
-      display: block;
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-    }
-  `.trim();
-
-    (document.head || document.documentElement).appendChild(st);
-  };
+  const ensureFittingProfileCSS = () => {};
 
   const buildFakeAuthorFromTemplate = (profile, isLoggedIn) => {
     const tpl = document.querySelector(
