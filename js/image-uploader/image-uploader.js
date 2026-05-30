@@ -240,7 +240,7 @@
       </div>
       <div class="rfu-drop" id="rfu-drop">
         <div class="rfu-hint">Выберите файлы или перетащите в зону загрузки</div>
-        <div class="rfu-seг" style="padding-top:.4rem">
+        <div class="rfu-seg" style="padding-top:.4rem">
           <button id="rfu-choose" class="rfu-btn" type="button">Выбрать файлы</button>
           <input id="rfu-file" type="file" accept="image/*" multiple hidden>
         </div>
