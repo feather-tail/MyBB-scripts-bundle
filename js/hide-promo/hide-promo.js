@@ -1,9 +1,8 @@
 (() => {
   const dayLimit = 7;
-  const containerSelector = '.activees, .activees2';
+  const containerSelector = '.activees, .activees2, .activees-2';
   const linkSelector = 'a';
-  const filteredAttr = 'data-activees-filtered';
-  const readyClass = 'ks-activees-ready';
+  const readyClass = 'is-activees-ready';
   const msPerDay = 86400000;
 
   const toUtcMidnightMs = (date) =>
@@ -45,13 +44,22 @@
   const filterContainer = (container) => {
     const todayUtcMs = toUtcMidnightMs(new Date());
     const links = Array.from(container.querySelectorAll(linkSelector));
+    let visibleCount = 0;
 
     links.forEach((link) => {
-      setHidden(link, isExpired(link, todayUtcMs));
+      const expired = isExpired(link, todayUtcMs);
+      setHidden(link, expired);
+      if (!expired) visibleCount += 1;
     });
 
-    setHidden(container, links.length === 0 || links.every((link) => link.hidden));
-    container.setAttribute(filteredAttr, 'true');
+    if (visibleCount > 0) {
+      setHidden(container, false);
+      container.classList.add(readyClass);
+      return;
+    }
+
+    container.classList.remove(readyClass);
+    setHidden(container, true);
   };
 
   const collectContainers = (node, containers) => {
@@ -73,7 +81,6 @@
 
   const filterAll = () => {
     document.querySelectorAll(containerSelector).forEach(filterContainer);
-    document.documentElement.classList.add(readyClass);
   };
 
   const observer = new MutationObserver((mutations) => {
@@ -90,18 +97,18 @@
     containers.forEach(filterContainer);
   });
 
-  const init = () => {
-    filterAll();
+  filterAll();
 
-    observer.observe(document.documentElement, {
-      childList: true,
-      subtree: true,
-    });
-  };
+  observer.observe(document.documentElement, {
+    childList: true,
+    subtree: true,
+    attributes: true,
+    attributeFilter: ['data-added-at'],
+  });
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init, { once: true });
+    document.addEventListener('DOMContentLoaded', filterAll, { once: true });
   } else {
-    init();
+    filterAll();
   }
 })();
