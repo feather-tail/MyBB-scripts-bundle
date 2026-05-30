@@ -2,7 +2,7 @@
   'use strict';
 
   const CFG = {
-    topicId: 318,
+    topicId: 13,
     tagSelector: '.custom_tag.custom_tag_fittingroom',
     fakePostId: 'ks-fittingroom-post',
     debug: true,
