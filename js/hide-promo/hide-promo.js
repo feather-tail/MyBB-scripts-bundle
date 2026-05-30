@@ -2,17 +2,15 @@
   const dayLimit = 7;
   const containerSelector = '.activees, .activees2';
   const linkSelector = 'a';
+  const filteredAttr = 'data-activees-filtered';
+  const readyClass = 'ks-activees-ready';
   const msPerDay = 86400000;
 
   const toUtcMidnightMs = (date) =>
     Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
 
-  const getTodayUtcMs = () => toUtcMidnightMs(new Date());
-
   const parseDateDdMmYyyyToUtcMs = (value) => {
-    const match = String(value || '')
-      .trim()
-      .match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+    const match = String(value || '').trim().match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
     if (!match) return null;
 
     const day = Number(match[1]);
@@ -45,15 +43,15 @@
   };
 
   const filterContainer = (container) => {
-    const todayUtcMs = getTodayUtcMs();
+    const todayUtcMs = toUtcMidnightMs(new Date());
     const links = Array.from(container.querySelectorAll(linkSelector));
 
     links.forEach((link) => {
       setHidden(link, isExpired(link, todayUtcMs));
     });
 
-    const hasVisibleLinks = links.some((link) => !link.hidden);
-    setHidden(container, !hasVisibleLinks);
+    setHidden(container, links.length === 0 || links.every((link) => link.hidden));
+    container.setAttribute(filteredAttr, 'true');
   };
 
   const collectContainers = (node, containers) => {
@@ -75,6 +73,7 @@
 
   const filterAll = () => {
     document.querySelectorAll(containerSelector).forEach(filterContainer);
+    document.documentElement.classList.add(readyClass);
   };
 
   const observer = new MutationObserver((mutations) => {
@@ -94,12 +93,10 @@
   const init = () => {
     filterAll();
 
-    if (document.documentElement) {
-      observer.observe(document.documentElement, {
-        childList: true,
-        subtree: true,
-      });
-    }
+    observer.observe(document.documentElement, {
+      childList: true,
+      subtree: true,
+    });
   };
 
   if (document.readyState === 'loading') {
