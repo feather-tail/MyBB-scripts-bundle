@@ -144,7 +144,7 @@
     },
     bbcodeMask: {
       blockTag: 'mask',
-      defaultAvatar: 'https://i.imgur.com/bQuC3S1.png',
+      defaultAvatar: 'https://forumstatic.ru/files/001c/b8/c1/81772.webp?v=1',
       buttonIcon: 'https://i.imgur.com/ONu0llO.png',
       storageKey: 'maskListUser',
       storageLimit: 20,
@@ -582,10 +582,10 @@
       ],
     },
     defaultAvatars: {
-      DEFAULT_AVATAR: 'https://forumstatic.ru/files/001c/8d/fd/91077.jpg',
+      DEFAULT_AVATAR: 'https://forumstatic.ru/files/001c/b8/c1/81772.webp?v=1',
       avatarByRole: {
-        0: 'https://forumstatic.ru/files/001c/8d/fd/54243.jpg',
-        3: 'https://forumstatic.ru/files/001c/8d/fd/47019.jpg',
+        0: 'https://forumstatic.ru/files/001c/b8/c1/90081.webp?v=1',
+        3: 'https://forumstatic.ru/files/001c/b8/c1/35365.webp?v=1',
       },
     },
     dice: {
