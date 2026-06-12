@@ -1199,8 +1199,8 @@
       ],
     },
     themeSwitcher: {
-      storage: { key: 'mybb.display.v1', instance: 'summer2026' },
-      defaults: { style: 'summer', scheme: 'light', view: 'desktop' },
+    storage: { key: 'mybb.display.v1', instance: 'summer2026' },
+    defaults: { style: 'summer', scheme: 'light', view: 'desktop' },
       styles: [
         { id: 'classic', label: 'Classic' },
         { id: 'winter', label: 'Winter' },
