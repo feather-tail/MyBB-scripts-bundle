@@ -1,74 +1,79 @@
 (() => {
   'use strict';
 
-  const CFG = window.ScriptConfig?.copyPosts || {};
-
-  const SETTINGS = {
-    allowedForumIds: Array.isArray(CFG.allowedForumIds) ? CFG.allowedForumIds.map(String) : [],
-
-    selectors: {
-      topicRoot: typeof CFG.selectors?.topicRoot === 'string' ? CFG.selectors.topicRoot : '#pun-viewtopic, #pun-main',
-      singleInsertAfter: typeof CFG.selectors?.singleInsertAfter === 'string' ? CFG.selectors.singleInsertAfter : 'h3 strong',
-      allInsertAfter: typeof CFG.selectors?.allInsertAfter === 'string' ? CFG.selectors.allInsertAfter : '#pun-main h1 span',
-      postRoot: typeof CFG.selectors?.postRoot === 'string' ? CFG.selectors.postRoot : 'div.post',
-      postAuthor: typeof CFG.selectors?.postAuthor === 'string' ? CFG.selectors.postAuthor : '.pa-author a, .pa-author',
-      postContent: typeof CFG.selectors?.postContent === 'string' ? CFG.selectors.postContent : '.post-content, .postmsg',
-      postSig: typeof CFG.selectors?.postSig === 'string' ? CFG.selectors.postSig : '.post-sig',
-      topicTitle: typeof CFG.selectors?.topicTitle === 'string' ? CFG.selectors.topicTitle : '#pun-main h1',
-    },
-
-    icons: {
-      single: typeof CFG.icons?.single === 'string' ? CFG.icons.single : 'fa-solid fa-clipboard',
-      all: typeof CFG.icons?.all === 'string' ? CFG.icons.all : 'fa-solid fa-file-lines',
-    },
-
-    ui: {
-      singleBtnTitle: typeof CFG.ui?.singleBtnTitle === 'string' ? CFG.ui.singleBtnTitle : 'Скопировать этот пост',
-      allBtnTitle: typeof CFG.ui?.allBtnTitle === 'string' ? CFG.ui.allBtnTitle : 'Скопировать все посты в теме',
-
-      toastCloseLabel: typeof CFG.ui?.toastCloseLabel === 'string' ? CFG.ui.toastCloseLabel : 'Закрыть',
-      copiedOne: typeof CFG.ui?.copiedOne === 'string' ? CFG.ui.copiedOne : 'Пост скопирован в буфер обмена.',
-      done: typeof CFG.ui?.done === 'string' ? CFG.ui.done : 'Готово.',
-      copyFail: typeof CFG.ui?.copyFail === 'string' ? CFG.ui.copyFail : 'Не удалось скопировать в буфер обмена.',
-      topicIdFail: typeof CFG.ui?.topicIdFail === 'string' ? CFG.ui.topicIdFail : 'Не удалось определить ID темы.',
-      fetchFail: typeof CFG.ui?.fetchFail === 'string' ? CFG.ui.fetchFail : 'Не удалось получить данные о постах.',
-
-      modalTitle: typeof CFG.ui?.modalTitle === 'string' ? CFG.ui.modalTitle : 'Как скопировать тему?',
-      modalCancel: typeof CFG.ui?.modalCancel === 'string' ? CFG.ui.modalCancel : 'Отмена',
-      actionFileBB: typeof CFG.ui?.actionFileBB === 'string' ? CFG.ui.actionFileBB : 'В файл (BB-коды)',
-      actionFilePlain: typeof CFG.ui?.actionFilePlain === 'string' ? CFG.ui.actionFilePlain : 'В файл (без BB-кодов)',
-      actionClipBB: typeof CFG.ui?.actionClipBB === 'string' ? CFG.ui.actionClipBB : 'В буфер (BB-коды)',
-      actionClipPlain: typeof CFG.ui?.actionClipPlain === 'string' ? CFG.ui.actionClipPlain : 'В буфер (без BB-кодов)',
-    },
-
-    limits: {
-      maxPages: Number.isFinite(CFG.limits?.maxPages) ? Number(CFG.limits.maxPages) : 200,
-      pageLimit: Number.isFinite(CFG.limits?.pageLimit) ? Number(CFG.limits.pageLimit) : 100,
-      clipboardSoftLimitBytes: Number.isFinite(CFG.limits?.clipboardSoftLimitBytes) ? Number(CFG.limits.clipboardSoftLimitBytes) : 1_000_000,
-    },
-
-    format: {
-      joinSeparator: typeof CFG.format?.joinSeparator === 'string' ? CFG.format.joinSeparator : '\n\n---\n\n',
-      fileNamePrefix: typeof CFG.format?.fileNamePrefix === 'string' ? CFG.format.fileNamePrefix : 'topic',
-      titleMaxLen: Number.isFinite(CFG.format?.titleMaxLen) ? Number(CFG.format.titleMaxLen) : 90,
-
-      quotePrefix: typeof CFG.format?.quotePrefix === 'string' ? CFG.format.quotePrefix : '> ',
-      quoteEmptyLinePrefix: typeof CFG.format?.quoteEmptyLinePrefix === 'string' ? CFG.format.quoteEmptyLinePrefix : '>',
-    },
-
-    cache: {
-      ttlMs: Number.isFinite(CFG.cache?.ttlMs) ? Number(CFG.cache.ttlMs) : 120000,
-    },
-  };
-
-  const ALLOWED_FORUMS = new Set(SETTINGS.allowedForumIds);
-  const TOPIC_ID = new URLSearchParams(location.search).get('id') || '';
-
-  if (!window.FORUM || !ALLOWED_FORUMS.has(String(FORUM?.topic?.forum_id))) return;
+  let SETTINGS = null;
+  let mounted = false;
+  let bootObserver = null;
+  let bootTimer = null;
+  let bootStartedAt = 0;
 
   const enc = new TextEncoder();
   const topicCache = new Map();
   const postCache = new Map();
+
+  const TOPIC_ID = new URLSearchParams(location.search).get('id') || '';
+
+  const buildSettings = () => {
+    const CFG = window.ScriptConfig?.copyPosts || {};
+
+    return {
+      allowedForumIds: Array.isArray(CFG.allowedForumIds) ? CFG.allowedForumIds.map(String) : [],
+
+      selectors: {
+        topicRoot: typeof CFG.selectors?.topicRoot === 'string' ? CFG.selectors.topicRoot : '#pun-viewtopic, #pun-main',
+        singleInsertAfter: typeof CFG.selectors?.singleInsertAfter === 'string' ? CFG.selectors.singleInsertAfter : 'h3 strong',
+        allInsertAfter: typeof CFG.selectors?.allInsertAfter === 'string' ? CFG.selectors.allInsertAfter : '#pun-main h1 span',
+        postRoot: typeof CFG.selectors?.postRoot === 'string' ? CFG.selectors.postRoot : 'div.post',
+        postAuthor: typeof CFG.selectors?.postAuthor === 'string' ? CFG.selectors.postAuthor : '.pa-author a, .pa-author',
+        postContent: typeof CFG.selectors?.postContent === 'string' ? CFG.selectors.postContent : '.post-content, .postmsg',
+        postSig: typeof CFG.selectors?.postSig === 'string' ? CFG.selectors.postSig : '.post-sig',
+        topicTitle: typeof CFG.selectors?.topicTitle === 'string' ? CFG.selectors.topicTitle : '#pun-main h1',
+      },
+
+      icons: {
+        single: typeof CFG.icons?.single === 'string' ? CFG.icons.single : 'fa-solid fa-clipboard',
+        all: typeof CFG.icons?.all === 'string' ? CFG.icons.all : 'fa-solid fa-file-lines',
+      },
+
+      ui: {
+        singleBtnTitle: typeof CFG.ui?.singleBtnTitle === 'string' ? CFG.ui.singleBtnTitle : 'Скопировать этот пост',
+        allBtnTitle: typeof CFG.ui?.allBtnTitle === 'string' ? CFG.ui.allBtnTitle : 'Скопировать все посты в теме',
+
+        toastCloseLabel: typeof CFG.ui?.toastCloseLabel === 'string' ? CFG.ui.toastCloseLabel : 'Закрыть',
+        copiedOne: typeof CFG.ui?.copiedOne === 'string' ? CFG.ui.copiedOne : 'Пост скопирован в буфер обмена.',
+        done: typeof CFG.ui?.done === 'string' ? CFG.ui.done : 'Готово.',
+        copyFail: typeof CFG.ui?.copyFail === 'string' ? CFG.ui.copyFail : 'Не удалось скопировать в буфер обмена.',
+        topicIdFail: typeof CFG.ui?.topicIdFail === 'string' ? CFG.ui.topicIdFail : 'Не удалось определить ID темы.',
+        fetchFail: typeof CFG.ui?.fetchFail === 'string' ? CFG.ui.fetchFail : 'Не удалось получить данные о постах.',
+
+        modalTitle: typeof CFG.ui?.modalTitle === 'string' ? CFG.ui.modalTitle : 'Как скопировать тему?',
+        modalCancel: typeof CFG.ui?.modalCancel === 'string' ? CFG.ui.modalCancel : 'Отмена',
+        actionFileBB: typeof CFG.ui?.actionFileBB === 'string' ? CFG.ui.actionFileBB : 'В файл (BB-коды)',
+        actionFilePlain: typeof CFG.ui?.actionFilePlain === 'string' ? CFG.ui.actionFilePlain : 'В файл (без BB-кодов)',
+        actionClipBB: typeof CFG.ui?.actionClipBB === 'string' ? CFG.ui.actionClipBB : 'В буфер (BB-коды)',
+        actionClipPlain: typeof CFG.ui?.actionClipPlain === 'string' ? CFG.ui.actionClipPlain : 'В буфер (без BB-кодов)',
+      },
+
+      limits: {
+        maxPages: Number.isFinite(CFG.limits?.maxPages) ? Number(CFG.limits.maxPages) : 200,
+        pageLimit: Number.isFinite(CFG.limits?.pageLimit) ? Number(CFG.limits.pageLimit) : 100,
+        clipboardSoftLimitBytes: Number.isFinite(CFG.limits?.clipboardSoftLimitBytes) ? Number(CFG.limits.clipboardSoftLimitBytes) : 1_000_000,
+      },
+
+      format: {
+        joinSeparator: typeof CFG.format?.joinSeparator === 'string' ? CFG.format.joinSeparator : '\n\n---\n\n',
+        fileNamePrefix: typeof CFG.format?.fileNamePrefix === 'string' ? CFG.format.fileNamePrefix : 'topic',
+        titleMaxLen: Number.isFinite(CFG.format?.titleMaxLen) ? Number(CFG.format.titleMaxLen) : 90,
+
+        quotePrefix: typeof CFG.format?.quotePrefix === 'string' ? CFG.format.quotePrefix : '> ',
+        quoteEmptyLinePrefix: typeof CFG.format?.quoteEmptyLinePrefix === 'string' ? CFG.format.quoteEmptyLinePrefix : '>',
+      },
+
+      cache: {
+        ttlMs: Number.isFinite(CFG.cache?.ttlMs) ? Number(CFG.cache.ttlMs) : 120000,
+      },
+    };
+  };
 
   const RE = {
     nickInBlock: /\[nick\]([\s\S]*?)\[\/nick\]/i,
@@ -83,6 +88,7 @@
   ];
 
   const htmlDecoder = document.createElement('textarea');
+
   const decodeEntities = (s) => {
     htmlDecoder.innerHTML = String(s || '');
     return htmlDecoder.value;
@@ -147,6 +153,7 @@
     const raw = String(message ?? '');
     const authorFromNick = extractNickFromMaskedBlocks(raw);
     const cleaned = stripServiceBlocks(raw);
+
     return {
       author: authorFromNick || String(username || '').trim() || 'Неизвестный автор',
       message: cleaned,
@@ -156,39 +163,52 @@
   const ensureToastRoot = () => {
     let root = document.querySelector('.toast-root');
     if (root) return root;
+
     root = document.createElement('div');
     root.className = 'toast-root';
     root.setAttribute('role', 'status');
     root.setAttribute('aria-live', 'polite');
     root.setAttribute('aria-atomic', 'true');
-    document.body.appendChild(root);
+
+    const parent = document.body || document.documentElement;
+    parent.appendChild(root);
+
     return root;
   };
 
   const showToast = (message, { type = 'info', duration = 2800 } = {}) => {
     const root = ensureToastRoot();
     const el = document.createElement('div');
+
     el.className = `toast toast--${type}`;
     el.innerHTML = `<div class="toast__content">${message}</div><button class="toast__close" type="button" aria-label="${SETTINGS.ui.toastCloseLabel}">×</button>`;
+
     root.appendChild(el);
+
     const remove = () => el.isConnected && el.remove();
+
     el.querySelector('.toast__close')?.addEventListener('click', remove);
+
     if (duration > 0) setTimeout(remove, duration);
   };
 
   const showActionToast = (message, actions = [], { type = 'info', duration = 0 } = {}) => {
     const root = ensureToastRoot();
     const el = document.createElement('div');
+
     el.className = `toast toast--${type} toast--action`;
     el.innerHTML = `
       <div class="toast__content">${message}</div>
       <div class="toast__actions"></div>
       <button class="toast__close" type="button" aria-label="${SETTINGS.ui.toastCloseLabel}">×</button>`;
+
     const actionsWrap = el.querySelector('.toast__actions');
     let resolve;
+
     const p = new Promise((r) => (resolve = r));
 
     const cleanup = () => el.isConnected && el.remove();
+
     const resolveAndRemove = (val) => {
       resolve(val);
       cleanup();
@@ -204,8 +224,11 @@
     });
 
     root.appendChild(el);
+
     el.querySelector('.toast__close')?.addEventListener('click', () => resolveAndRemove(null));
+
     if (duration > 0) setTimeout(() => resolveAndRemove(null), duration);
+
     return p;
   };
 
@@ -214,6 +237,7 @@
     if (a?.textContent) return a.textContent.trim();
 
     const raw = postEl.querySelector(SETTINGS.selectors.postAuthor)?.textContent || '';
+
     return String(raw)
       .replace(/\u00A0/g, ' ')
       .replace(/^Автор:\s*/i, '')
@@ -233,16 +257,19 @@
         inQuote = true;
         continue;
       }
+
       if (line === '[[Q_END]]') {
         inQuote = false;
         continue;
       }
+
       if (!inQuote) {
         out.push(line);
         continue;
       }
 
       const trimmedEnd = line.trimEnd();
+
       if (!trimmedEnd) out.push(qEmpty);
       else out.push(qPref + line.replace(/^[ \t]+/, ''));
     }
@@ -289,6 +316,7 @@
 
     wrap.querySelectorAll('br').forEach((br) => br.replaceWith('[[BR]]'));
     wrap.querySelectorAll('p').forEach((p) => p.insertAdjacentText('afterend', '[[PARA]]'));
+
     wrap
       .querySelectorAll('li,blockquote,tr,td,th,h1,h2,h3,h4,h5,h6,div')
       .forEach((el) => el.insertAdjacentText('afterend', '[[BR]]'));
@@ -304,17 +332,20 @@
 
     const reEmpty = /^[ \t]*$/;
     const out = [];
+
     for (const rawLine of text.split('\n')) {
       const line = rawLine.replace(/^[ \t]+/, '');
       if (reEmpty.test(line)) continue;
       out.push(line);
     }
+
     return out.join('\n').trim();
   };
 
   const htmlToPlainWithFallback = (html) => {
     const a = htmlToPlain(html, { stripQuotes: true });
     if (a) return a;
+
     const b = htmlToPlain(html, { stripQuotes: false });
     return applyQuotePrefix(b);
   };
@@ -326,18 +357,22 @@
     const root = tpl.content;
 
     root.querySelectorAll('script, style').forEach((n) => n.remove());
+
     root
       .querySelectorAll('.posts-char-count-wrapper, .posts-char-count, .rsp_wrap, .post-rating, .post-vote')
       .forEach((n) => n.remove());
+
     root.querySelectorAll('.quote-box cite').forEach((n) => n.remove());
 
     const decodeText = (s) => String(s || '').replace(/\u00A0/g, ' ');
 
     const serializeChildren = (node) => {
       let out = '';
+
       node.childNodes.forEach((ch) => {
         out += serializeNode(ch);
       });
+
       return out;
     };
 
@@ -349,22 +384,30 @@
 
     const serializeList = (el, ordered) => {
       const items = Array.from(el.children).filter((c) => c.tagName && c.tagName.toLowerCase() === 'li');
+
       const lines = items
         .map((li) => serializeChildren(li).trim())
         .filter(Boolean)
         .map((t) => `[*]${t}`);
+
       if (!lines.length) return '';
+
       const head = ordered ? '[list=1]' : '[list]';
+
       return `${head}\n${lines.join('\n')}\n[/list]\n\n`;
     };
 
     const serializeQuote = (el) => {
       let target = el;
+
       if (el.classList?.contains('quote-box')) {
         target = el.querySelector('blockquote') || el;
       }
+
       const inner = serializeChildren(target).trim();
+
       if (!inner) return '';
+
       return `[quote]${inner}[/quote]\n\n`;
     };
 
@@ -394,8 +437,10 @@
       if (tag === 'a') {
         const href = el.getAttribute('href') || '';
         const text = serializeChildren(el).trim() || href;
+
         if (!href) return text;
         if (text === href) return `[url]${href}[/url]`;
+
         return `[url=${href}]${text}[/url]`;
       }
 
@@ -437,11 +482,17 @@
         ta.value = text;
         ta.style.position = 'fixed';
         ta.style.opacity = '0';
-        document.body.appendChild(ta);
+
+        const parent = document.body || document.documentElement;
+        parent.appendChild(ta);
+
         ta.focus();
         ta.select();
+
         const ok = document.execCommand('copy');
+
         ta.remove();
+
         return ok;
       } catch {
         return false;
@@ -453,11 +504,16 @@
     const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
+
     a.href = url;
     a.download = filename;
-    document.body.appendChild(a);
+
+    const parent = document.body || document.documentElement;
+    parent.appendChild(a);
+
     a.click();
     a.remove();
+
     URL.revokeObjectURL(url);
   };
 
@@ -471,8 +527,9 @@
 
   const getTopicTitle = () => {
     const domTitle = document.querySelector(SETTINGS.selectors.topicTitle)?.textContent?.trim() || '';
-    const forumTitle = String(FORUM?.topic?.subject || '').trim();
+    const forumTitle = String(window.FORUM?.topic?.subject || '').trim();
     const title = domTitle || forumTitle || document.title || '';
+
     return cleanFileName(title).slice(0, SETTINGS.format.titleMaxLen);
   };
 
@@ -481,12 +538,14 @@
     const title = getTopicTitle();
     const suffix = mode === 'bbcode' ? 'bbcode' : 'plain';
     const base = title ? `${SETTINGS.format.fileNamePrefix}-${id} — ${title}` : `${SETTINGS.format.fileNamePrefix}-${id}`;
+
     return `${base} (${suffix}).txt`;
   };
 
   const fetchAllPosts = async (topicId) => {
     const now = Date.now();
     const cached = topicCache.get(topicId);
+
     if (cached && now - cached.ts <= SETTINGS.cache.ttlMs && Array.isArray(cached.posts)) return cached.posts;
 
     const all = [];
@@ -499,44 +558,54 @@
         `&limit=${limit}&skip=${skip}&fields=id,username,message,posted`;
 
       const res = await fetch(url);
+
       if (!res.ok) break;
 
       const data = await res.json().catch(() => ({}));
       const batch = Array.isArray(data?.response) ? data.response : [];
+
       if (!batch.length) break;
 
       all.push(...batch);
+
       if (batch.length < limit) break;
     }
 
     all.sort((a, b) => Number(a.posted || 0) - Number(b.posted || 0));
     topicCache.set(topicId, { ts: now, posts: all });
+
     return all;
   };
 
   const fetchPostById = async (postId) => {
     const now = Date.now();
     const cached = postCache.get(postId);
+
     if (cached && now - cached.ts <= SETTINGS.cache.ttlMs) return cached.post;
 
     const url = `/api.php?method=post.get&post_id=${encodeURIComponent(postId)}&fields=id,username,message,posted`;
     const res = await fetch(url).catch(() => null);
+
     if (!res || !res.ok) return null;
 
     const data = await res.json().catch(() => ({}));
     const resp = data?.response;
 
     let post = null;
+
     if (Array.isArray(resp)) post = resp[0] || null;
     else if (resp && typeof resp === 'object') post = resp;
 
     postCache.set(postId, { ts: now, post });
+
     return post;
   };
 
   const ensureModalStyles = () => {
     if (document.getElementById('ks-copy-modal-style')) return;
+
     const css = document.createElement('style');
+
     css.id = 'ks-copy-modal-style';
     css.textContent = `
       .ks-copy-modal{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:99999}
@@ -553,6 +622,7 @@
       .ks-copy-modal__cancel{appearance:none;-webkit-appearance:none;padding:8px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.18);background:transparent;color:#fff;cursor:pointer;font:600 13px/1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
       .ks-copy-modal__cancel:hover{background:rgba(255,255,255,.08)}
     `;
+
     document.head.appendChild(css);
   };
 
@@ -560,6 +630,7 @@
     ensureModalStyles();
 
     let modal = document.getElementById('ks-copy-modal');
+
     if (!modal) {
       modal = document.createElement('div');
       modal.id = 'ks-copy-modal';
@@ -580,7 +651,9 @@
           </div>
         </div>
       `;
-      document.body.appendChild(modal);
+
+      const parent = document.body || document.documentElement;
+      parent.appendChild(modal);
     }
 
     const title = modal.querySelector('#ksCopyModalTitle');
@@ -615,10 +688,12 @@
       const onClick = (e) => {
         const t = e.target;
         const choice = t?.getAttribute?.('data-choice');
+
         if (choice) {
           const [dest, mode] = choice.split(':');
           return finish({ dest, mode });
         }
+
         if (t === backdrop || t === cancelBtn) return finish(null);
       };
 
@@ -633,14 +708,17 @@
 
   const ensureAllButton = () => {
     const allAnchor = SETTINGS.selectors.allInsertAfter ? document.querySelector(SETTINGS.selectors.allInsertAfter) : null;
+
     if (!allAnchor) return;
     if (document.querySelector('.copy-all-btn')) return;
 
     const allBtn = document.createElement('button');
+
     allBtn.type = 'button';
     allBtn.className = 'copy-all-btn';
     allBtn.title = SETTINGS.ui.allBtnTitle;
     allBtn.setAttribute('aria-label', SETTINGS.ui.allBtnTitle);
+
     setBtnIcon(allBtn, SETTINGS.icons.all);
 
     allAnchor.insertAdjacentElement('afterend', allBtn);
@@ -651,13 +729,16 @@
     if (post.querySelector('.copy-post-btn')) return;
 
     const anchor = SETTINGS.selectors.singleInsertAfter ? post.querySelector(SETTINGS.selectors.singleInsertAfter) : null;
+
     if (!anchor) return;
 
     const btn = document.createElement('button');
+
     btn.type = 'button';
     btn.className = 'copy-post-btn';
     btn.title = SETTINGS.ui.singleBtnTitle;
     btn.setAttribute('aria-label', SETTINGS.ui.singleBtnTitle);
+
     setBtnIcon(btn, SETTINGS.icons.single);
 
     anchor.insertAdjacentElement('afterend', btn);
@@ -665,6 +746,7 @@
 
   const initPostsInRoot = (root) => {
     const posts = root.querySelectorAll ? root.querySelectorAll(SETTINGS.selectors.postRoot) : [];
+
     posts.forEach(ensureSingleButton);
     ensureAllButton();
   };
@@ -673,6 +755,7 @@
     const { author, message } = sanitizePost(postData);
     const finalAuthor = author || fallbackAuthor || 'Неизвестный автор';
     const body = htmlToPlainWithFallback(message);
+
     return trimLineStarts(`${finalAuthor}:\n${body}`);
   };
 
@@ -681,6 +764,7 @@
     const src = postEl.querySelector(SETTINGS.selectors.postContent);
 
     let html = '';
+
     if (src) {
       const clone = src.cloneNode(true);
       clone.querySelector(SETTINGS.selectors.postSig)?.remove();
@@ -699,6 +783,7 @@
         .map((p) => {
           const { author, message } = sanitizePost(p);
           const bb = htmlToBBCode(message || '');
+
           return trimLineStarts(`${author}:\n${bb}`);
         })
         .join(SETTINGS.format.joinSeparator);
@@ -708,6 +793,7 @@
       .map((p) => {
         const { author, message } = sanitizePost(p);
         const plain = htmlToPlainWithFallback(message || '');
+
         return trimLineStarts(`${author}:\n${plain}`);
       })
       .join(SETTINGS.format.joinSeparator);
@@ -715,16 +801,19 @@
 
   const handleSingleCopy = async (btn) => {
     const post = btn.closest(SETTINGS.selectors.postRoot);
+
     if (!post) return;
 
     const fallbackAuthor = getAuthorName(post);
     const postId = String(post.id || '').match(/\d+/)?.[0] || '';
 
     let payload = '';
+
     if (postId) {
       const apiPost = await fetchPostById(postId);
       if (apiPost?.message != null) payload = buildSinglePayloadFromApi(apiPost, fallbackAuthor);
     }
+
     if (!payload) payload = buildSinglePayloadFromDom(post);
 
     const bytes = enc.encode(payload).length;
@@ -738,10 +827,12 @@
         ],
         { type: 'warning' }
       );
+
       if (choice === 'download') return downloadTxt(payload, makeTopicFilename({ mode: 'plain' }));
     }
 
     const ok = await copyToClipboard(payload);
+
     if (ok) return showToast(SETTINGS.ui.copiedOne, { type: 'success' });
 
     const fallback = await showActionToast(
@@ -749,6 +840,7 @@
       [{ label: 'Скачать .txt', value: 'download', variant: 'primary' }],
       { type: 'error' }
     );
+
     if (fallback === 'download') downloadTxt(payload, makeTopicFilename({ mode: 'plain' }));
   };
 
@@ -756,6 +848,7 @@
     if (!TOPIC_ID) return showToast(SETTINGS.ui.topicIdFail, { type: 'error' });
 
     const choice = await askAllCopyMode();
+
     if (!choice) return;
 
     try {
@@ -764,6 +857,7 @@
 
       if (choice.dest === 'clipboard') {
         const ok = await copyToClipboard(text);
+
         if (ok) return showToast(SETTINGS.ui.done, { type: 'success' });
 
         const fallback = await showActionToast(
@@ -771,7 +865,9 @@
           [{ label: 'Скачать .txt', value: 'download', variant: 'primary' }],
           { type: 'error' }
         );
+
         if (fallback === 'download') downloadTxt(text, makeTopicFilename({ mode: choice.mode }));
+
         return;
       }
 
@@ -785,13 +881,16 @@
   const onDelegatedClick = (e) => {
     const t = e.target;
     const singleBtn = t?.closest?.('.copy-post-btn');
+
     if (singleBtn) {
       e.preventDefault();
       e.stopPropagation();
       void handleSingleCopy(singleBtn);
       return;
     }
+
     const allBtn = t?.closest?.('.copy-all-btn');
+
     if (allBtn) {
       e.preventDefault();
       e.stopPropagation();
@@ -799,8 +898,11 @@
     }
   };
 
-  const mount = () => {
-    const root = document.querySelector(SETTINGS.selectors.topicRoot) || document.body;
+  const mount = (root) => {
+    if (mounted) return;
+
+    mounted = true;
+
     initPostsInRoot(root);
 
     document.addEventListener('click', onDelegatedClick, true);
@@ -809,8 +911,11 @@
       for (const m of mutations) {
         for (const node of m.addedNodes) {
           if (!(node instanceof Element)) continue;
+
           if (node.matches?.(SETTINGS.selectors.postRoot)) ensureSingleButton(node);
+
           node.querySelectorAll?.(SETTINGS.selectors.postRoot)?.forEach(ensureSingleButton);
+
           ensureAllButton();
         }
       }
@@ -819,5 +924,85 @@
     mo.observe(root, { childList: true, subtree: true });
   };
 
-  mount();
+  const stopBoot = () => {
+    if (bootObserver) {
+      bootObserver.disconnect();
+      bootObserver = null;
+    }
+
+    if (bootTimer) {
+      clearInterval(bootTimer);
+      bootTimer = null;
+    }
+  };
+
+  const getBootDecision = () => {
+    const cfg = window.ScriptConfig?.copyPosts;
+
+    if (!cfg || !Array.isArray(cfg.allowedForumIds)) return { state: 'wait' };
+    if (!window.FORUM?.topic) return { state: 'wait' };
+
+    const settings = buildSettings();
+    const allowedForums = new Set(settings.allowedForumIds);
+    const forumId = String(window.FORUM?.topic?.forum_id);
+
+    if (!allowedForums.has(forumId)) return { state: 'forbidden' };
+
+    const root = document.querySelector(settings.selectors.topicRoot);
+
+    if (!root) return { state: 'wait' };
+
+    return { state: 'ready', settings, root };
+  };
+
+  const tryBoot = () => {
+    if (mounted) {
+      stopBoot();
+      return true;
+    }
+
+    const decision = getBootDecision();
+
+    if (decision.state === 'forbidden') {
+      stopBoot();
+      return true;
+    }
+
+    if (decision.state !== 'ready') return false;
+
+    SETTINGS = decision.settings;
+
+    mount(decision.root);
+    stopBoot();
+
+    return true;
+  };
+
+  const startBoot = () => {
+    bootStartedAt = Date.now();
+
+    const tick = () => {
+      if (tryBoot()) return;
+
+      if (Date.now() - bootStartedAt > 60000) {
+        stopBoot();
+      }
+    };
+
+    tick();
+
+    if (mounted) return;
+
+    const observeRoot = document.documentElement || document;
+
+    bootObserver = new MutationObserver(tick);
+    bootObserver.observe(observeRoot, { childList: true, subtree: true });
+
+    bootTimer = setInterval(tick, 100);
+
+    document.addEventListener('DOMContentLoaded', tick, { once: true });
+    window.addEventListener('load', tick, { once: true });
+  };
+
+  startBoot();
 })();
