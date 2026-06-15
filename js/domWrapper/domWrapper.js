@@ -4,6 +4,13 @@
   const cfg = window.ScriptConfig && window.ScriptConfig.domWrappers;
   if (!cfg || !Array.isArray(cfg.groups) || !cfg.groups.length) return;
 
+  const rootElement = document.documentElement;
+  const loadingClass = cfg.loadingClass || 'dom-wrappers-loading';
+  const readyClass = cfg.readyClass || 'dom-wrappers-ready';
+  const enqueue = window.queueMicrotask || ((callback) => Promise.resolve().then(callback));
+
+  rootElement.classList.add(loadingClass);
+
   const schedule = (() => {
     let queued = false;
 
@@ -12,7 +19,7 @@
 
       queued = true;
 
-      requestAnimationFrame(() => {
+      enqueue(() => {
         queued = false;
         callback();
       });
@@ -43,9 +50,10 @@
   const wrapTargets = (root, targetSelector, wrapperClass) => {
     if (!root) return;
 
-    const nodes = Array.from(root.querySelectorAll(targetSelector)).filter(
-      (node) => !node.parentElement.classList.contains(wrapperClass),
-    );
+    const nodes = Array.from(root.querySelectorAll(targetSelector)).filter((node) => {
+      const parent = node.parentElement;
+      return parent && !parent.classList.contains(wrapperClass);
+    });
 
     if (!nodes.length) return;
 
@@ -80,22 +88,30 @@
     cfg.groups.forEach(applyGroup);
   };
 
+  const markReady = () => {
+    applyAll();
+    rootElement.classList.remove(loadingClass);
+    rootElement.classList.add(readyClass);
+  };
+
   const observer = new MutationObserver(() => {
     schedule(applyAll);
   });
 
+  observer.observe(rootElement, {
+    childList: true,
+    subtree: true,
+  });
+
   applyAll();
 
-  if (document.documentElement) {
-    observer.observe(document.documentElement, {
-      childList: true,
-      subtree: true,
-    });
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', markReady, { once: true });
+  } else {
+    markReady();
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', applyAll, { once: true });
-  } else {
-    applyAll();
-  }
+  window.addEventListener('load', markReady, { once: true });
+
+  setTimeout(markReady, 1500);
 })();
