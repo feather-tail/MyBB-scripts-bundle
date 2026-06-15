@@ -16,6 +16,7 @@
     storageKey: 'postFontSize',
     insertAfterSelector: '',
     defaultAnchorSelector: '.post h3 strong',
+    deepApply: true,
     ...(window.ScriptConfig?.fontResizer || {}),
   };
 
@@ -75,38 +76,50 @@
   const injectEarlyStyle = (size) => {
     const selectors = getAllFontSelectors();
     if (!selectors.length) return;
-
-    const css = `${selectors.join(',')}{font-size:${size}px!important;}`;
-
+  
+    const rootSelectors = selectors.join(',');
+  
+    const deepSelectors = config.deepApply
+      ? selectors.map((selector) => `${selector} *`).join(',')
+      : '';
+  
+    const cssSelectors = [rootSelectors, deepSelectors].filter(Boolean).join(',');
+  
+    const css = `${cssSelectors}{font-size:${size}px!important;}`;
+  
     let style = document.getElementById('font-resizer-initial-style');
-
+  
     if (!style) {
       style = document.createElement('style');
       style.id = 'font-resizer-initial-style';
       style.type = 'text/css';
-
+  
       const target = document.head || document.documentElement;
       target.appendChild(style);
     }
-
+  
     style.textContent = css;
   };
 
   const applySizeToMain = (size) => {
     const selectors = getAllFontSelectors();
     if (!selectors.length) return;
-
-    const els = new Set();
-
-    selectors.forEach((sel) => {
-      $$(sel).forEach((el) => els.add(el));
-    });
-
-    els.forEach((el) => {
-      el.style.fontSize = `${size}px`;
-    });
-
+  
     injectEarlyStyle(size);
+  
+    const els = new Set();
+  
+    selectors.forEach((selector) => {
+      $$(selector).forEach((el) => els.add(el));
+  
+      if (config.deepApply) {
+        $$(`${selector} *`).forEach((el) => els.add(el));
+      }
+    });
+  
+    els.forEach((el) => {
+      el.style.setProperty('font-size', `${size}px`, 'important');
+    });
   };
 
   const getHtmlFrames = () =>
