@@ -13,6 +13,8 @@
     maxSize: 38,
     defaultSize: 14,
     storageKey: 'postFontSize',
+    ignoreSelector:
+      '#ks-fittingroom-post .post-author[data-ks="fitting-profile"], #ks-fittingroom-post .post-author[data-ks="fitting-profile"] *',
   });
 
   const getAllFontSelectors = () => {
@@ -27,6 +29,34 @@
         : [config.extraSelectors]
       : [];
     return [...base, ...extra].filter(Boolean);
+  };
+
+  const getIgnoreSelectors = () => {
+    const items = Array.isArray(config.ignoreSelector)
+      ? config.ignoreSelector
+      : [config.ignoreSelector];
+
+    return items
+      .filter(Boolean)
+      .flatMap((item) =>
+        String(item)
+          .split(',')
+          .map((selector) => selector.trim())
+          .filter(Boolean),
+      );
+  };
+  const ignoreSelectors = getIgnoreSelectors();
+
+  const isIgnored = (el) => {
+    if (!ignoreSelectors.length || !el?.matches) return false;
+
+    return ignoreSelectors.some((selector) => {
+      try {
+        return el.matches(selector) || !!el.closest(selector);
+      } catch {
+        return false;
+      }
+    });
   };
 
   const getStoredSize = () => {
@@ -52,6 +82,7 @@
     const els = new Set();
     selectors.forEach((sel) => $$(sel).forEach((el) => els.add(el)));
     els.forEach((el) => {
+      if (isIgnored(el)) return;
       el.style.fontSize = size + 'px';
     });
   };
