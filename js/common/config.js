@@ -597,6 +597,8 @@
       buttonIcon: '/i/blank.gif',
     },
     domWrappers: {
+      loadingClass: 'dom-wrappers-loading',
+      readyClass: 'dom-wrappers-ready',
       groups: [
         {
           rootSelector: '#pun-index .tcr',
@@ -610,7 +612,7 @@
         },
         {
           rootSelector: '.punbb .post .post-author',
-          targetSelector: 'li.pa-title, .pa-avatar, .pa-fld6,.pa-fld1',
+          targetSelector: 'li.pa-title, .pa-avatar, .pa-fld6, .pa-fld1',
           wrapperClass: 'author-wrap',
         },
         {
