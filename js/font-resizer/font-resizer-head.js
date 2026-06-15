@@ -50,10 +50,23 @@
     return Math.max(config.minSize, Math.min(config.maxSize, n));
   };
 
+  const splitSelectorList = (value) => {
+    const items = Array.isArray(value) ? value : [value];
+  
+    return items
+      .filter(Boolean)
+      .flatMap((item) =>
+        String(item)
+          .split(',')
+          .map((selector) => selector.trim())
+          .filter(Boolean),
+      );
+  };
+  
   const getAllFontSelectors = () => [
-    ...toArray(config.fontSelector),
-    ...toArray(config.extraSelectors),
-  ].filter(Boolean);
+    ...splitSelectorList(config.fontSelector),
+    ...splitSelectorList(config.extraSelectors),
+  ];
 
   const getStoredSize = () => {
     let v = NaN;
