@@ -660,6 +660,7 @@
       defaultSize: 14,
       insertAfterSelector: '',
       defaultAnchorSelector: '.post h3 strong',
+      deepApply: true,
     },
     forumAccessGuard: {
       enabled: true,
