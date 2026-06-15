@@ -16,6 +16,8 @@
     storageKey: 'postFontSize',
     insertAfterSelector: '',
     defaultAnchorSelector: '.post h3 strong',
+    ignoreSelector:
+      '#ks-fittingroom-post .post-author[data-ks="fitting-profile"], #ks-fittingroom-post .post-author[data-ks="fitting-profile"] *',
     deepApply: true,
     ...(window.ScriptConfig?.fontResizer || {}),
   };
@@ -68,6 +70,27 @@
     ...splitSelectorList(config.extraSelectors),
   ];
 
+  const getIgnoreSelectors = () => splitSelectorList(config.ignoreSelector);
+  const ignoreSelectors = getIgnoreSelectors();
+
+  const isIgnored = (el) => {
+    if (!ignoreSelectors.length || !el?.matches) return false;
+
+    return ignoreSelectors.some((selector) => {
+      try {
+        return el.matches(selector) || !!el.closest(selector);
+      } catch {
+        return false;
+      }
+    });
+  };
+
+  const withIgnoreFilter = (selector) => {
+    return ignoreSelectors.length
+      ? `${selector}:not(${ignoreSelectors.join(',')})`
+      : selector;
+  };
+
   const getStoredSize = () => {
     let v = NaN;
 
@@ -90,10 +113,10 @@
     const selectors = getAllFontSelectors();
     if (!selectors.length) return;
   
-    const rootSelectors = selectors.join(',');
+    const rootSelectors = selectors.map(withIgnoreFilter).join(',');
   
     const deepSelectors = config.deepApply
-      ? selectors.map((selector) => `${selector} *`).join(',')
+      ? selectors.map((selector) => withIgnoreFilter(`${selector} *`)).join(',')
       : '';
   
     const cssSelectors = [rootSelectors, deepSelectors].filter(Boolean).join(',');
@@ -123,10 +146,14 @@
     const els = new Set();
   
     selectors.forEach((selector) => {
-      $$(selector).forEach((el) => els.add(el));
+      $$(selector).forEach((el) => {
+        if (!isIgnored(el)) els.add(el);
+      });
   
       if (config.deepApply) {
-        $$(`${selector} *`).forEach((el) => els.add(el));
+        $$(`${selector} *`).forEach((el) => {
+          if (!isIgnored(el)) els.add(el);
+        });
       }
     });
   
