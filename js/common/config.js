@@ -1,6 +1,61 @@
 (() => {
   'use strict';
   window.ScriptConfig = {
+    gamePostCounterv2: {
+      enabled: true,
+      viewerGroups: [1, 2, 3, 4, 5, 6],
+      includeFirstPost: false,
+      forumsRules: {
+        defaultMode: 'all',
+        perForum: new Map([
+          ['10', { mode: 'all' }],
+          ['11', { mode: 'all' }],
+          ['12', { mode: 'all' }],
+          ['13', { mode: 'all' }],
+          ['17', { mode: 'all' }],
+          ['18', { mode: 'all' }],
+        ]),
+      },
+      selectors: {
+        profilePostsField: '.pa-fld7',
+        launcherAfter: '#button-addition',
+      },
+      ui: {
+        showBadgesInTopic: true,
+        badgeSource: 'total',
+        profileBadgeSource: 'total',
+        showForumTotal: true,
+        forumTotalLabel: 'Игровых постов: ',
+        maxUsersToDecorate: 200,
+        launcherText: 'Статистика постов',
+        launcherIcon: '#',
+        forumsOnly: [2],
+      },
+      backend: {
+        endpoint: 'https://feathertail.ru/ks/gpc/index.php',
+        subscription: 'KSPIRITS',
+        tableKey: 'ks-global',
+        limit: 40,
+        period: 'week',
+      },
+      settingsMenuSection: 'settings',
+      toggleInsertAfter: '',
+    },
+
+    adminGamepostRecountv2: {
+      forumIds: [10, 11, 12, 13, 17, 18],
+      includeFirstPost: false,
+      apiBase: '/api.php',
+      topicsPerRequest: 100,
+      postsPerRequest: 100,
+      delayBetweenRequestsMs: 200,
+      backend: {
+        endpoint: 'https://feathertail.ru/ks/gpc/index.php',
+        method: 'admin_recount',
+        subscription: 'KSPIRITS',
+        tableKey: 'ks-global',
+      },
+    },
     adminBank: {
       endpoints: {
         bankApiUrl: 'https://feathertail.ru/ks/bank/bank-api.php',
@@ -91,7 +146,10 @@
         labels: { type: 'Тип операции', amount: 'Количество' },
         inputStyle: 'color:#111 !important',
       },
-      access: { allowedTopicIds: ['155', '233', '318', '699'], allowedGroupIds: [1, 2] },
+      access: {
+        allowedTopicIds: ['155', '233', '318', '699'],
+        allowedGroupIds: [1, 2],
+      },
       profileFieldKey: 'fld4',
       operations: [
         { title: 'Начисление', factor: 1, topics: 'all' },
@@ -463,7 +521,7 @@
     },
     copyPosts: {
       allowedForumIds: [10, 11, 12, 13, 17, 18, 29],
-    
+
       selectors: {
         topicRoot: '#pun-viewtopic, #pun-main',
         singleInsertAfter: 'h3 strong',
@@ -474,23 +532,23 @@
         postSig: '.post-sig',
         topicTitle: '#pun-main h1',
       },
-    
+
       icons: {
         single: 'fa-solid fa-clipboard',
         all: 'fa-solid fa-file-lines',
       },
-    
+
       ui: {
         singleBtnTitle: 'Скопировать этот пост',
         allBtnTitle: 'Скопировать все посты в теме',
-    
+
         toastCloseLabel: 'Закрыть',
         copiedOne: 'Пост скопирован в буфер обмена.',
         done: 'Готово.',
         copyFail: 'Не удалось скопировать в буфер обмена.',
         topicIdFail: 'Не удалось определить ID темы.',
         fetchFail: 'Не удалось получить данные о постах.',
-    
+
         modalTitle: 'Как скопировать тему?',
         modalCancel: 'Отмена',
         actionFileBB: 'В файл (BB-коды)',
@@ -498,13 +556,13 @@
         actionClipBB: 'В буфер (BB-коды)',
         actionClipPlain: 'В буфер (без BB-кодов)',
       },
-    
+
       limits: {
         maxPages: 200,
         pageLimit: 100,
         clipboardSoftLimitBytes: 1_000_000,
       },
-    
+
       format: {
         joinSeparator: '\n\n---\n\n',
         fileNamePrefix: 'topic',
@@ -512,7 +570,7 @@
         quotePrefix: '> ',
         quoteEmptyLinePrefix: '>',
       },
-    
+
       cache: {
         ttlMs: 120000,
       },
@@ -533,7 +591,8 @@
       mountId: 'chrono-root',
       headingActive: 'Активные эпизоды',
       headingDone: 'Завершённые эпизоды',
-      seriesDefaultStyle: 'https://forumstatic.ru/files/001c/82/f2/24385.css?v=3',
+      seriesDefaultStyle:
+        'https://forumstatic.ru/files/001c/82/f2/24385.css?v=3',
       seriesStyles: {},
       announceMaxChars: 220,
     },
@@ -1290,20 +1349,14 @@
       },
     },
     usershow: {
-     rootSelector: '#pun-main',
-     messageSelectors: ['.post-content', '.postmsg'],
-     alwaysUsers: ['Kayden Moore'],
-     alwaysGroups: [],
-     showAllowedListInStub: true,
-     citeText: 'Скрытый текст:',
-     stubText: 'Скрытый текст доступен только определённым пользователям.',
-     prehide: true,
-   },
+      rootSelector: '#pun-main',
+      messageSelectors: ['.post-content', '.postmsg'],
+      alwaysUsers: ['Kayden Moore'],
+      alwaysGroups: [],
+      showAllowedListInStub: true,
+      citeText: 'Скрытый текст:',
+      stubText: 'Скрытый текст доступен только определённым пользователям.',
+      prehide: true,
+    },
   };
 })();
-
-
-
-
-
-
