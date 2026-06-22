@@ -1,29 +1,40 @@
 (() => {
   'use strict';
 
-  const config = {
+  const defaults = {
+    enabled: true,
     htmlFrameSelector:
       'iframe.html_frame, .html-post-box iframe.html_frame, .html-content iframe.html_frame',
     fontSelector: '.post-content, #main-reply',
-    extraSelectors: [
-      '.post-box .custom_tag_katexttext',
-      '.post-box .custom_tag_katext',
-      '.post-box .custom_tag_kindredaca',
-    ],
+    extraSelectors: [],
+    contentSelector:
+      ':scope > p, :scope > ul, :scope > ol, :scope > blockquote, :scope > table, :scope > pre, :scope > dl, :scope > div:not(.custom_tag):not(.post-sig):not(.rsp_wrap)',
+    directSelector:
+      '#main-reply, textarea[name="req_message"], textarea[name="message"], textarea:not([readonly]):not([disabled]), input[type="text"], [contenteditable="true"]',
+    excludeSelector:
+      '.custom_tag, .post-sig, .lastedit, .rsp_wrap, .post-rating, .post-vote, .quote-box cite, script, style, img, svg, canvas, iframe',
+    disabledTopicIds: [],
+    disabledPostIds: [],
+    preserveInlineFontSize: true,
     minSize: 10,
     maxSize: 38,
     defaultSize: 14,
     storageKey: 'postFontSize',
     insertAfterSelector: '',
     defaultAnchorSelector: '.post h3 strong',
-    ignoreSelector:
-      '#ks-fittingroom-post .post-author[data-ks="fitting-profile"], #ks-fittingroom-post .post-author[data-ks="fitting-profile"] *',
-    deepApply: true,
+    observeContent: true,
+  };
+
+  const config = {
+    ...defaults,
     ...(window.ScriptConfig?.fontResizer || {}),
   };
 
+  const APPLIED_ATTR = 'data-font-resizer-applied';
+
   const $ = (selector, root = document) => root.querySelector(selector);
-  const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
+  const $$ = (selector, root = document) =>
+    Array.from(root.querySelectorAll(selector));
 
   const createEl = (tag, props = {}) => {
     const el = document.createElement(tag);
@@ -41,11 +52,6 @@
     return el;
   };
 
-  const toArray = (value) => {
-    if (!value) return [];
-    return Array.isArray(value) ? value : [value];
-  };
-
   const clamp = (size) => {
     const n = Number(size);
     if (!Number.isFinite(n)) return config.defaultSize;
@@ -54,41 +60,83 @@
 
   const splitSelectorList = (value) => {
     const items = Array.isArray(value) ? value : [value];
-  
-    return items
-      .filter(Boolean)
-      .flatMap((item) =>
-        String(item)
-          .split(',')
-          .map((selector) => selector.trim())
-          .filter(Boolean),
-      );
+
+    return items.filter(Boolean).flatMap((item) =>
+      String(item)
+        .split(',')
+        .map((selector) => selector.trim())
+        .filter(Boolean),
+    );
   };
-  
-  const getAllFontSelectors = () => [
+
+  const getFontSelectors = () => [
     ...splitSelectorList(config.fontSelector),
     ...splitSelectorList(config.extraSelectors),
   ];
 
-  const getIgnoreSelectors = () => splitSelectorList(config.ignoreSelector);
-  const ignoreSelectors = getIgnoreSelectors();
+  const excludeSelectors = splitSelectorList(config.excludeSelector);
+  const contentSelectors = splitSelectorList(config.contentSelector);
+  const directSelectors = splitSelectorList(config.directSelector);
 
-  const isIgnored = (el) => {
-    if (!ignoreSelectors.length || !el?.matches) return false;
+  const safeMatches = (el, selector) => {
+    try {
+      return !!el?.matches?.(selector);
+    } catch {
+      return false;
+    }
+  };
 
-    return ignoreSelectors.some((selector) => {
-      try {
-        return el.matches(selector) || !!el.closest(selector);
-      } catch {
-        return false;
-      }
+  const safeClosest = (el, selector) => {
+    try {
+      return el?.closest?.(selector) || null;
+    } catch {
+      return null;
+    }
+  };
+
+  const isExcluded = (el) => {
+    return excludeSelectors.some((selector) => {
+      return safeMatches(el, selector) || !!safeClosest(el, selector);
     });
   };
 
-  const withIgnoreFilter = (selector) => {
-    return ignoreSelectors.length
-      ? `${selector}:not(${ignoreSelectors.join(',')})`
-      : selector;
+  const hasInlineFontSize = (el) => {
+    const style = el?.getAttribute?.('style') || '';
+    return /(^|;)\s*font(?:-size)?\s*:/i.test(style);
+  };
+
+  const getTopicId = () => {
+    try {
+      return new URL(location.href).searchParams.get('id') || '';
+    } catch {
+      return '';
+    }
+  };
+
+  const isDisabledTopic = () => {
+    const topicId = getTopicId();
+    if (!topicId) return false;
+    return config.disabledTopicIds.map(String).includes(String(topicId));
+  };
+
+  const getPostId = (el) => {
+    const post = safeClosest(el, '.post[id^="p"]');
+    return post?.id?.replace(/^p/, '') || '';
+  };
+
+  const isDisabledPost = (el) => {
+    const postId = getPostId(el);
+    if (!postId) return false;
+    return config.disabledPostIds.map(String).includes(String(postId));
+  };
+
+  const shouldSkip = (el) => {
+    if (!config.enabled) return true;
+    if (!el) return true;
+    if (isExcluded(el)) return true;
+    if (isDisabledPost(el)) return true;
+    if (config.preserveInlineFontSize && hasInlineFontSize(el)) return true;
+    return false;
   };
 
   const getStoredSize = () => {
@@ -109,56 +157,56 @@
     } catch {}
   };
 
-  const injectEarlyStyle = (size) => {
-    const selectors = getAllFontSelectors();
-    if (!selectors.length) return;
-  
-    const rootSelectors = selectors.map(withIgnoreFilter).join(',');
-  
-    const deepSelectors = config.deepApply
-      ? selectors.map((selector) => withIgnoreFilter(`${selector} *`)).join(',')
-      : '';
-  
-    const cssSelectors = [rootSelectors, deepSelectors].filter(Boolean).join(',');
-  
-    const css = `${cssSelectors}{font-size:${size}px!important;}`;
-  
-    let style = document.getElementById('font-resizer-initial-style');
-  
-    if (!style) {
-      style = document.createElement('style');
-      style.id = 'font-resizer-initial-style';
-      style.type = 'text/css';
-  
-      const target = document.head || document.documentElement;
-      target.appendChild(style);
-    }
-  
-    style.textContent = css;
+  const clearAppliedStyles = (root = document) => {
+    $$(`[${APPLIED_ATTR}]`, root).forEach((el) => {
+      el.style.removeProperty('font-size');
+      el.removeAttribute(APPLIED_ATTR);
+    });
+  };
+
+  const setOwnFontSize = (el, size) => {
+    if (shouldSkip(el)) return;
+
+    el.style.setProperty('font-size', `${size}px`, 'important');
+    el.setAttribute(APPLIED_ATTR, 'true');
+  };
+
+  const isDirectTarget = (el) => {
+    return directSelectors.some((selector) => safeMatches(el, selector));
+  };
+
+  const getTargetsFromRoot = (root) => {
+    if (isDirectTarget(root)) return [root];
+
+    const targets = new Set();
+
+    contentSelectors.forEach((selector) => {
+      try {
+        root.querySelectorAll(selector).forEach((el) => targets.add(el));
+      } catch {}
+    });
+
+    return Array.from(targets);
   };
 
   const applySizeToMain = (size) => {
-    const selectors = getAllFontSelectors();
+    clearAppliedStyles();
+
+    if (!config.enabled || isDisabledTopic()) return;
+
+    const selectors = getFontSelectors();
     if (!selectors.length) return;
-  
-    injectEarlyStyle(size);
-  
-    const els = new Set();
-  
+
+    const roots = new Set();
+
     selectors.forEach((selector) => {
-      $$(selector).forEach((el) => {
-        if (!isIgnored(el)) els.add(el);
+      $$(selector).forEach((root) => {
+        if (!shouldSkip(root)) roots.add(root);
       });
-  
-      if (config.deepApply) {
-        $$(`${selector} *`).forEach((el) => {
-          if (!isIgnored(el)) els.add(el);
-        });
-      }
     });
-  
-    els.forEach((el) => {
-      el.style.setProperty('font-size', `${size}px`, 'important');
+
+    roots.forEach((root) => {
+      getTargetsFromRoot(root).forEach((el) => setOwnFontSize(el, size));
     });
   };
 
@@ -206,14 +254,12 @@
     let applied = false;
 
     try {
-      const doc =
-        frame.contentDocument ||
-        frame.contentWindow?.document;
+      const doc = frame.contentDocument || frame.contentWindow?.document;
 
       if (doc) {
         const target = doc.body || doc.documentElement;
 
-        if (target) {
+        if (target && !hasInlineFontSize(target)) {
           target.style.setProperty('font-size', `${size}px`, 'important');
           applied = true;
         }
@@ -236,6 +282,8 @@
   };
 
   const applySizeToAllFrames = (size) => {
+    if (!config.enabled || isDisabledTopic()) return;
+
     getHtmlFrames().forEach((frame) => {
       applySizeToFrame(frame, size);
       postSizeToFrame(frame, size);
@@ -282,6 +330,40 @@
           }
         });
       });
+    });
+
+    mo.observe(document.documentElement, { childList: true, subtree: true });
+  };
+
+  const observeNewContent = () => {
+    if (!config.enabled || !config.observeContent) return;
+
+    let timer = null;
+
+    const applyLater = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        applySizeToMain(getStoredSize());
+      }, 50);
+    };
+
+    const mo = new MutationObserver((mutations) => {
+      const selectors = getFontSelectors();
+      const hasRelevantNodes = mutations.some((mutation) =>
+        Array.from(mutation.addedNodes).some((node) => {
+          if (!node || node.nodeType !== 1) return false;
+
+          return selectors.some((selector) => {
+            try {
+              return node.matches(selector) || !!node.querySelector(selector);
+            } catch {
+              return false;
+            }
+          });
+        }),
+      );
+
+      if (hasRelevantNodes) applyLater();
     });
 
     mo.observe(document.documentElement, { childList: true, subtree: true });
@@ -365,9 +447,12 @@
   };
 
   const insertControl = () => {
+    if (!config.enabled || isDisabledTopic()) return true;
     if ($('.font-resizer')) return true;
 
-    let anchor = config.insertAfterSelector ? $(config.insertAfterSelector) : null;
+    let anchor = config.insertAfterSelector
+      ? $(config.insertAfterSelector)
+      : null;
 
     if (!anchor) {
       anchor = $(config.defaultAnchorSelector);
@@ -396,11 +481,16 @@
   };
 
   const init = () => {
+    if (!config.enabled) {
+      clearAppliedStyles();
+      return;
+    }
+
     const initialSize = getStoredSize();
 
-    injectEarlyStyle(initialSize);
     applySizeToMain(initialSize);
     observeNewFrames();
+    observeNewContent();
     observeControlAnchor();
 
     setTimeout(() => {
