@@ -709,19 +709,27 @@
       ],
     },
     fontResizer: {
+      enabled: true,
+      htmlFrameSelector:
+        'iframe.html_frame, .html-post-box iframe.html_frame, .html-content iframe.html_frame',
       fontSelector: '.post-content, #main-reply',
-      extraSelectors: [
-        '.post-box .custom_tag_katexttext',
-        '.post-box .custom_tag_katext',
-        '.post-box .custom_tag_kindredaca',
-      ],
-      storageKey: 'postFontSize',
+      extraSelectors: [],
+      contentSelector:
+        ':scope > p, :scope > ul, :scope > ol, :scope > blockquote, :scope > table, :scope > pre, :scope > dl, :scope > div:not(.custom_tag):not(.post-sig):not(.rsp_wrap)',
+      directSelector:
+        '#main-reply, textarea[name="req_message"], textarea[name="message"], textarea:not([readonly]):not([disabled]), input[type="text"], [contenteditable="true"]',
+      excludeSelector:
+        '.custom_tag, .post-sig, .lastedit, .rsp_wrap, .post-rating, .post-vote, .quote-box cite, script, style, img, svg, canvas, iframe',
+      disabledTopicIds: [],
+      disabledPostIds: [],
+      preserveInlineFontSize: true,
       minSize: 10,
       maxSize: 38,
       defaultSize: 14,
+      storageKey: 'postFontSize',
       insertAfterSelector: '',
       defaultAnchorSelector: '.post h3 strong',
-      deepApply: true,
+      observeContent: true,
     },
     forumAccessGuard: {
       enabled: true,
