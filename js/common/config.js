@@ -1280,7 +1280,7 @@
       htmlFrameSelector:
         'iframe.html_frame, .html-post-box iframe.html_frame, .html-content iframe.html_frame',
       iframeCss: [
-        'https://forumstatic.ru/styles/001c/8d/fd/style.1766488328.css',
+        'https://forumstatic.ru/styles/001c/82/f2/style.1781818268.css',
       ],
       selectors: {
         root: 'html',
