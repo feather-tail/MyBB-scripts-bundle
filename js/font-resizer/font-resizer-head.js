@@ -5,6 +5,9 @@
     enabled: true,
     htmlFrameSelector:
       'iframe.html_frame, .html-post-box iframe.html_frame, .html-content iframe.html_frame',
+    htmlPostSelector:
+      '.html-post-box, .html-content, .html-inner, iframe.html_frame, iframe[id^="html_frame"], iframe[name^="html_frame"]',
+    protectHtmlPosts: true,
     fontSelector: '.post-content, #main-reply',
     extraSelectors: [],
     contentSelector:
@@ -12,7 +15,7 @@
     directSelector:
       '#main-reply, textarea[name="req_message"], textarea[name="message"], textarea:not([readonly]):not([disabled]), input[type="text"], [contenteditable="true"]',
     excludeSelector:
-      '.custom_tag, .post-sig, .lastedit, .rsp_wrap, .post-rating, .post-vote, .quote-box cite, script, style, img, svg, canvas, iframe',
+      '.custom_tag, .post-sig, .lastedit, .rsp_wrap, .post-rating, .post-vote, .quote-box cite, script, style, img, svg, canvas, iframe, .html-post-box, .html-content, .html-inner',
     disabledTopicIds: [],
     disabledPostIds: [],
     preserveInlineFontSize: true,
@@ -77,6 +80,10 @@
   const excludeSelectors = splitSelectorList(config.excludeSelector);
   const contentSelectors = splitSelectorList(config.contentSelector);
   const directSelectors = splitSelectorList(config.directSelector);
+  const htmlPostSelectors = splitSelectorList(config.htmlPostSelector);
+
+  const HTML_POST_RE =
+    /(?:\[html\]|\[\/html\]|&lt;\/?(?:style|script|link|iframe|html|head|body|div|section|article|main|form|input|textarea|button|select|option|details|summary|template|svg|canvas)\b|<\/?(?:style|script|link|iframe|html|head|body|div|section|article|main|form|input|textarea|button|select|option|details|summary|template|svg|canvas)\b)/i;
 
   const safeMatches = (el, selector) => {
     try {
@@ -92,6 +99,58 @@
     } catch {
       return null;
     }
+  };
+
+  const safeQuery = (root, selector) => {
+    try {
+      return selector ? root?.querySelector?.(selector) || null : null;
+    } catch {
+      return null;
+    }
+  };
+
+  const containsHtmlPostSource = (el) => {
+    if (!el || !config.protectHtmlPosts) return false;
+
+    const html = el.innerHTML || '';
+    const text = el.textContent || '';
+
+    return HTML_POST_RE.test(html) || HTML_POST_RE.test(text);
+  };
+
+  const isInsideHtmlPostShell = (el) => {
+    if (!el || !htmlPostSelectors.length) return false;
+
+    return htmlPostSelectors.some((selector) => {
+      return safeMatches(el, selector) || !!safeClosest(el, selector);
+    });
+  };
+
+  const getPostContentRoot = (el) => {
+    if (!el) return null;
+    if (safeMatches(el, '.post-content')) return el;
+    return safeClosest(el, '.post-content');
+  };
+
+  const hasHtmlPostShellInside = (el) => {
+    if (!el || !htmlPostSelectors.length) return false;
+
+    return htmlPostSelectors.some((selector) => !!safeQuery(el, selector));
+  };
+
+  const isProtectedHtmlPostPart = (el) => {
+    if (!config.protectHtmlPosts) return false;
+    if (!el) return false;
+    if (isInsideHtmlPostShell(el)) return true;
+
+    const postContent = getPostContentRoot(el);
+
+    if (postContent) {
+      if (hasHtmlPostShellInside(postContent)) return true;
+      if (containsHtmlPostSource(postContent)) return true;
+    }
+
+    return containsHtmlPostSource(el);
   };
 
   const isExcluded = (el) => {
@@ -134,6 +193,7 @@
     if (!config.enabled) return true;
     if (!el) return true;
     if (isExcluded(el)) return true;
+    if (isProtectedHtmlPostPart(el)) return true;
     if (isDisabledPost(el)) return true;
     if (config.preserveInlineFontSize && hasInlineFontSize(el)) return true;
     return false;
@@ -176,13 +236,16 @@
   };
 
   const getTargetsFromRoot = (root) => {
+    if (isProtectedHtmlPostPart(root)) return [];
     if (isDirectTarget(root)) return [root];
 
     const targets = new Set();
 
     contentSelectors.forEach((selector) => {
       try {
-        root.querySelectorAll(selector).forEach((el) => targets.add(el));
+        root.querySelectorAll(selector).forEach((el) => {
+          if (!isProtectedHtmlPostPart(el)) targets.add(el);
+        });
       } catch {}
     });
 
@@ -352,6 +415,7 @@
       const hasRelevantNodes = mutations.some((mutation) =>
         Array.from(mutation.addedNodes).some((node) => {
           if (!node || node.nodeType !== 1) return false;
+          if (isProtectedHtmlPostPart(node)) return false;
 
           return selectors.some((selector) => {
             try {
