@@ -147,7 +147,7 @@
         inputStyle: 'color:#111 !important',
       },
       access: {
-        allowedTopicIds: ['155', '233', '318', '734'],
+        allowedTopicIds: ['155', '233', '318', '699', '734'],
         allowedGroupIds: [1, 2],
       },
       profileFieldKey: 'fld4',
