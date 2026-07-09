@@ -520,7 +520,7 @@
       resetTimeout: 1200,
     },
     copyPosts: {
-      allowedForumIds: [10, 11, 12, 13, 17, 18, 29],
+      allowedForumIds: [10, 11, 12, 13, 17, 18, 29, 31],
 
       selectors: {
         topicRoot: '#pun-viewtopic, #pun-main',
