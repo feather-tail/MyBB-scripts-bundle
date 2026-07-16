@@ -761,7 +761,7 @@
       },
     },
     gamepostCounter: {
-      viewerGroups: [1, 2, 3, 4, 5, 6],
+      viewerGroups: [1, 2, 3, 4, 5, 6, 9],
       includeFirstPost: false,
       forumsRules: {
         defaultMode: 'all',
