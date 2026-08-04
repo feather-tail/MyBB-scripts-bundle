@@ -111,11 +111,16 @@
 
   const containsHtmlPostSource = (el) => {
     if (!el || !config.protectHtmlPosts) return false;
-
-    const html = el.innerHTML || '';
-    const text = el.textContent || '';
-
-    return HTML_POST_RE.test(html) || HTML_POST_RE.test(text);
+  
+    const clone = el.cloneNode(true);
+  
+    clone
+      .querySelectorAll('script, style, template')
+      .forEach((node) => node.remove());
+  
+    const text = clone.textContent || '';
+  
+    return HTML_POST_RE.test(text);
   };
 
   const isInsideHtmlPostShell = (el) => {
