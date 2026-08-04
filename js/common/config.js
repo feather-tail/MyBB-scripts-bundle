@@ -715,7 +715,7 @@
       fontSelector: '.post-content, #main-reply',
       extraSelectors: [],
       contentSelector:
-        ':scope > p, :scope > ul, :scope > ol, :scope > blockquote, :scope > table, :scope > pre, :scope > dl, :scope > div:not(.custom_tag):not(.post-sig):not(.rsp_wrap)',
+        ':scope > p, :scope > ul, :scope > ol, :scope > blockquote, :scope > table, :scope > pre, :scope > dl, :scope > div:not(.custom_tag):not(.post-sig):not(.rsp_wrap), .quote-box blockquote, .quote-box blockquote p, .quote-box blockquote li, .quote-box blockquote td, .quote-box blockquote th, .quote-box blockquote pre',
       directSelector:
         '#main-reply, textarea[name="req_message"], textarea[name="message"], textarea:not([readonly]):not([disabled]), input[type="text"], [contenteditable="true"]',
       excludeSelector:
