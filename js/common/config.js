@@ -713,14 +713,7 @@
       htmlFrameSelector:
         'iframe.html_frame, .html-post-box iframe.html_frame, .html-content iframe.html_frame',
       fontSelector: '.post-content, #main-reply',
-      extraSelectors: [
-          '.post-content .quote-box blockquote',
-          '.post-content .quote-box blockquote p',
-          '.post-content .quote-box blockquote li',
-          '.post-content .quote-box blockquote td',
-          '.post-content .quote-box blockquote th',
-          '.post-content .quote-box blockquote pre',
-      ],
+      extraSelectors: [],
       contentSelector:
         ':scope > p, :scope > ul, :scope > ol, :scope > blockquote, :scope > table, :scope > pre, :scope > dl, :scope > div:not(.custom_tag):not(.post-sig):not(.rsp_wrap)',
       directSelector:
