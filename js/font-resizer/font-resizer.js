@@ -79,18 +79,82 @@
     const selectors = getAllFontSelectors();
     if (!selectors.length) return;
   
-    const els = new Set();
+    const roots = new Set();
   
-    selectors.forEach((sel) => {
+    selectors.forEach((selector) => {
       try {
-        $$(sel).forEach((el) => els.add(el));
+        $$(selector).forEach((element) => roots.add(element));
       } catch {}
     });
   
-    els.forEach((el) => {
-      if (isIgnored(el)) return;
-      el.style.setProperty('font-size', size + 'px', 'important');
+    const isExcluded = (element) => {
+      if (!element?.matches) return true;
+      if (isIgnored(element)) return true;
+  
+      if (!config.excludeSelector) return false;
+  
+      try {
+        return (
+          element.matches(config.excludeSelector) ||
+          Boolean(element.closest(config.excludeSelector))
+        );
+      } catch {
+        return false;
+      }
+    };
+  
+    const applyToElement = (element) => {
+      if (isExcluded(element)) return;
+  
+      const hasOwnFontSize = Boolean(element.style?.fontSize);
+      const wasApplied = element.dataset.fontResizerApplied === 'true';
+  
+      if (
+        config.preserveInlineFontSize &&
+        hasOwnFontSize &&
+        !wasApplied
+      ) {
+        return;
+      }
+  
+      element.style.setProperty('font-size', size + 'px', 'important');
+      element.dataset.fontResizerApplied = 'true';
+    };
+  
+    roots.forEach((root) => {
+      if (isExcluded(root)) return;
+  
+      applyToElement(root);
+  
+      if (config.contentSelector) {
+        try {
+          root
+            .querySelectorAll(config.contentSelector)
+            .forEach(applyToElement);
+        } catch {}
+      }
+  
+      try {
+        root
+          .querySelectorAll(
+            [
+              '.quote-box blockquote',
+              '.quote-box blockquote p',
+              '.quote-box blockquote li',
+              '.quote-box blockquote td',
+              '.quote-box blockquote th',
+              '.quote-box blockquote pre',
+            ].join(','),
+          )
+          .forEach(applyToElement);
+      } catch {}
     });
+  
+    if (config.directSelector) {
+      try {
+        $$(config.directSelector).forEach(applyToElement);
+      } catch {}
+    }
   };
 
   const getHtmlFrames = () =>
@@ -222,6 +286,50 @@
     mo.observe(document.documentElement, { childList: true, subtree: true });
   };
 
+  const observeContentChanges = () => {
+  if (!config.observeContent) return;
+
+  let timer = null;
+
+  const selector = getAllFontSelectors().join(',');
+  if (!selector) return;
+
+  const isRelevantNode = (node) => {
+    if (!node || node.nodeType !== 1) return false;
+
+    try {
+      if (node.matches(selector)) return true;
+      if (node.closest(selector)) return true;
+      if (node.querySelector(selector)) return true;
+    } catch {}
+
+    return false;
+  };
+
+  const observer = new MutationObserver((mutations) => {
+    const shouldApply = mutations.some((mutation) => {
+      if (isRelevantNode(mutation.target)) return true;
+
+      return Array.from(mutation.addedNodes).some((node) =>
+        isRelevantNode(node),
+      );
+    });
+
+    if (!shouldApply) return;
+
+    clearTimeout(timer);
+
+    timer = setTimeout(() => {
+      applySizeToMain(getStoredSize());
+    }, 50);
+  });
+
+  observer.observe(document.body, {
+    childList: true,
+    subtree: true,
+  });
+};
+
   const createControl = (currentSize) => {
     const wrapper = createEl('div');
     wrapper.className = 'font-resizer';
@@ -273,6 +381,7 @@
 
     wireFrameLoads();
     observeNewFrames();
+    observeContentChanges();
 
     setTimeout(() => {
       applySizeToAllFrames(getStoredSize());
