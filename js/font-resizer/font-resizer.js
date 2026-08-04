@@ -78,12 +78,18 @@
   const applySizeToMain = (size) => {
     const selectors = getAllFontSelectors();
     if (!selectors.length) return;
-
+  
     const els = new Set();
-    selectors.forEach((sel) => $$(sel).forEach((el) => els.add(el)));
+  
+    selectors.forEach((sel) => {
+      try {
+        $$(sel).forEach((el) => els.add(el));
+      } catch {}
+    });
+  
     els.forEach((el) => {
       if (isIgnored(el)) return;
-      el.style.fontSize = size + 'px';
+      el.style.setProperty('font-size', size + 'px', 'important');
     });
   };
 
